@@ -247,14 +247,18 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
 
 <script>
 // Airtable 金鑰改放在 Netlify 環境變數，由 netlify/functions/admin-records.js 代為讀寫
-// 後台密碼存在 Netlify 環境變數 ADMIN_PASSWORD，登入後只記在這個分頁
+// 後台密碼存在 Netlify 環境變數 ADMIN_PASSWORD，登入後這台電腦記住 30 天
 const ADMIN_API = '/.netlify/functions/admin-records';
+const ADMIN_PW_DAYS = 30;
 function getAdminPassword(){
   let pw = '';
-  try { pw = sessionStorage.getItem('adminPw') || ''; } catch(e) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('adminPw') || 'null');
+    if (saved && saved.expires > Date.now()) pw = saved.pw;
+  } catch(e) {}
   if (!pw) {
     pw = prompt('請輸入後台密碼') || '';
-    try { sessionStorage.setItem('adminPw', pw); } catch(e) {}
+    try { localStorage.setItem('adminPw', JSON.stringify({ pw, expires: Date.now() + ADMIN_PW_DAYS * 86400000 })); } catch(e) {}
   }
   return pw;
 }
@@ -264,7 +268,7 @@ async function adminFetch(query, opts = {}) {
     headers: { ...(opts.headers || {}), 'x-admin-password': getAdminPassword() }
   });
   if (res.status === 401) {
-    try { sessionStorage.removeItem('adminPw'); } catch(e) {}
+    try { localStorage.removeItem('adminPw'); } catch(e) {}
     alert('密碼錯誤，請重新整理頁面再輸入一次');
   }
   return res;
