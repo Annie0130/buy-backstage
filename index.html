@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>林相攝影 — 收購紀錄後台</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --black:#111;--white:#fff;
+  --gray-50:#f8f8f7;--gray-100:#f2f2f0;--gray-200:#e4e4e0;
+  --gray-400:#b0b0a8;--gray-600:#6b6b63;
+  --blue:#1565c0;--blue-light:#e3f0fc;--blue-mid:#1e88e5;
+  --green:#2d6a4f;--green-light:#e8f4f0;
+  --red:#c0392b;--red-light:#fdf0ef;
+  --gold:#c9a84c;--gold-light:#f5edd8;
+  --radius:12px;--radius-sm:7px;
+}
+body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto Sans TC',sans-serif;color:var(--black);min-height:100vh;}
+
+/* Header */
+.header{background:var(--black);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.header-logo{width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--black);flex-shrink:0;}
+.header-title{font-size:15px;font-weight:600;color:#fff;}
+.header-sub{font-size:11px;color:rgba(255,255,255,0.45);}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.sync-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:12px;padding:6px 12px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;}
+.sync-btn:hover{background:rgba(255,255,255,0.2);}
+
+/* Stats bar */
+.stats-bar{background:var(--blue);padding:14px 20px;display:flex;gap:24px;overflow-x:auto;}
+.stat-item{flex-shrink:0;text-align:center;}
+.stat-value{font-size:20px;font-weight:700;color:#fff;}
+.stat-label{font-size:11px;color:rgba(255,255,255,0.65);margin-top:2px;}
+
+/* Main */
+.main{padding:16px 16px 80px;max-width:900px;margin:0 auto;}
+
+/* Search & filter */
+.search-bar{display:flex;gap:8px;margin-bottom:14px;}
+.search-input{flex:1;padding:10px 14px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:14px;color:var(--black);background:#fff;font-family:inherit;}
+.search-input:focus{outline:none;border-color:var(--blue-mid);}
+.filter-select{padding:10px 12px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;color:var(--black);background:#fff;font-family:inherit;cursor:pointer;}
+
+/* Record list */
+.record-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;cursor:pointer;transition:box-shadow 0.15s;}
+.record-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.08);}
+.record-card.expanded{box-shadow:0 2px 16px rgba(21,101,192,0.12);border-color:var(--blue-mid);}
+.record-head{padding:12px 16px;display:flex;align-items:center;gap:12px;}
+.record-avatar{width:36px;height:36px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.record-info{flex:1;min-width:0;}
+.record-name{font-size:14px;font-weight:600;color:var(--black);}
+.record-meta{font-size:12px;color:var(--gray-600);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.record-right{text-align:right;flex-shrink:0;}
+.record-amount{font-size:15px;font-weight:700;color:var(--blue);}
+.record-date{font-size:11px;color:var(--gray-400);margin-top:2px;}
+.record-body{display:none;padding:0 16px 14px;border-top:1px solid var(--gray-100);}
+.record-card.expanded .record-body{display:block;}
+
+/* Detail */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.detail-item{background:var(--gray-50);border-radius:var(--radius-sm);padding:8px 10px;}
+.detail-label{font-size:11px;color:var(--gray-600);font-weight:600;margin-bottom:3px;}
+.detail-value{font-size:13px;color:var(--black);}
+.detail-full{grid-column:1/-1;}
+.fn-report{background:var(--blue-light);border:1px solid #c8e0f5;border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#333;line-height:1.8;white-space:pre-line;margin-top:8px;}
+.payment-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;}
+.payment-cash{background:#fff8e8;color:#8a6820;border:1px solid #e8d5a0;}
+.payment-transfer{background:var(--green-light);color:var(--green);border:1px solid #b7dece;}
+
+/* Empty & loading */
+.empty{text-align:center;padding:48px 20px;color:var(--gray-400);}
+.empty-icon{font-size:36px;margin-bottom:12px;}
+.loading{text-align:center;padding:48px 20px;}
+.spinner{width:32px;height:32px;border:3px solid var(--gray-200);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Month tabs */
+.month-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;}
+.month-tab{padding:6px 14px;border:1px solid var(--gray-200);border-radius:99px;font-size:12px;font-weight:500;color:var(--gray-600);cursor:pointer;background:#fff;white-space:nowrap;flex-shrink:0;}
+.month-tab.active{background:var(--black);border-color:var(--black);color:#fff;}
+
+.count-badge{font-size:11px;color:var(--gray-400);margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">林</div>
+  <div>
+    <div class="header-title">林相攝影</div>
+    <div class="header-sub">收購紀錄管理後台</div>
+  </div>
+  <div class="header-right">
+    <button class="sync-btn" onclick="loadRecords()">↻ 重新整理</button>
+  </div>
+</div>
+
+<div class="stats-bar" id="stats-bar">
+  <!-- 日期選擇器 -->
+  <div class="stat-item" style="flex-shrink:0">
+    <input type="date" id="date-picker" onchange="onDateChange()"
+      style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 10px;font-size:13px;font-family:inherit;cursor:pointer;outline:none;">
+    <div class="stat-label" style="margin-top:4px">選擇日期</div>
+  </div>
+  <div style="width:1px;background:rgba(255,255,255,0.2);margin:4px 8px;flex-shrink:0"></div>
+  <!-- 當日統計 -->
+  <div class="stat-item"><div class="stat-value" id="stat-day-count">—</div><div class="stat-label">當日筆數</div></div>
+  <div class="stat-item"><div class="stat-value" id="stat-day-amount">—</div><div class="stat-label">當日金額</div></div>
+  <div style="width:1px;background:rgba(255,255,255,0.2);margin:4px 8px;flex-shrink:0"></div>
+  <!-- 本月統計 -->
+  <div class="stat-item"><div class="stat-value" id="stat-month-count">—</div><div class="stat-label">本月筆數</div></div>
+  <div class="stat-item"><div class="stat-value" id="stat-month-amount">—</div><div class="stat-label">本月金額</div></div>
+  <div class="stat-item"><div class="stat-value" id="stat-total-count">—</div><div class="stat-label">總筆數</div></div>
+</div>
+
+<!-- Tab 切換 -->
+<div style="background:#fff;border-bottom:1px solid var(--gray-200);display:flex;gap:0;sticky;top:0">
+  <button id="tab-records" onclick="switchTab('records')"
+    style="flex:1;padding:12px;border:none;border-bottom:2px solid var(--black);background:none;font-size:13px;font-weight:700;color:var(--black);cursor:pointer;font-family:inherit">
+    📋 收購紀錄
+  </button>
+  <button id="tab-stats" onclick="switchTab('stats')"
+    style="flex:1;padding:12px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;font-family:inherit">
+    📊 統計分析
+  </button>
+  <button onclick="showDailyReport()"
+    style="padding:12px 14px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:#c0392b;cursor:pointer;font-family:inherit;white-space:nowrap">
+    📋 今日報表
+  </button>
+  <button onclick="openCreditModal()"
+    style="padding:12px 14px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:#a07800;cursor:pointer;font-family:inherit;white-space:nowrap">
+    🎁 折抵金
+  </button>
+</div>
+
+<div class="main">
+  <div id="view-records">
+
+  <!-- 勾選模式開關 -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);cursor:pointer;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:6px 12px">
+      <input type="checkbox" id="select-mode-toggle" onchange="toggleSelectMode(this.checked)">
+      ☑️ 勾選匯入模式
+    </label>
+  </div>
+
+  <!-- 匯入工具列（勾選後出現）-->
+  <div id="export-bar" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;align-items:center;gap:10px;flex-wrap:wrap">
+    <span id="export-count" style="font-size:13px;font-weight:600;color:#856404">已選 0 筆</span>
+    <button onclick="exportSelected()"
+      style="background:#1565c0;border:none;border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">
+      📥 匯入到商品 Sheet
+    </button>
+    <button onclick="printSelectedCards()"
+      style="background:#0d3b66;border:none;border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">
+      🖨️ 批次印卡
+    </button>
+    <button onclick="selectAll()"
+      style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
+      全選
+    </button>
+    <button onclick="clearSelect()"
+      style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
+      取消全選
+    </button>
+  </div>
+
+  <div class="search-bar">
+    <input class="search-input" id="search" placeholder="搜尋姓名、器材、電話…" oninput="filterRecords()">
+    <select class="filter-select" id="sort" onchange="filterRecords()">
+      <option value="date-desc">最新優先</option>
+      <option value="date-asc">最舊優先</option>
+      <option value="amount-desc">金額高→低</option>
+      <option value="amount-asc">金額低→高</option>
+    </select>
+  </div>
+
+  <!-- 日期篩選 -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <button onclick="setToday()"
+      style="background:var(--black);border:1px solid var(--black);border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap">
+      📅 今天
+    </button>
+    <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:6px 12px">
+      <span style="font-size:12px;color:var(--gray-600);white-space:nowrap">從</span>
+      <input type="date" id="date-from" onchange="filterRecords()"
+        style="border:none;font-size:13px;color:var(--black);font-family:inherit;outline:none;cursor:pointer">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:6px 12px">
+      <span style="font-size:12px;color:var(--gray-600);white-space:nowrap">到</span>
+      <input type="date" id="date-to" onchange="filterRecords()"
+        style="border:none;font-size:13px;color:var(--black);font-family:inherit;outline:none;cursor:pointer">
+    </div>
+    <button onclick="clearDateFilter()"
+      style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 14px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
+      清除
+    </button>
+    <div id="date-range-label" style="font-size:12px;color:var(--gray-600)"></div>
+  </div>
+
+  <div class="month-tabs" id="month-tabs"></div>
+  <div class="count-badge" id="count-badge"></div>
+  <div id="record-list"><div class="loading"><div class="spinner"></div><div style="font-size:13px;color:var(--gray-400)">載入中…</div></div></div>
+  </div><!-- end view-records -->
+
+  <!-- 統計分析頁面 -->
+  <div id="view-stats" style="display:none;padding-bottom:40px">
+    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="stats-month" onchange="renderStats()"
+        style="padding:8px 12px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:#fff">
+        <option value="all">全部時間</option>
+      </select>
+      <span id="stats-summary" style="font-size:12px;color:var(--gray-600)"></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">📍 客源來源</div>
+        <canvas id="chart-source" width="200" height="200" style="display:block;margin:0 auto 10px"></canvas>
+        <div id="legend-source"></div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">📷 器材品牌</div>
+        <canvas id="chart-brand" width="200" height="200" style="display:block;margin:0 auto 10px"></canvas>
+        <div id="legend-brand"></div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">💳 付款方式</div>
+        <canvas id="chart-payment" width="200" height="200" style="display:block;margin:0 auto 10px"></canvas>
+        <div id="legend-payment"></div>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">💰 每月收購金額</div>
+        <canvas id="chart-monthly" width="200" height="160" style="display:block;margin:0 auto 10px"></canvas>
+        <div id="legend-monthly"></div>
+      </div>
+      <!-- 每月客人數 -->
+      <div style="background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px;grid-column:1/-1">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">👥 每月客人數（不重複）</div>
+        <canvas id="chart-customers" width="400" height="160" style="display:block;margin:0 auto 10px;width:100%"></canvas>
+        <div id="legend-customers"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Airtable 金鑰改放在 Netlify 環境變數，由 netlify/functions/admin-records.js 代為讀寫
+// 後台密碼存在 Netlify 環境變數 ADMIN_PASSWORD，登入後只記在這個分頁
+const ADMIN_API = '/.netlify/functions/admin-records';
+function getAdminPassword(){
+  let pw = '';
+  try { pw = sessionStorage.getItem('adminPw') || ''; } catch(e) {}
+  if (!pw) {
+    pw = prompt('請輸入後台密碼') || '';
+    try { sessionStorage.setItem('adminPw', pw); } catch(e) {}
+  }
+  return pw;
+}
+async function adminFetch(query, opts = {}) {
+  const res = await fetch(ADMIN_API + query, {
+    ...opts,
+    headers: { ...(opts.headers || {}), 'x-admin-password': getAdminPassword() }
+  });
+  if (res.status === 401) {
+    try { sessionStorage.removeItem('adminPw'); } catch(e) {}
+    alert('密碼錯誤，請重新整理頁面再輸入一次');
+  }
+  return res;
+}
+
+let allRecords = [];
+let activeMonth = 'all';
+
+async function loadRecords() {
+  document.getElementById('record-list').innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:13px;color:var(--gray-400)">載入中…</div></div>';
+  
+  let records = [];
+  let offset = null;
+  let pageCount = 0;
+  const MAX_PAGES = 20;
+  
+  try {
+    do {
+      const res = await adminFetch(offset ? '?offset=' + encodeURIComponent(offset) : '');
+      const data = await res.json();
+      if(!res.ok){
+        throw new Error(`Airtable 錯誤 ${res.status}：${data.error?.message||JSON.stringify(data.error)||'未知錯誤'}`);
+      }
+      if(!data.records || data.records.length === 0) break;
+      records = records.concat(data.records);
+      offset = data.offset || null;
+      pageCount++;
+      if(pageCount >= MAX_PAGES) break;
+    } while (offset);
+    
+    allRecords = records;
+    console.log('載入完成，共', allRecords.length, '筆');
+    if(allRecords.length === 0){
+      document.getElementById('record-list').innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>目前沒有資料</div></div>';
+      document.getElementById('count-badge').textContent = '共 0 筆';
+      return;
+    }
+    buildMonthTabs();
+    updateStats();
+    filterRecords();
+  } catch(e) {
+    document.getElementById('record-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>載入失敗：${e.message}</div><div style="font-size:11px;margin-top:8px;color:#aaa">請確認網路連線或重新整理</div></div>`;
+  }
+}
+
+function buildMonthTabs() {
+  const months = new Set();
+  allRecords.forEach(r => {
+    const date = r.fields['交易日期'] || r.fields['建立時間'] || '';
+    if (date) months.add(date.slice(0, 7));
+  });
+  
+  const sorted = [...months].sort().reverse();
+  const tabs = document.getElementById('month-tabs');
+  tabs.innerHTML = `<div class="month-tab ${activeMonth==='all'?'active':''}" onclick="setMonth('all')">全部</div>`;
+  sorted.forEach(m => {
+    const label = m.replace('-', ' 年 ') + ' 月';
+    tabs.innerHTML += `<div class="month-tab ${activeMonth===m?'active':''}" onclick="setMonth('${m}')">${label}</div>`;
+  });
+}
+
+function setMonth(m) {
+  activeMonth = m;
+  buildMonthTabs();
+  filterRecords();
+}
+
+function updateStats() {
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  // 設定日期選擇器預設今天
+  const dp = document.getElementById('date-picker');
+  if (dp && !dp.value) dp.value = todayStr;
+
+  const selectedDate = document.getElementById('date-picker')?.value || todayStr;
+
+  // 當日
+  const dayRecords = allRecords.filter(r => {
+    const date = r.fields['交易日期'] || r.fields['建立時間']?.slice(0,10) || '';
+    return date === selectedDate;
+  });
+  const dayAmount = dayRecords.reduce((s,r) => s + (parseInt(r.fields['收購總金額'])||0), 0);
+
+  // 本月
+  const monthRecords = allRecords.filter(r => {
+    const date = r.fields['交易日期'] || r.fields['建立時間'] || '';
+    return date.startsWith(thisMonth);
+  });
+  const monthAmount = monthRecords.reduce((s,r) => s + (parseInt(r.fields['收購總金額'])||0), 0);
+
+  document.getElementById('stat-day-count').textContent = dayRecords.length + ' 筆';
+  document.getElementById('stat-day-amount').textContent = dayAmount ? 'NT$ ' + dayAmount.toLocaleString() : 'NT$ 0';
+  document.getElementById('stat-month-count').textContent = monthRecords.length + ' 筆';
+  document.getElementById('stat-month-amount').textContent = 'NT$ ' + monthAmount.toLocaleString();
+  document.getElementById('stat-total-count').textContent = allRecords.length + ' 筆';
+}
+
+function onDateChange() {
+  updateStats();
+}
+
+function setToday(){
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('date-from').value = today;
+  document.getElementById('date-to').value = today;
+  filterRecords();
+}
+
+function clearDateFilter(){
+  document.getElementById('date-from').value='';
+  document.getElementById('date-to').value='';
+  document.getElementById('date-range-label').textContent='';
+  filterRecords();
+}
+
+function filterRecords() {
+  const query = document.getElementById('search').value.trim().toLowerCase();
+  const sort = document.getElementById('sort').value;
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  // 更新日期範圍標籤
+  const label = document.getElementById('date-range-label');
+  if(dateFrom || dateTo){
+    label.textContent = (dateFrom||'—') + ' 至 ' + (dateTo||'今天');
+  } else {
+    label.textContent = '';
+  }
+  
+  let filtered = allRecords.filter(r => {
+    const recDate = r.fields['交易日期'] || r.fields['建立時間']?.slice(0,10) || '';
+    // 月份篩選
+    if (activeMonth !== 'all') {
+      if (!recDate.startsWith(activeMonth)) return false;
+    }
+    // 日期範圍篩選
+    if (dateFrom && recDate && recDate < dateFrom) return false;
+    if (dateTo && recDate && recDate > dateTo) return false;
+    // 搜尋
+    if (query) {
+      const text = [
+        r.fields['客戶姓名'], r.fields['聯絡電話'], r.fields['電子信箱'],
+        r.fields['器材一'], r.fields['器材二'], r.fields['器材三'],
+        r.fields['功能備註'], r.fields['序號']
+      ].join(' ').toLowerCase();
+      if (!text.includes(query)) return false;
+    }
+    return true;
+  });
+  
+  // 排序
+  filtered.sort((a, b) => {
+    if (sort === 'date-desc') return new Date(b.createdTime||b.fields['交易日期']||0) - new Date(a.createdTime||a.fields['交易日期']||0);
+    if (sort === 'date-asc') return new Date(a.createdTime||a.fields['交易日期']||0) - new Date(b.createdTime||b.fields['交易日期']||0);
+    if (sort === 'amount-desc') return (parseInt(b.fields['收購總金額'])||0) - (parseInt(a.fields['收購總金額'])||0);
+    if (sort === 'amount-asc') return (parseInt(a.fields['收購總金額'])||0) - (parseInt(b.fields['收購總金額'])||0);
+    return 0;
+  });
+  
+  // 計算不重複客人數
+  const uniqueCustomers = new Set(filtered.map(r=>r.fields['聯絡電話']||r.fields['客戶姓名']||'').filter(Boolean));
+  document.getElementById('count-badge').textContent = `共 ${uniqueCustomers.size} 位客人 / ${filtered.length} 筆器材`;
+  renderRecords(filtered);
+}
+
+// 流水號：當天的第幾筆，最早建立的是 #1
+function globalIdx(record){
+  const recDate = (record.fields['交易日期'] || record.createdTime?.slice(0,10) || '');
+  const sameDay = [...allRecords]
+    .filter(r=>(r.fields['交易日期']||r.createdTime?.slice(0,10)||'')=== recDate)
+    .sort((a,b)=>new Date(a.createdTime||0)-new Date(b.createdTime||0));
+  const idx = sameDay.findIndex(r=>r.id===record.id);
+  return idx >= 0 ? idx+1 : '—';
+}
+
+function renderRecords(records) {
+  const list = document.getElementById('record-list');
+  if (!records.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>找不到符合的紀錄</div></div>';
+    return;
+  }
+  
+  list.innerHTML = records.map((r, i) => {
+    const f = r.fields;
+    const name = f['客戶姓名'] || '—';
+    const amount = f['收購總金額'] ? 'NT$ ' + parseInt(f['收購總金額']).toLocaleString() : '—';
+    const date = f['交易日期'] || f['建立時間']?.slice(0,10) || '—';
+    const eq = [f['器材一'],f['器材二'],f['器材三']].filter(Boolean).join('、') || '—';
+    const payment = f['付款方式'] || '';
+    const payBadge = payment === '現金'
+      ? `<span class="payment-badge payment-cash">現金</span>`
+      : payment === '匯款'
+      ? `<span class="payment-badge payment-transfer">匯款</span>`
+      : payment ? `<span class="payment-badge">${payment}</span>` : '';
+    const initial = name[0] || '?';
+    const phone = f['聯絡電話'] || '';
+    const email = f['電子信箱'] || '';
+    const acc = f['配件清單'] || '—';
+    const fn = f['功能備註'] || '—';
+    const source = f['得知管道'] || '—';
+    const shutter = f['快門數'] || '—';
+    const warranty = f['原廠保固'] || '—';
+    const origin = f['貨品來源'] || '—';
+    const cond = f['新舊程度'] || '—';
+    const serial = f['序號'] || '—';
+    const missingAcc = f['缺失配件'] || '—';
+    const accNote = f['配件備註'] || '—';
+    const holdInfo = f['保留報價'] || '—';
+    const staff = f['經手人員'] || '—';
+    const idNum = f['身分證字號'] || '—';
+    
+    return `<div class="record-card" id="card-${i}">
+      <div class="record-head" style="cursor:default">
+        <input type="checkbox" class="record-checkbox" data-id="${r.id}"
+          style="display:none;width:18px;height:18px;accent-color:#1565c0;flex-shrink:0;cursor:pointer;margin-right:4px"
+          onchange="updateExportCount()">
+        <div class="record-avatar">${initial}</div>
+        <div class="record-info">
+          <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
+          <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}</div>
+        </div>
+        <div class="record-right" style="display:flex;align-items:center;gap:10px">
+          <div>
+            <div class="record-amount">${amount}</div>
+            <div class="record-date">${date}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="toggleCard(${i})" id="btn-${i}"
+              style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;white-space:nowrap;font-family:inherit">
+              展開
+            </button>
+            <button onclick="openEdit('${r.id}')"
+              style="background:#e3f0fc;border:1px solid #c8e0f5;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:#1565c0;cursor:pointer;white-space:nowrap;font-family:inherit">
+              ✏️ 編輯
+            </button>
+            <button onclick="openReport('${r.id}')" style="background:#e8f4f0;border:1px solid #b7ddd0;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:#2d6a4f;cursor:pointer;white-space:nowrap;font-family:inherit">📋 報告</button>
+            <button onclick="resendEmail('${r.id}')" style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:#856404;cursor:pointer;white-space:nowrap;font-family:inherit">📧 重寄</button>
+            <button onclick="showListing('${r.id}')" style="background:#f3e8ff;border:1px solid #d8b4fe;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:#7c3aed;cursor:pointer;white-space:nowrap;font-family:inherit">📝 文案</button>
+            <button onclick="openCardEditor('${r.id}')" style="background:#0d3b66;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap;font-family:inherit">🖨️ 印卡</button>
+          </div>
+        </div>
+      </div>
+      <div class="record-body">
+        <div class="detail-grid">
+          <div class="detail-item detail-full" style="background:#e3f0fc"><div class="detail-label">器材</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--blue)">${eq}</div></div>
+          <div class="detail-item" style="background:#e8f4f0"><div class="detail-label">本台收購價</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--green)">${amount}</div></div>
+          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${payment||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">聯絡電話</div><div class="detail-value">${phone||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">電子信箱</div><div class="detail-value" style="font-size:12px">${email||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${payment||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">得知管道</div><div class="detail-value">${source}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">器材明細</div><div class="detail-value">${eq}</div></div>
+          <div class="detail-item"><div class="detail-label">快門數</div><div class="detail-value">${shutter}</div></div>
+          <div class="detail-item"><div class="detail-label">新舊程度</div><div class="detail-value">${cond}</div></div>
+          <div class="detail-item"><div class="detail-label">貨品來源</div><div class="detail-value">${origin}</div></div>
+          <div class="detail-item"><div class="detail-label">原廠保固</div><div class="detail-value">${warranty}</div></div>
+          <div class="detail-item"><div class="detail-label">身分證字號</div><div class="detail-value">${idNum}</div></div>
+          <div class="detail-item"><div class="detail-label">經手人員</div><div class="detail-value">${staff}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">序號</div><div class="detail-value">${serial}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">交付配件</div><div class="detail-value">${acc}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">缺失配件說明</div><div class="detail-value">${missingAcc}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">配件備註</div><div class="detail-value">${accNote}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">保留報價</div><div class="detail-value">${holdInfo}</div></div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="detail-label" style="margin-bottom:6px">🔍 功能檢測報告</div>
+          <div class="fn-report">${fn}</div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="detail-label" style="margin-bottom:6px">📝 備註（內部使用）</div>
+          <textarea id="note-${r.id}" placeholder="輸入備註…"
+            style="width:100%;min-height:64px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;color:var(--black);resize:vertical;outline:none;box-sizing:border-box"
+            oninput="saveNote('${r.id}',this.value)">${localStorage.getItem('note-'+r.id)||''}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let selectModeOn = false;
+
+function toggleSelectMode(on){
+  selectModeOn = on;
+  document.querySelectorAll('.record-checkbox').forEach(cb=>{
+    cb.style.display = on ? 'block' : 'none';
+    cb.checked = false;
+  });
+  document.getElementById('export-bar').style.display = on ? 'flex' : 'none';
+  updateExportCount();
+}
+
+function updateExportCount(){
+  const count = document.querySelectorAll('.record-checkbox:checked').length;
+  document.getElementById('export-count').textContent = `已選 ${count} 筆`;
+}
+
+function selectAll(){
+  document.querySelectorAll('.record-checkbox').forEach(cb=>cb.checked=true);
+  updateExportCount();
+}
+
+function clearSelect(){
+  document.querySelectorAll('.record-checkbox').forEach(cb=>cb.checked=false);
+  updateExportCount();
+}
+
+async function exportSelected(){
+  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb=>cb.dataset.id);
+  if(!checkedIds.length){ alert('請先勾選要匯入的紀錄'); return; }
+
+  const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx-afMzrAEbPKTpP7Kc4F0EWCUYXH87sfPGUUYXCAGipSW_TVJ7xZFZ_3hLW-l0sd0G/exec';
+  const selected = allRecords.filter(r=>checkedIds.includes(r.id));
+  selected.sort((a,b)=>new Date(a.createdTime||0)-new Date(b.createdTime||0));
+
+  let success = 0, fail = 0;
+  document.getElementById('export-count').textContent = '匯入中…';
+
+  for(const r of selected){
+    const f = r.fields;
+    // 現在每筆是單台器材，直接用器材一
+    const name = f['器材一']||'';
+    if(!name) continue;
+
+    const serial = f['序號']||'';
+    const origin = f['貨品來源']||'';
+    const warranty = f['原廠保固']||'';
+    const acc = f['配件清單']||'';
+    const shutterRaw = f['快門數']||'';
+    const boxDoc = f['盒單']||'';
+
+    // 清理功能備註
+    const fnNoteRaw = f['功能備註']||'';
+    const fnNote = fnNoteRaw
+      .split('\n').map(l=>l.trim())
+      .filter(l=>l && !l.startsWith('[機身]') && !l.startsWith('[鏡頭]'))
+      .map(l=>l.replace(/^[^：]+：異常：/,'').replace(/^[^：]+：/,'').trim())
+      .filter(Boolean).join('\n');
+
+    // 保固只帶在保日期
+    const warrantyDisplay = warranty && warranty.startsWith('在保') ? warranty : '';
+
+    // 快門數欄位
+    const shutterField = [
+      warrantyDisplay||'',
+      acc||'',
+      shutterRaw||'',
+      fnNote||'',
+    ].filter(Boolean).join(' | ');
+
+    const rowData = {
+      '商品名稱': name,
+      '分類': '',
+      '條碼': String(serial),
+      '庫存量': 1,
+      '進貨價': f['收購總金額']||'',
+      '銷售價': '',
+      '品牌': '',
+      '供貨商': '現場客人',
+      '公水': origin,
+      '快門數': shutterField,
+      '盒單': boxDoc,
+    };
+
+    try{
+      const params = new URLSearchParams();
+      Object.keys(rowData).forEach(k=>params.append(k, rowData[k]));
+      await fetch(SHEET_URL+'?'+params.toString(),{method:'GET',mode:'no-cors'});
+      success++;
+    }catch(e){ fail++; }
+  }
+
+  showToast(`已匯入 ${success} 筆到 Google Sheet！`);
+  document.getElementById('export-count').textContent = `已選 ${checkedIds.length} 筆`;
+  clearSelect();
+}
+
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#2d6a4f;color:#fff;font-size:13px;font-weight:600;padding:11px 22px;border-radius:99px;z-index:999;white-space:nowrap';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2500);
+}
+
+async function resendEmail(id){
+  const record = allRecords.find(r=>r.id===id);
+  if(!record) return;
+  const f = record.fields;
+  const email = f['電子信箱'];
+  if(!email){ alert('此筆紀錄沒有電子信箱'); return; }
+  if(!confirm(`確定重新寄信給 ${email}？`)) return;
+
+  const API_URL = 'https://linscam-email-api-lpvi.vercel.app/api/send-email';
+  const eq = [f['器材一'],f['器材二'],f['器材三']].filter(Boolean).join('、')||'—';
+  const amount = (parseInt(f['收購總金額'])||0).toLocaleString();
+  const txDate = f['交易日期']||'';
+  const payment = f['付款方式']||'—';
+  const name = f['客戶姓名']||'您';
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#eef3f8;font-family:'PingFang TC',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(15,50,100,0.08)">
+<tr><td style="background:linear-gradient(135deg,#0d3b66,#1565c0);padding:30px 28px 26px">
+  <div style="color:#fff;font-size:22px;font-weight:700">林相攝影</div>
+  <div style="color:rgba(255,255,255,0.65);font-size:11px;margin-top:3px">LIN'S CAMERA</div>
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.9);font-size:12px;line-height:2">
+    台北市文山區羅斯福路六段5號　02-2930-3697<br>營業時間　14:00–21:00（週二、三公休）
+  </div>
+</td></tr>
+<tr><td style="padding:28px">
+  <p style="font-size:15px;color:#1a1a1a;margin:0 0 20px">${name} 您好，</p>
+  <p style="font-size:13px;color:#5a6472;margin:0 0 20px">感謝您於 ${txDate} 蒞臨林相攝影，以下為本次收購交易紀錄，請留存。</p>
+  <table width="100%" style="border-collapse:collapse;margin-bottom:20px">
+    <tr><td style="padding:10px 0;border-bottom:1px solid #eef1f5;color:#8a96a5;font-size:12px;width:80px">收購器材</td><td style="padding:10px 0;border-bottom:1px solid #eef1f5;font-size:13px">${eq}</td></tr>
+    <tr><td style="padding:10px 0;border-bottom:1px solid #eef1f5;color:#8a96a5;font-size:12px">收購金額</td><td style="padding:10px 0;border-bottom:1px solid #eef1f5;font-size:17px;font-weight:700;color:#0d3b66">NT$ ${amount}</td></tr>
+    <tr><td style="padding:10px 0;color:#8a96a5;font-size:12px">付款方式</td><td style="padding:10px 0;font-size:13px">${payment}</td></tr>
+  </table>
+  <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#f7faff,#eef4fc);border-radius:12px;margin-bottom:8px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:6px">玩玩我們開發的評論系統</div>
+    <div style="font-size:12px;color:#5a6472;margin-bottom:16px">您的支持是我們最大動力 🙏</div>
+    <a href="https://amazing-capybara-a34a3c.netlify.app/" style="background:#0d3b66;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">前往留下評論</a>
+  </div>
+</td></tr>
+</table>
+</body></html>`;
+
+  try{
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        to: email,
+        cc: 'linscamerastore@gmail.com',
+        subject: `【林相攝影】器材收購交易確認通知 — ${txDate}`,
+        html
+      })
+    });
+    const data = await res.json();
+    if(res.ok) showToast('✅ 信件已重新寄出！');
+    else alert('寄信失敗：'+JSON.stringify(data.error));
+  }catch(e){
+    alert('網路錯誤：'+e.message);
+  }
+}
+
+function showDailyReport(){
+  // 預設今天
+  const today = new Date().toISOString().slice(0,10);
+  const dateEl = document.getElementById('report-date');
+  if(dateEl && !dateEl.value) dateEl.value = today;
+  document.getElementById('daily-modal').style.display = 'flex';
+  generateDailyReport();
+}
+
+function generateDailyReport(){
+  const date = document.getElementById('report-date')?.value || new Date().toISOString().slice(0,10);
+  const records = allRecords.filter(r => {
+    const d = r.fields['交易日期'] || r.createdTime?.slice(0,10) || '';
+    return d === date;
+  });
+
+  if(!records.length){
+    document.getElementById('daily-report-content').textContent = `${date} 無收購紀錄`;
+    return;
+  }
+
+  // 不重複客人數
+  const customers = new Set(records.map(r=>r.fields['聯絡電話']||r.fields['客戶姓名']||'').filter(Boolean));
+  const totalAmt = records.reduce((s,r)=>s+(parseInt(r.fields['收購總金額'])||0),0);
+
+  // 各器材列表
+  const eqList = records.map((r,i) => {
+    const f = r.fields;
+    const eq = f['器材一']||'—';
+    const amt = parseInt(f['收購總金額'])||0;
+    const origin = f['貨品來源']||'';
+    const staff = f['經手人員']||'—';
+    return `  ${i+1}. ${eq}（${origin}）NT$ ${amt.toLocaleString()}　[${staff}]`;
+  }).join('\n');
+
+  // 經手人員統計
+  const staffCount = {};
+  records.forEach(r => {
+    const staff = r.fields['經手人員']||'未填';
+    staff.split('、').forEach(s => {
+      s = s.trim();
+      if(s) staffCount[s] = (staffCount[s]||0) + 1;
+    });
+  });
+  const staffStr = Object.entries(staffCount)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([s,n])=>`${s} ${n}筆`).join('　');
+
+  // 客源統計
+  const sourceCount = {};
+  records.forEach(r => {
+    const s = r.fields['得知管道']||'未填';
+    sourceCount[s] = (sourceCount[s]||0)+1;
+  });
+  const sourceStr = Object.entries(sourceCount)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([s,n])=>`${s} ${n}人`).join('　');
+
+  const report = `📋 ${date} 林相攝影 收購日報
+══════════════════════════
+👥 來訪客人：${customers.size} 位
+📦 收購筆數：${records.length} 筆
+💰 收購總額：NT$ ${totalAmt.toLocaleString()}
+──────────────────────────
+📷 收購明細：
+${eqList}
+──────────────────────────
+👤 經手人員：${staffStr}
+📍 客源分佈：${sourceStr}
+══════════════════════════`;
+
+  document.getElementById('daily-report-content').textContent = report;
+}
+
+function copyDailyReport(){
+  const content = document.getElementById('daily-report-content')?.textContent;
+  if(!content) return;
+  navigator.clipboard.writeText(content).then(()=>showToast('✅ 報表已複製！'));
+}
+
+// ===== 評論折抵金：查詢／核銷 =====
+const CREDIT_MIN_SPEND = 5000; // 消費滿多少可折抵（與收購同意書一致）
+const CREDIT_STAFF = ['Annie','陳貢丸','AMY','EASON','孟'];
+const normPhone = s => (s||'').replace(/\D/g,'');
+const creditAmt = r => parseInt(r.fields['評論購物金'])||0;
+
+function creditBadge(r){
+  const amt = creditAmt(r);
+  if(!amt) return '';
+  return r.fields['折抵金核銷日期']
+    ? `<span class="payment-badge" style="background:#f0f0ee;color:#8a96a5">折抵金已核銷</span>`
+    : `<span class="payment-badge" style="background:#fff3c4;color:#7a5c00;cursor:pointer" onclick="openCreditModal('${r.fields['聯絡電話']||''}')">🎁 NT$${amt} 可用</span>`;
+}
+
+function openCreditModal(phone){
+  document.getElementById('credit-search').value = phone || '';
+  document.getElementById('credit-show-used').checked = !!phone;
+  document.getElementById('credit-modal').style.display = 'flex';
+  renderCreditList();
+  if(!phone) setTimeout(()=>document.getElementById('credit-search').focus(),50);
+}
+function closeCreditModal(){ document.getElementById('credit-modal').style.display='none'; }
+
+function renderCreditList(){
+  const q = document.getElementById('credit-search').value.trim();
+  const showUsed = document.getElementById('credit-show-used').checked;
+  const qDigits = normPhone(q);
+  let recs = allRecords.filter(r=>creditAmt(r)>0);
+  if(q){
+    recs = recs.filter(r=>{
+      const ph = normPhone(r.fields['聯絡電話']);
+      return (qDigits.length>=3 && ph.includes(qDigits)) || (r.fields['客戶姓名']||'').includes(q);
+    });
+  }
+  const availTotal = recs.filter(r=>!r.fields['折抵金核銷日期']).reduce((s,r)=>s+creditAmt(r),0);
+  if(!showUsed) recs = recs.filter(r=>!r.fields['折抵金核銷日期']);
+  recs.sort((a,b)=>new Date(b.createdTime||0)-new Date(a.createdTime||0));
+
+  let html = `<div style="font-size:13px;color:var(--gray-600);margin-bottom:10px">${q?'符合條件':'全部客人'}可用折抵金合計：<strong style="color:#7a5c00;font-size:15px">NT$ ${availTotal.toLocaleString()}</strong></div>`;
+  if(!recs.length){
+    html += `<div style="text-align:center;color:var(--gray-400);font-size:13px;padding:28px 0">${q?'這位客人沒有可用的折抵金':'目前沒有可用的折抵金'}</div>`;
+  }
+  recs.forEach(r=>{
+    const f = r.fields, used = !!f['折抵金核銷日期'];
+    html += `<div style="border:1px solid ${used?'#eee':'#f0e2a8'};background:${used?'#fafafa':'#fffdf3'};border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#111">${f['客戶姓名']||'—'}　<span style="font-weight:500;color:var(--gray-600)">${f['聯絡電話']||''}</span></div>
+          <div style="font-size:11px;color:#8a96a5;margin-top:2px">登記：${f['交易日期']||r.createdTime?.slice(0,10)||'—'}　${f['器材一']||''}</div>
+          ${used?`<div style="font-size:11px;color:#8a96a5;margin-top:2px">✔ ${f['折抵金核銷日期']} 由 ${f['折抵金核銷人員']||'—'} 核銷　<a href="javascript:void(0)" onclick="undoRedeem('${r.id}')" style="color:#c0392b">撤銷</a></div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:${used?'#b0b0a8':'#7a5c00'};${used?'text-decoration:line-through':''}">NT$ ${creditAmt(r).toLocaleString()}</div>
+          ${used?'':`<button onclick="toggleRedeemForm('${r.id}')" style="margin-top:6px;background:#111;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">核銷</button>`}
+        </div>
+      </div>
+      ${used?'':`<div id="redeem-form-${r.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed #f0e2a8">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#111;margin-bottom:8px;cursor:pointer">
+          <input type="checkbox" id="redeem-min-${r.id}" style="width:17px;height:17px;accent-color:#c9a227"> 本次消費已滿 NT$ ${CREDIT_MIN_SPEND.toLocaleString()}
+        </label>
+        <div style="display:flex;gap:8px">
+          <select id="redeem-staff-${r.id}" style="flex:1;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;background:#fff">
+            <option value="">— 經手人員 —</option>${CREDIT_STAFF.map(s=>`<option>${s}</option>`).join('')}
+          </select>
+          <button onclick="redeemCredit('${r.id}')" style="background:#c9a227;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">確認核銷</button>
+        </div>
+      </div>`}
+    </div>`;
+  });
+  document.getElementById('credit-list').innerHTML = html;
+}
+
+function toggleRedeemForm(id){
+  const el = document.getElementById('redeem-form-'+id);
+  if(el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+async function patchCredit(id, fields){
+  const res = await adminFetch(`?id=${id}`, {
+    method:'PATCH',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({fields})
+  });
+  if(!res.ok){ const err = await res.json().catch(()=>({})); throw new Error(JSON.stringify(err.error||res.status)); }
+  const idx = allRecords.findIndex(r=>r.id===id);
+  if(idx>=0) allRecords[idx].fields = {...allRecords[idx].fields, ...fields};
+}
+
+async function redeemCredit(id){
+  if(!document.getElementById('redeem-min-'+id)?.checked){ alert(`請先確認本次消費已滿 NT$ ${CREDIT_MIN_SPEND.toLocaleString()}`); return; }
+  const staff = document.getElementById('redeem-staff-'+id)?.value;
+  if(!staff){ alert('請選擇經手人員'); return; }
+  const r = allRecords.find(x=>x.id===id);
+  if(!confirm(`確定核銷 ${r?.fields['客戶姓名']||''} 的 NT$ ${creditAmt(r)} 折抵金？`)) return;
+  try{
+    await patchCredit(id, {'折抵金核銷日期': new Date().toLocaleDateString('sv'), '折抵金核銷人員': staff});
+    renderCreditList(); filterRecords();
+    showToast('✅ 已核銷');
+  }catch(e){ alert('核銷失敗：'+e.message); }
+}
+
+async function undoRedeem(id){
+  if(!confirm('確定撤銷這筆核銷？折抵金會恢復成可用。')) return;
+  try{
+    await patchCredit(id, {'折抵金核銷日期': null, '折抵金核銷人員': ''});
+    renderCreditList(); filterRecords();
+    showToast('↩️ 已撤銷核銷');
+  }catch(e){ alert('撤銷失敗：'+e.message); }
+}
+
+function showCustomerHistory(phone, name){
+  if(!phone){ alert('此筆紀錄沒有電話號碼'); return; }
+
+  // 找所有同電話的紀錄
+  const history = allRecords
+    .filter(r => r.fields['聯絡電話'] === phone)
+    .sort((a,b) => new Date(a.createdTime||0) - new Date(b.createdTime||0));
+
+  const totalAmt = history.reduce((s,r) => s+(parseInt(r.fields['收購總金額'])||0), 0);
+  const visitDates = [...new Set(history.map(r => (r.fields['交易日期']||r.createdTime?.slice(0,10)||'')))];
+
+  let html = `
+    <div style="background:#f7faff;border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:15px;font-weight:700;color:#1565c0;margin-bottom:4px">${name}</div>
+      <div style="font-size:12px;color:#6b6b63">📞 ${phone}</div>
+      <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:#8a96a5">來訪次數</div><div style="font-size:18px;font-weight:700;color:#1565c0">${visitDates.length} 次</div></div>
+        <div><div style="font-size:11px;color:#8a96a5">收購筆數</div><div style="font-size:18px;font-weight:700;color:#2d6a4f">${history.length} 筆</div></div>
+        <div><div style="font-size:11px;color:#8a96a5">累計收購</div><div style="font-size:18px;font-weight:700;color:#0d3b66">NT$ ${totalAmt.toLocaleString()}</div></div>
+      </div>
+    </div>`;
+
+  // 評論折抵金
+  const creditRecs = history.filter(r=>(parseInt(r.fields['評論購物金'])||0)>0);
+  if(creditRecs.length){
+    const avail = creditRecs.filter(r=>!r.fields['折抵金核銷日期']).reduce((s,r)=>s+(parseInt(r.fields['評論購物金'])||0),0);
+    const used = creditRecs.filter(r=>r.fields['折抵金核銷日期']).reduce((s,r)=>s+(parseInt(r.fields['評論購物金'])||0),0);
+    html += `<div style="background:#fffbea;border:1px dashed #c9a227;border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:#8a6d00">🎁 評論折抵金（消費滿 NT$${CREDIT_MIN_SPEND.toLocaleString()} 可用）</div>
+        <div style="font-size:18px;font-weight:700;color:#7a5c00">可用 NT$ ${avail.toLocaleString()}</div>
+        ${used?`<div style="font-size:11px;color:#8a96a5">已核銷 NT$ ${used.toLocaleString()}</div>`:''}
+      </div>
+      <button onclick="openCreditModal('${phone}')" style="background:#c9a227;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">查看／核銷</button>
+    </div>`;
+  }
+
+  // 按日期分組
+  const byDate = {};
+  history.forEach(r => {
+    const d = r.fields['交易日期'] || r.createdTime?.slice(0,10) || '—';
+    if(!byDate[d]) byDate[d] = [];
+    byDate[d].push(r);
+  });
+
+  Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([date, records]) => {
+    const dayTotal = records.reduce((s,r)=>s+(parseInt(r.fields['收購總金額'])||0),0);
+    html += `<div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#6b6b63;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eef1f5">
+        📅 ${date}　共 ${records.length} 筆　NT$ ${dayTotal.toLocaleString()}
+      </div>`;
+    records.forEach(r => {
+      const f = r.fields;
+      const eq = f['器材一']||'—';
+      const amt = parseInt(f['收購總金額'])||0;
+      const staff = f['經手人員']||'—';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f3">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#111">${eq}</div>
+          <div style="font-size:11px;color:#8a96a5">經手：${staff}　${f['貨品來源']||''}</div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#2d6a4f">NT$ ${amt.toLocaleString()}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  document.getElementById('customer-modal-content').innerHTML = html;
+  document.getElementById('customer-modal').style.display = 'flex';
+}
+
+function showListing(id){
+  const record = allRecords.find(r=>r.id===id);
+  if(!record) return;
+  const f = record.fields;
+
+  const name = f['器材一']||'';
+  const serial = f['序號']||'';
+  const origin = f['貨品來源']||'';
+  const boxDoc = f['盒單']||'';
+  const acc = f['配件清單']||'—';
+  const cond = f['新舊程度']||'';
+  const warranty = f['原廠保固']||'';
+  const fnNote = (f['功能備註']||'').trim();
+
+  // 判斷是否鏡頭（從器材名稱判斷，含 mm 或 F 字眼）
+  const isLens = /\dmm|\dF\d|F\d\.\d/.test(name);
+
+  // 快門數從欄位解析
+  const shutterRaw = f['快門數']||'';
+  // 嘗試從欄位解析快門數（支援「5000次」或純數字或「快門：5000次」格式）
+  const shutterMatch = shutterRaw.match(/(\d+)次/) || shutterRaw.match(/^(\d+)$/);
+  const shutter = shutterMatch ? shutterMatch[1] : '';
+
+  // 新舊程度對應
+  const condMap = {'全新':'100%新','近無使用痕跡':'90%新以上','些許使用痕跡':'80%新','使用痕跡多':'75%新'};
+  const condPct = condMap[cond]||cond||'—';
+
+  // 保固說明
+  const warrantyStr = warranty && warranty.startsWith('在保')
+    ? `原廠保固${warranty.replace('在保','').trim()}`
+    : '商品售出半年保固';
+
+  // 配件說明
+  const accLabel = isLens ? '鏡頭' : '機身';
+  const accDesc = `${origin}${boxDoc ? ' '+boxDoc : ''}　${accLabel}：${acc}`;
+
+  // 品相描述
+  let fnDesc = '';
+  if(isLens){
+    // 鏡頭：從功能備註解析光學狀況
+    const hasNote = fnNote && fnNote !== '全數正常';
+    // 光學描述基礎（前後玉、刮傷、入塵）
+    const opticalBase = '鏡頭前後玉乾淨無刮傷、無入塵';
+    fnDesc = hasNote
+      ? `${opticalBase}，${fnNote}`
+      : opticalBase;
+    fnDesc += '　自動對焦功能正常';
+  } else {
+    // 機身/隨身機
+    const hasNote = fnNote && fnNote !== '全數正常';
+    fnDesc = hasNote
+      ? `狀況經檢測功能正常　${fnNote}`
+      : '狀況經檢測功能正常';
+  }
+
+  const text = `⚠️ 商品與現場同步販售，庫存依現場為準，所以請一定要詢問! 謝謝
+☎️客服電話：02-29303697
+🏠門市營業時間14-21點(二三公休)
+台北市文山區羅斯福路六段5號
+--------------------------------------
+【商品貨號】${serial}
+【名稱】${name}
+【品相描述】${fnDesc}${shutter && !isLens ? '　快門數'+shutter+'次' : ''}
+【新舊程度】${condPct}
+【保固狀態】${warrantyStr}
+【配件說明】${accDesc}
+【BSMI商檢字號】
+NCC：（請自行填入）
+--------------------------------------
+【商品狀態分級說明】
+● 100%新 = 全新未拆封新品
+●   90%新 = 機況近全新、使用痕跡不明顯
+●   85%新 = 僅些許使用小痕跡，不影響心情
+●   80%新 = 外觀較重的使用痕跡，會特別標注位置`;
+
+  const modalContent = document.getElementById('listing-modal-content');
+  modalContent.innerHTML = `
+    <textarea id="listing-text-modal" style="width:100%;height:320px;font-size:13px;line-height:1.8;border:1px solid var(--gray-200);border-radius:10px;padding:14px;font-family:inherit;resize:none;color:#111;box-sizing:border-box;background:#f8f8f7">${text}</textarea>
+    <button onclick="copyListingModal()" style="margin-top:10px;width:100%;padding:13px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
+      📋 複製文案
+    </button>`;
+
+  document.getElementById('listing-modal').style.display='flex';
+}
+
+function copyListingModal(){
+  const el = document.getElementById('listing-text-modal');
+  if(!el) return;
+  el.select();
+  document.execCommand('copy');
+  showToast('✅ 文案已複製！');
+}
+
+function openReport(id){
+  const record = allRecords.find(r=>r.id===id);
+  if(!record) return;
+  const html = record.fields['檢測報告'];
+  if(!html){ alert('此筆紀錄沒有檢測報告'); return; }
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function saveNote(id, val){
+  if(val) localStorage.setItem('note-'+id, val);
+  else localStorage.removeItem('note-'+id);
+}
+
+function toggleCard(i) {
+  const card = document.getElementById(`card-${i}`);
+  const btn = document.getElementById(`btn-${i}`);
+  const isExpanded = card.classList.toggle('expanded');
+  if(btn) btn.textContent = isExpanded ? '收合' : '展開';
+}
+
+loadRecords();
+</script>
+
+<script>
+// ── Tab 切換 ──
+function switchTab(tab){
+  const isRecords = tab === 'records';
+  document.getElementById('view-records').style.display = isRecords ? 'block' : 'none';
+  document.getElementById('view-stats').style.display = isRecords ? 'none' : 'block';
+  document.getElementById('tab-records').style.borderBottomColor = isRecords ? 'var(--black)' : 'transparent';
+  document.getElementById('tab-records').style.color = isRecords ? 'var(--black)' : 'var(--gray-400)';
+  document.getElementById('tab-records').style.fontWeight = isRecords ? '700' : '600';
+  document.getElementById('tab-stats').style.borderBottomColor = isRecords ? 'transparent' : 'var(--black)';
+  document.getElementById('tab-stats').style.color = isRecords ? 'var(--gray-400)' : 'var(--black)';
+  document.getElementById('tab-stats').style.fontWeight = isRecords ? '600' : '700';
+  if(!isRecords) renderStats();
+}
+
+const PIE_COLORS = ['#1565c0','#2196d3','#52b788','#c9a84c','#c0392b','#8e44ad','#e67e22','#1abc9c','#e91e63','#607d8b'];
+
+function drawPie(canvasId, dataMap){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const entries = Object.entries(dataMap).sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  if(!total){ ctx.fillStyle='#eee'; ctx.beginPath(); ctx.arc(W/2,H/2,70,0,Math.PI*2); ctx.fill(); return; }
+  let startAngle = -Math.PI/2;
+  entries.forEach(([label,val],i)=>{
+    const slice = (val/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(W/2,H/2);
+    ctx.arc(W/2,H/2,75,startAngle,startAngle+slice);
+    ctx.closePath();
+    ctx.fillStyle = PIE_COLORS[i%PIE_COLORS.length];
+    ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    startAngle += slice;
+  });
+}
+
+function drawLegend(legendId, dataMap, isAmount){
+  const el = document.getElementById(legendId);
+  if(!el) return;
+  const entries = Object.entries(dataMap).sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  el.innerHTML = entries.map(([label,val],i)=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="width:10px;height:10px;border-radius:2px;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div>
+      <span style="font-size:12px;color:var(--black);flex:1">${label}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--gray-600)">${isAmount?'NT$'+val.toLocaleString():val+' ('+Math.round(val/total*100)+'%)'}</span>
+    </div>`).join('');
+}
+
+function drawBar(canvasId, dataMap){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const entries = Object.entries(dataMap).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length) return;
+  const max = Math.max(...entries.map(([,v])=>v));
+  const gap = (W-40)/entries.length;
+  const barW = Math.min(28, gap-6);
+  entries.forEach(([label,val],i)=>{
+    const x = 20 + i*gap + gap/2 - barW/2;
+    const barH = max ? (val/max)*(H-50) : 0;
+    const y = H-30-barH;
+    ctx.fillStyle = PIE_COLORS[i%PIE_COLORS.length];
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x,y,barW,barH,3);
+    else ctx.rect(x,y,barW,barH);
+    ctx.fill();
+    ctx.fillStyle='#111';ctx.font='9px sans-serif';ctx.textAlign='center';
+    ctx.fillText('NT$'+Math.round(val/1000)+'k', x+barW/2, y-3);
+    ctx.fillStyle='#666';ctx.font='8px sans-serif';
+    ctx.fillText(label.slice(5), x+barW/2, H-8);
+  });
+}
+
+function getBrand(fields){
+  const eq=[fields['器材一'],fields['器材二'],fields['器材三']].filter(Boolean).join(' ');
+  const brands=['Sony','Canon','Nikon','Fujifilm','Olympus','Panasonic','Leica','Sigma','Ricoh','Pentax','Hasselblad'];
+  for(const b of brands){ if(eq.toLowerCase().includes(b.toLowerCase())) return b; }
+  return '其他';
+}
+
+function renderStats(){
+  const monthSel = document.getElementById('stats-month').value;
+  const months = new Set();
+  allRecords.forEach(r=>{
+    const d=r.fields['交易日期']||r.fields['建立時間']?.slice(0,10)||'';
+    if(d) months.add(d.slice(0,7));
+  });
+  const sel = document.getElementById('stats-month');
+  const current = sel.value;
+  sel.innerHTML = '<option value="all">全部時間</option>'+
+    [...months].sort().reverse().map(m=>`<option value="${m}" ${m===current?'selected':''}>${m}</option>`).join('');
+
+  const filtered = current==='all' ? allRecords : allRecords.filter(r=>{
+    const d=r.fields['交易日期']||r.fields['建立時間']?.slice(0,10)||'';
+    return d.startsWith(current);
+  });
+
+  // 用電話去重，計算不重複客人數
+  const uniqueCustomers = new Set(filtered.map(r=>r.fields['聯絡電話']||r.fields['客戶姓名']||'').filter(Boolean));
+  const customerCount = uniqueCustomers.size;
+
+  document.getElementById('stats-summary').textContent=`共 ${customerCount} 位客人（${filtered.length} 筆器材）｜總金額 NT$ ${filtered.reduce((s,r)=>s+(parseInt(r.fields['收購總金額'])||0),0).toLocaleString()}`;
+
+  const sourceMap={};
+  filtered.forEach(r=>{ const s=r.fields['得知管道']||'未填'; sourceMap[s]=(sourceMap[s]||0)+1; });
+  drawPie('chart-source',sourceMap); drawLegend('legend-source',sourceMap,false);
+
+  const brandMap={};
+  filtered.forEach(r=>{ const b=getBrand(r.fields); brandMap[b]=(brandMap[b]||0)+1; });
+  drawPie('chart-brand',brandMap); drawLegend('legend-brand',brandMap,false);
+
+  const payMap={};
+  filtered.forEach(r=>{ const p=r.fields['付款方式']||'未填'; payMap[p]=(payMap[p]||0)+1; });
+  drawPie('chart-payment',payMap); drawLegend('legend-payment',payMap,false);
+
+  const monthlyMap={};
+  allRecords.forEach(r=>{
+    const d=r.fields['交易日期']||r.fields['建立時間']?.slice(0,10)||'';
+    const m=d.slice(0,7); if(!m)return;
+    monthlyMap[m]=(monthlyMap[m]||0)+(parseInt(r.fields['收購總金額'])||0);
+  });
+  drawBar('chart-monthly',monthlyMap); drawLegend('legend-monthly',monthlyMap,true);
+
+  // 每月不重複客人數
+  const monthlyCustomers={};
+  allRecords.forEach(r=>{
+    const d=r.fields['交易日期']||r.fields['建立時間']?.slice(0,10)||'';
+    const m=d.slice(0,7); if(!m)return;
+    const key=r.fields['聯絡電話']||r.fields['客戶姓名']||'';
+    if(!key)return;
+    if(!monthlyCustomers[m]) monthlyCustomers[m]=new Set();
+    monthlyCustomers[m].add(key);
+  });
+  const monthlyCustomerCount={};
+  Object.entries(monthlyCustomers).forEach(([m,s])=>monthlyCustomerCount[m]=s.size);
+  drawBar('chart-customers',monthlyCustomerCount);
+  drawLegend('legend-customers',Object.fromEntries(Object.entries(monthlyCustomerCount).map(([k,v])=>[k,v+'位'])),false);
+}
+</script>
+<!-- 每日報表 Modal -->
+<div id="daily-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">📋 每日營業報表</div>
+      <button onclick="document.getElementById('daily-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+      <input type="date" id="report-date" style="padding:7px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none">
+      <button onclick="generateDailyReport()" style="padding:7px 14px;background:#1565c0;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">產出</button>
+      <button onclick="copyDailyReport()" style="padding:7px 14px;background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">複製</button>
+    </div>
+    <div id="daily-report-content" style="white-space:pre-line;font-size:13px;line-height:1.9;color:#111;background:#f8f8f7;border-radius:10px;padding:16px;min-height:100px"></div>
+  </div>
+</div>
+
+<!-- 評論折抵金 Modal -->
+<div id="credit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:310;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">🎁 評論折抵金查詢／核銷</div>
+      <button onclick="closeCreditModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <input id="credit-search" type="tel" placeholder="輸入客人電話或姓名…" oninput="renderCreditList()"
+      style="width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;margin-bottom:8px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);margin-bottom:12px;cursor:pointer">
+      <input type="checkbox" id="credit-show-used" onchange="renderCreditList()" style="accent-color:#a07800"> 顯示已核銷
+    </label>
+    <div id="credit-list"></div>
+  </div>
+</div>
+
+<!-- 客人歷史 Modal -->
+<div id="customer-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">👤 客人交易紀錄</div>
+      <button onclick="document.getElementById('customer-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div id="customer-modal-content"></div>
+  </div>
+</div>
+
+<!-- 文案 Modal -->
+<div id="listing-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">📝 上架文案</div>
+      <button onclick="document.getElementById('listing-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div id="listing-modal-content"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     商品卡 Modal
+════════════════════════════════════ -->
+<div id="card-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px 0 40px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:720px;margin:0 auto;overflow:hidden">
+    <!-- Modal Header -->
+    <div style="background:#0d3b66;padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:16px;font-weight:700">🖨️ 商品卡編輯 &amp; 列印</div>
+      <button onclick="document.getElementById('card-modal').style.display='none'" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit">✕ 關閉</button>
+    </div>
+    <!-- 編輯區 -->
+    <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="card-form"></div>
+    <!-- 預覽區 -->
+    <div style="padding:0 20px 10px;border-top:1px solid #eee">
+      <div style="font-size:11px;font-weight:700;color:#6b6b63;margin:12px 0 8px;letter-spacing:.05em">預覽（實際尺寸）</div>
+      <div style="overflow-x:auto;padding-bottom:8px">
+        <div id="card-preview-wrap" style="display:inline-block"></div>
+      </div>
+    </div>
+    <!-- 儲存按鈕列 -->
+    <div style="padding:10px 20px;border-top:1px solid #eee;display:flex;gap:8px;align-items:center;background:#f9fafb">
+      <button onclick="saveCardToAirtable()" id="save-card-btn" style="flex:1;padding:10px;background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">💾 儲存到 Airtable</button>
+      <div id="save-card-status" style="font-size:12px;color:#6b6b63"></div>
+    </div>
+    <!-- 列印設定 + 按鈕 -->
+    <div style="padding:12px 20px 20px;border-top:1px solid #eee;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;background:#f6f8fb;border:1px solid #e4e4e0;border-radius:8px;padding:8px 14px">
+        <span style="font-size:12px;color:#6b6b63;font-weight:600;white-space:nowrap">印幾張</span>
+        <select id="print-copies" style="border:1px solid #e4e4e0;border-radius:6px;padding:5px 10px;font-size:13px;font-family:inherit;background:#fff;outline:none;cursor:pointer">
+          <option value="1">1 張</option>
+          <option value="2">2 張</option>
+          <option value="3">3 張</option>
+          <option value="4">4 張</option>
+          <option value="5">5 張</option>
+          <option value="6">6 張</option>
+        </select>
+      </div>
+      <button onclick="printCard()" style="flex:1;min-width:140px;padding:12px;background:#0d3b66;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 列印商品卡</button>
+      <button onclick="document.getElementById('card-modal').style.display='none'" style="padding:12px 20px;background:#f2f2f0;color:#6b6b63;border:1px solid #e4e4e0;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 規格查詢浮層 -->
+<div id="spec-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:90%;max-width:460px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2)">
+    <div style="background:#0d3b66;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="color:#fff;font-size:14px;font-weight:700">✨ 查詢相機規格</div>
+      <button onclick="document.getElementById('spec-modal').style.display='none'" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;padding:4px 10px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">✕</button>
+    </div>
+    <div style="padding:16px 18px">
+      <div style="font-size:12px;color:#6b6b63;margin-bottom:8px">輸入相機型號，AI 自動產出簡短規格說明</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="spec-model-input" type="text" placeholder="例：Sony A7C II、Canon R50…"
+          style="flex:1;padding:9px 12px;border:1.5px solid #dde2e8;border-radius:7px;font-size:13px;font-family:inherit;outline:none"
+          onkeydown="if(event.key==='Enter')querySpec()">
+        <button onclick="querySpec()" style="padding:9px 18px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">查詢</button>
+      </div>
+      <div id="spec-result-wrap" style="min-height:60px">
+        <div id="spec-result-placeholder" style="font-size:12px;color:#bbb;text-align:center;padding:16px 0">輸入型號後按查詢</div>
+      </div>
+      <div id="spec-fill-btn-wrap" style="display:none;margin-top:12px">
+        <button onclick="fillSpecToDesc()" style="width:100%;padding:10px;background:#2d6a4f;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">✅ 填入功能說明欄</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── 商品卡樣式 ── */
+.lcard{
+  width:306px;background:#fff;border-radius:0;overflow:hidden;
+  box-shadow:0 2px 14px rgba(0,0,0,0.12);display:flex;flex-direction:column;
+  font-family:'PingFang TC','Noto Sans TC',sans-serif;flex-shrink:0;
+}
+.lcard-header{background:#0d3b66;padding:10px 12px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.lcard-left{flex:1;min-width:0;}
+.lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;}
+.lcard-prod-name{font-size:20px;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.3px;}
+.lcard-prod-sub{font-size:9px;color:rgba(255,255,255,.45);margin-top:4px;line-height:1.6;}
+.lcard-header-right{text-align:right;flex-shrink:0;}
+.lcard-sn{font-size:8px;color:rgba(255,255,255,.45);font-family:monospace;letter-spacing:.04em;margin-bottom:4px;}
+.lcard-price-label{font-size:8.5px;color:rgba(255,255,255,.45);letter-spacing:.05em;margin-bottom:2px;}
+.lcard-price{font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;}
+.lcard-price-unit{font-size:11px;color:rgba(255,255,255,.6);font-weight:700;margin-left:1px;}
+.lcard-body{padding:8px 12px 7px;display:grid;grid-template-columns:1fr auto;gap:0 10px;}
+.lcard-spec-col{display:flex;flex-direction:column;}
+.lcard-spec-row{display:flex;align-items:baseline;padding:3px 0;border-bottom:1px solid #f0f0ec;gap:6px;}
+.lcard-spec-row:last-child{border-bottom:none;}
+.lcard-spec-label{font-size:10px;color:#8a96a5;width:36px;flex-shrink:0;}
+.lcard-spec-value{font-size:11px;color:#141413;font-weight:600;line-height:1.4;flex:1;}
+.lcard-cond-tag{display:inline-block;background:#e6f4ea;color:#276030;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;}
+.lcard-cond-tag.mid{background:#fff3e0;color:#b45309;}
+.lcard-cond-tag.low{background:#fdecea;color:#c62828;}
+.lcard-cl-col{display:flex;flex-direction:column;border-left:1px solid #eee;padding-left:10px;min-width:70px;}
+.lcard-cl-title{font-size:9px;font-weight:700;color:#8a96a5;letter-spacing:.05em;margin-bottom:6px;}
+.lcard-cl-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#333;font-weight:500;white-space:nowrap;margin-bottom:5px;}
+.lcard-cl-box{width:12px;height:12px;flex-shrink:0;border:1.5px solid #ccc;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;}
+.lcard-cl-box.on{background:#0d3b66;border-color:#0d3b66;color:#fff;}
+.lcard-footer{background:#f3f6fa;border-top:1px solid #e4eaf3;padding:7px 12px 8px;display:flex;gap:10px;align-items:flex-end;}
+.lcard-footer-text{flex:1;min-width:0;}
+.lcard-desc{font-size:10px;color:#5a6070;line-height:1.65;}
+.lcard-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
+.lcard-qr-wrap img{width:56px;height:56px;display:block;}
+.lcard-qr-label{font-size:7px;color:#aaa;letter-spacing:.04em;text-align:center;}
+</style>
+
+<script>
+// ─── 商品卡欄位定義 ───
+const CARD_FIELDS = [
+  {id:'name',   label:'商品名稱', type:'text',     full:true},
+  {id:'price',  label:'售價 NT$', type:'number',   full:false, placeholder:'請填入售價'},
+  {id:'cond',   label:'新舊程度', type:'select',   full:false, options:['近無使用痕跡','些許使用痕跡','使用痕跡多','全新']},
+  {id:'sn',     label:'序號',     type:'text',     full:false},
+  {id:'shutter',label:'快門數',   type:'text',     full:false, placeholder:'例：5000'},
+  {id:'origin', label:'貨品來源', type:'select',   full:false, options:['公司貨','水貨']},
+  {id:'mfgw',   label:'原廠保固', type:'select',   full:false, options:['已過保','在保（請填日期）','不確定']},
+  {id:'shopw',  label:'店保',     type:'select',   full:false, options:['半年保固(180天)','7天保固','無保固']},
+  {id:'acc',    label:'配件清單', type:'textarea', full:true,  placeholder:'例：原廠充電器、充電線…（原廠盒/保卡另有勾選）'},
+  {id:'desc',   label:'功能說明', type:'textarea-spec', full:true, placeholder:'例：2024年推出，3300萬畫素，全片幅，6K影片'},
+];
+// 原廠盒、保卡 — 永遠顯示，用勾選控制
+const ALWAYS_ACC = ['原廠盒','保卡'];
+let cardData = {};
+let cardAccChecked = {};  // {原廠盒: true/false, 保卡: true/false}
+let currentCardRecordId = null;
+let specResultText = '';
+
+function openCardEditor(recordId) {
+  const record = allRecords.find(r => r.id === recordId);
+  if (!record) return;
+  currentCardRecordId = recordId;
+  const f = record.fields;
+  console.log('[openCardEditor] 售價欄位值:', f['售價'], '| 全部欄位:', Object.keys(f));
+
+  // 新舊程度
+  const condRaw = f['新舊程度'] || '';
+  let condVal = '近無使用痕跡';
+  if (condRaw.includes('全新')) condVal = '全新';
+  else if (condRaw.includes('些許') || condRaw.includes('輕微')) condVal = '些許使用痕跡';
+  else if (condRaw.includes('痕跡多') || condRaw.includes('明顯')) condVal = '使用痕跡多';
+
+  // 快門數
+  const shutterRaw = f['快門數'] || '';
+  const shutterMatch = shutterRaw.match(/(\d+)/);
+
+  // 配件 — 分開處理 原廠盒/保卡 和其他
+  const box = f['盒裝'] || '';
+  const boxDoc = f['盒單'] || '';
+  const hasBox = box === '有盒子' || boxDoc === '有盒有單' || boxDoc === '有盒無單';
+  const hasCard = boxDoc === '有盒有單' || boxDoc === '無盒有單';
+  cardAccChecked = { '原廠盒': hasBox, '保卡': hasCard };
+
+  // 其他配件清單（去掉原廠盒/保卡）
+  const accRaw = f['配件清單'] || '';
+  const accFiltered = accRaw.split(/[、,，\n]/)
+    .map(s => s.trim())
+    .filter(s => s && !ALWAYS_ACC.some(a => s.includes(a)))
+    .join('、');
+
+  // 原廠保固
+  const mfgwRaw = f['原廠保固'] || '';
+  let mfgwVal = '已過保';
+  if (mfgwRaw.startsWith('在保')) mfgwVal = '在保（請填日期）';
+  else if (mfgwRaw === '不確定') mfgwVal = '不確定';
+
+  // 功能說明
+  const fnRaw = f['功能備註'] || '';
+  const fnClean = fnRaw.split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('[機身]') && !l.startsWith('[鏡頭]'))
+    .map(l => l.replace(/^[^：]+：異常：/, '').replace(/^[^：]+：正常/, '').replace(/^[^：]+：/, '').trim())
+    .filter(Boolean).join('\n') || '全數正常';
+
+  cardData = {
+    name:    f['器材一'] || '',
+    price:   f['售價'] != null ? String(f['售價']) : '',
+    cond:    condVal,
+    sn:      f['序號'] || '',
+    shutter: shutterMatch ? shutterMatch[1] : '',
+    origin:  f['貨品來源'] || '公司貨',
+    mfgw:    mfgwVal,
+    shopw:   '半年保固(180天)',
+    acc:     accFiltered,
+    desc:    fnClean,
+  };
+
+  renderCardForm();
+  renderCardPreview();
+  document.getElementById('card-modal').style.display = 'flex';
+}
+
+function renderCardForm() {
+  const form = document.getElementById('card-form');
+  const baseS = 'width:100%;padding:7px 9px;border:1px solid #dde2e8;border-radius:6px;font-size:12px;font-family:inherit;color:#141413;outline:none;box-sizing:border-box;background:#fff;';
+
+  let html = CARD_FIELDS.map(f => {
+    const val = cardData[f.id] || '';
+    let input = '';
+    if (f.type === 'select') {
+      const opts = f.options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+      input = `<select onchange="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}cursor:pointer">${opts}</select>`;
+    } else if (f.type === 'textarea' || f.type === 'textarea-spec') {
+      const textarea = `<textarea id="card-field-${f.id}" oninput="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}min-height:52px;resize:vertical" placeholder="${f.placeholder||''}">${val}</textarea>`;
+      if (f.type === 'textarea-spec') {
+        input = `<div style="display:flex;gap:6px;align-items:flex-start">
+          <div style="flex:1">${textarea}</div>
+          <button onclick="openSpecModal()" style="padding:7px 10px;background:#e8f0fe;border:1px solid #c5d5f8;border-radius:6px;font-size:11px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;margin-top:0">✨ 查規格</button>
+        </div>`;
+      } else {
+        input = textarea;
+      }
+    } else {
+      input = `<input type="${f.type}" value="${val.replace(/"/g,'&quot;')}" placeholder="${f.placeholder||''}" oninput="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}">`;
+    }
+    return `<div style="grid-column:${f.full?'1/-1':'auto'}">
+      <div style="font-size:11px;font-weight:700;color:#8a96a5;margin-bottom:3px;letter-spacing:.04em">${f.label}</div>
+      ${input}
+    </div>`;
+  }).join('');
+
+  // 原廠盒 / 保卡 勾選
+  const accChecks = ALWAYS_ACC.map(item => {
+    const on = cardAccChecked[item];
+    return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#141413;user-select:none">
+      <input type="checkbox" ${on?'checked':''} onchange="cardAccChecked['${item}']=this.checked;renderCardPreview()" style="width:15px;height:15px;accent-color:#0d3b66">
+      ${item}
+    </label>`;
+  }).join('');
+  html += `<div style="grid-column:1/-1">
+    <div style="font-size:11px;font-weight:700;color:#8a96a5;margin-bottom:6px;letter-spacing:.04em">原廠盒 / 保卡</div>
+    <div style="display:flex;gap:16px">${accChecks}</div>
+  </div>`;
+
+  form.innerHTML = html;
+}
+
+// accOverride: {原廠盒: bool, 保卡: bool} — 若不傳，使用全域 cardAccChecked
+function buildCardHTML(d, accOverride) {
+  const price = d.price ? parseInt(d.price).toLocaleString() : '—';
+  const hasShutter = d.shutter && /\d/.test(d.shutter);
+  const qrUrl = `https://chart.googleapis.com/chart?chs=100x100&cht=qr&chl=${encodeURIComponent('https://linscam.fslol.com/')}&choe=UTF-8`;
+
+  // 新舊程度 tag class
+  const condCls = (d.cond === '全新' || d.cond === '近無使用痕跡') ? '' : d.cond === '些許使用痕跡' ? ' mid' : ' low';
+  const condText = d.cond || '—';
+
+  // 配件 checklist
+  const checkedAcc = accOverride || cardAccChecked;
+  const allAccItems = [
+    ...ALWAYS_ACC.map(a => ({name: a, on: checkedAcc[a]})),
+    ...(d.acc ? d.acc.split(/[、,，\n]/).map(s=>s.trim()).filter(s=>s&&!ALWAYS_ACC.some(a=>s.includes(a))).map(a=>({name:a,on:true})) : [])
+  ];
+  const clItems = allAccItems.map(it =>
+    `<div class="lcard-cl-item">
+      <div class="lcard-cl-box ${it.on?'on':''}">${it.on?'✓':''}</div>
+      <span style="${it.on?'':'color:#bbb;text-decoration:line-through'}">${it.name}</span>
+    </div>`
+  ).join('');
+
+  // spec rows
+  const specs = [
+    {label:'新舊', val:`<span class="lcard-cond-tag${condCls}">${condText}</span>`},
+    {label:'來源', val: d.origin||'—'},
+    {label:'原廠保', val: d.mfgw !== '已過保' ? `<span class="lcard-spec-value" style="color:#1565c0;font-weight:700">${d.mfgw}</span>` : '<span style="color:#aaa">已過保</span>'},
+    {label:'店保', val: d.shopw||'—'},
+    ...(hasShutter ? [{label:'快門', val: parseInt(d.shutter).toLocaleString()+' 次'}] : []),
+    ...(d.sn ? [{label:'序號', val:`<span style="font-family:monospace;font-size:10px">${d.sn}</span>`}] : []),
+  ];
+  const specRows = specs.map(s =>
+    `<div class="lcard-spec-row"><span class="lcard-spec-label">${s.label}</span><span class="lcard-spec-value">${s.val}</span></div>`
+  ).join('');
+
+  return `<div class="lcard">
+  <div class="lcard-header">
+    <div class="lcard-left">
+      <div class="lcard-prod-type">林相攝影 LIN'S CAMERA</div>
+      <div class="lcard-prod-name">${d.name||'—'}</div>
+    </div>
+    <div class="lcard-header-right">
+      <div class="lcard-price-label">售　價</div>
+      <div><span class="lcard-price">${price}</span><span class="lcard-price-unit">NT$</span></div>
+    </div>
+  </div>
+  <div class="lcard-body">
+    <div class="lcard-spec-col">${specRows}</div>
+    <div class="lcard-cl-col">
+      <div class="lcard-cl-title">配件</div>
+      <div>${clItems}</div>
+    </div>
+  </div>
+  <div class="lcard-footer">
+    <div class="lcard-footer-text">
+      <div class="lcard-desc">${(d.desc||'').replace(/\n/g,'<br>')}</div>
+    </div>
+    <div class="lcard-qr-wrap">
+      <img src="${qrUrl}" width="50" height="50" onerror="this.outerHTML='<div style=width:50px;height:50px;background:#eee;display:flex;align-items:center;justify-content:center;font-size:8px;color:#888>QR</div>'">
+      <div class="lcard-qr-label">線上商店</div>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderCardPreview() {
+  document.getElementById('card-preview-wrap').innerHTML = buildCardHTML(cardData);
+}
+
+// ─── 儲存卡片資料到 Airtable ───
+async function saveCardToAirtable() {
+  if (!currentCardRecordId) {
+    showToast('❌ 找不到紀錄 ID，請關閉後重新開啟');
+    return;
+  }
+  const btn = document.getElementById('save-card-btn');
+  const status = document.getElementById('save-card-status');
+  btn.disabled = true;
+  btn.textContent = '儲存中…';
+  status.textContent = '';
+
+  // 對應回 Airtable 欄位名稱（存在的欄位一律更新，允許清空）
+  const fields = {};
+  fields['序號']     = cardData.sn      || '';
+  fields['快門數']   = cardData.shutter  || '';
+  fields['功能備註'] = cardData.desc     || '';
+  fields['新舊程度'] = cardData.cond     || '';
+  fields['貨品來源'] = cardData.origin   || '';
+  fields['原廠保固'] = cardData.mfgw     || '';
+  if (cardData.price) fields['售價'] = parseInt(cardData.price) || 0;
+  // 配件清單：合併勾選的 always_acc 與手動填寫的配件
+  const checkedAlways = Object.entries(cardAccChecked).filter(([,v])=>v).map(([k])=>k);
+  const accExtra = (cardData.acc || '').trim();
+  const accAll = [...checkedAlways, ...(accExtra ? [accExtra] : [])].join('、');
+  fields['配件清單'] = accAll;
+
+  try {
+    const resp = await adminFetch(`?id=${currentCardRecordId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ fields })
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(errText);
+    }
+    btn.textContent = '💾 儲存到 Airtable';
+    btn.disabled = false;
+    status.style.color = '#2d6a4f';
+    status.textContent = '✅ 已儲存';
+    // 更新本地快取
+    const rec = allRecords.find(r => r.id === currentCardRecordId);
+    if (rec) Object.assign(rec.fields, fields);
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  } catch(e) {
+    btn.textContent = '💾 儲存到 Airtable';
+    btn.disabled = false;
+    status.style.color = '#c0392b';
+    status.textContent = '❌ 儲存失敗：' + (e.message || e);
+    console.error('saveCardToAirtable error:', e);
+  }
+}
+
+// ─── 規格查詢視窗 ───
+function openSpecModal() {
+  const modal = document.getElementById('spec-modal');
+  document.getElementById('spec-model-input').value = cardData.name || '';
+  document.getElementById('spec-result-wrap').innerHTML = '<div id="spec-result-placeholder" style="font-size:12px;color:#bbb;text-align:center;padding:16px 0">輸入型號後按查詢</div>';
+  document.getElementById('spec-fill-btn-wrap').style.display = 'none';
+  specResultText = '';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('spec-model-input').focus(), 50);
+}
+
+// Anthropic API Key（用於規格查詢）—— 請填入你的 key
+const CLAUDE_API_KEY = '';
+
+async function querySpec() {
+  const model = document.getElementById('spec-model-input').value.trim();
+  if (!model) return;
+  const wrap = document.getElementById('spec-result-wrap');
+  const fillWrap = document.getElementById('spec-fill-btn-wrap');
+  wrap.innerHTML = '<div style="text-align:center;padding:16px;font-size:12px;color:#6b6b63">查詢中… ✨</div>';
+  fillWrap.style.display = 'none';
+  specResultText = '';
+
+  // 若有 Claude API Key，用 Claude；否則用內建知識庫回傳靜態查詢
+  if (CLAUDE_API_KEY) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 200,
+          messages: [{
+            role: 'user',
+            content: `請用繁體中文，針對「${model}」這款相機，用 2~3 行條列式提供：發售年份、有效畫素、感光元件尺寸、主要特色（例如防震、對焦系統、影片規格等）。格式範例：\n2024年 / 3300萬畫素 / 全片幅\n機身防震5.5級、即時追蹤對焦、6K影片\n雙卡槽、防塵防滴\n只要規格，不要解說，不要多餘文字。`
+          }]
+        })
+      });
+      const data = await resp.json();
+      specResultText = data.content?.[0]?.text || '查無結果';
+    } catch(e) {
+      specResultText = '查詢失敗，請手動填入';
+    }
+  } else {
+    // 沒有 API Key：顯示提示，讓同事知道需要設定
+    specResultText = `（尚未設定 API Key）\n請手動填入 ${model} 的規格`;
+  }
+
+  wrap.innerHTML = `<div style="background:#f6f8fb;border:1px solid #dde2e8;border-radius:8px;padding:12px;font-size:12px;color:#141413;line-height:1.8;white-space:pre-line">${specResultText}</div>`;
+  fillWrap.style.display = 'block';
+}
+
+function fillSpecToDesc() {
+  if (!specResultText) return;
+  cardData['desc'] = specResultText;
+  // 更新 textarea
+  const ta = document.getElementById('card-field-desc');
+  if (ta) ta.value = specResultText;
+  renderCardPreview();
+  document.getElementById('spec-modal').style.display = 'none';
+  showToast('已填入功能說明 ✅');
+}
+
+function printCard() {
+  const copies = parseInt(document.getElementById('print-copies').value) || 1;
+  const cardHtml = buildCardHTML(cardData);
+  const allCards = Array(copies).fill(cardHtml).join('\n');
+  openPrintWindow(allCards, cardData.name || '林相攝影');
+}
+
+function recordToCardData(r) {
+  const f = r.fields;
+  const condRaw = f['新舊程度'] || '';
+  let condVal = '近無使用痕跡';
+  if (condRaw.includes('全新')) condVal = '全新';
+  else if (condRaw.includes('些許') || condRaw.includes('輕微')) condVal = '些許使用痕跡';
+  else if (condRaw.includes('痕跡多') || condRaw.includes('明顯')) condVal = '使用痕跡多';
+
+  const shutterRaw = f['快門數'] || '';
+  const shutterMatch = shutterRaw.match(/(\d+)/);
+
+  const box = f['盒裝'] || '';
+  const boxDoc = f['盒單'] || '';
+  const hasBox = box === '有盒子' || boxDoc === '有盒有單' || boxDoc === '有盒無單';
+  const hasCard = boxDoc === '有盒有單' || boxDoc === '無盒有單';
+  const accOverride = { '原廠盒': hasBox, '保卡': hasCard };
+
+  const accRaw = f['配件清單'] || '';
+  const accFiltered = accRaw.split(/[、,，\n]/)
+    .map(s => s.trim())
+    .filter(s => s && !ALWAYS_ACC.some(a => s.includes(a)))
+    .join('、');
+
+  const mfgwRaw = f['原廠保固'] || '';
+  let mfgwVal = '已過保';
+  if (mfgwRaw.startsWith('在保')) mfgwVal = '在保（請填日期）';
+  else if (mfgwRaw === '不確定') mfgwVal = '不確定';
+
+  const fnRaw = f['功能備註'] || '';
+  const fnClean = fnRaw.split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('[機身]') && !l.startsWith('[鏡頭]'))
+    .map(l => l.replace(/^[^：]+：異常：/, '').replace(/^[^：]+：正常/, '').replace(/^[^：]+：/, '').trim())
+    .filter(Boolean).join('\n') || '全數正常';
+
+  return {
+    data: {
+      name:    f['器材一'] || '',
+      price:   f['售價'] != null ? String(f['售價']) : '',
+      cond:    condVal,
+      sn:      f['序號'] || '',
+      shutter: shutterMatch ? shutterMatch[1] : '',
+      origin:  f['貨品來源'] || '公司貨',
+      mfgw:    mfgwVal,
+      shopw:   '半年保固(180天)',
+      acc:     accFiltered,
+      desc:    fnClean,
+    },
+    accOverride
+  };
+}
+
+function printSelectedCards() {
+  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb => cb.dataset.id);
+  if (!checkedIds.length) { alert('請先勾選要印卡的紀錄'); return; }
+
+  const allCards = checkedIds.map(id => {
+    const r = allRecords.find(rec => rec.id === id);
+    if (!r) return '';
+    const {data, accOverride} = recordToCardData(r);
+    return buildCardHTML(data, accOverride);
+  }).filter(Boolean).join('\n');
+
+  openPrintWindow(allCards, `批次印卡 ${checkedIds.length} 張`);
+}
+
+function openPrintWindow(cardsHtml, title) {
+  const styles = [...document.querySelectorAll('style')].map(s => s.innerHTML).join('\n');
+  const win = window.open('', '_blank', 'width=500,height=700');
+  win.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>${title.replace(/</g,'&lt;')}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#fff;font-family:'PingFang TC','Noto Sans TC',sans-serif;padding:10mm;}
+.print-wrap{display:flex;flex-wrap:wrap;gap:6mm;}
+${styles}
+.lcard{box-shadow:none!important;border:1px dashed #ccc;break-inside:avoid;}
+@media print{
+  body{padding:5mm;}
+  .print-wrap{gap:4mm;}
+  @page{size:A4 portrait;margin:0;}
+}
+</style>
+</head><body>
+<div class="print-wrap">${cardsHtml}</div>
+<script>
+window.onload=function(){ setTimeout(function(){ window.print(); },400); };
+<\/script>
+</body></html>`);
+  win.document.close();
+}
+</script>
+
+<!-- 編輯 Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">✏️ 編輯紀錄</div>
+      <button onclick="closeEdit()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div id="edit-fields"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="saveEdit()" 
+        style="flex:1;padding:14px;background:#1565c0;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
+        儲存
+      </button>
+      <button onclick="closeEdit()"
+        style="padding:14px 20px;background:var(--gray-100);color:var(--gray-600);border:1px solid var(--gray-200);border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">
+        取消
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let editingId = null;
+
+const EDIT_FIELDS = [
+  {key:'客戶姓名', label:'客戶姓名', type:'text'},
+  {key:'聯絡電話', label:'聯絡電話', type:'text'},
+  {key:'電子信箱', label:'電子信箱', type:'text'},
+  {key:'交易日期', label:'交易日期', type:'date'},
+  {key:'器材一', label:'器材一', type:'text'},
+  {key:'器材二', label:'器材二', type:'text'},
+  {key:'器材三', label:'器材三', type:'text'},
+  {key:'收購總金額', label:'收購金額', type:'number'},
+  {key:'付款方式', label:'付款方式', type:'select', options:['現金','匯款']},
+  {key:'配件清單', label:'配件清單', type:'textarea'},
+  {key:'快門數', label:'快門數（純數字，例：5000）', type:'text'},
+  {key:'貨品來源', label:'貨品來源', type:'select', options:['公司貨','水貨']},
+  {key:'原廠保固', label:'原廠保固狀態', type:'select', options:['已過保','在保','不確定']},
+  {key:'新舊程度', label:'新舊程度', type:'select', options:['全新','近無使用痕跡','些許使用痕跡','使用痕跡多']},
+  {key:'盒裝', label:'盒裝', type:'select', options:['有盒子','無盒子']},
+  {key:'盒單', label:'盒單', type:'select', options:['無盒無單','有盒無單','有盒有單','無盒有單']},
+  {key:'缺失配件', label:'缺失配件', type:'textarea'},
+  {key:'得知管道', label:'得知管道', type:'text'},
+  {key:'經手人員', label:'經手人員', type:'text'},
+  {key:'功能備註', label:'功能備註', type:'textarea'},
+];
+
+function openEdit(id){
+  const record = allRecords.find(r=>r.id===id);
+  if(!record) return;
+  editingId = id;
+  const f = record.fields;
+  
+  const container = document.getElementById('edit-fields');
+  container.innerHTML = EDIT_FIELDS.map(field=>{
+    let val = f[field.key]||'';
+    
+    // 快門數：從整串格式解析出純數字
+    if(field.key==='快門數'){
+      const m = val.match(/快門：(\d+)次/);
+      val = m ? m[1] : val.replace(/[^0-9]/g,'');
+    }
+    
+    let input = '';
+    if(field.type==='textarea'){
+      input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
+    } else if(field.type==='select'){
+      const opts = field.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+      input = `<select id="edit-${field.key}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>`;
+    } else {
+      input = `<input type="${field.type}" id="edit-${field.key}" value="${val}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
+    }
+    return `<div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:4px">${field.label}</div>
+      ${input}
+    </div>`;
+  }).join('');
+  
+  document.getElementById('edit-modal').style.display='flex';
+}
+
+function closeEdit(){
+  document.getElementById('edit-modal').style.display='none';
+  editingId = null;
+}
+
+async function saveEdit(){
+  if(!editingId) return;
+  
+  const fields = {};
+  EDIT_FIELDS.forEach(field=>{
+    const el = document.getElementById('edit-'+field.key);
+    if(!el) return;
+    const val = el.value.trim();
+    if(field.key==='收購總金額') fields[field.key] = parseInt(val)||0;
+    else if(field.key==='快門數'){
+      // 重新組合快門數欄位格式
+      const record = allRecords.find(r=>r.id===editingId);
+      const f = record?.fields||{};
+      const oldShutter = f['快門數']||'';
+      // 保留原本的保固/配件/備註部分，只更新快門數字
+      const warranty = f['原廠保固']||'';
+      const acc = f['配件清單']||'';
+      const fnNote = (f['功能備註']||'').split('\n').filter(l=>!l.startsWith('[機身]')&&!l.startsWith('[鏡頭]')).map(l=>l.replace(/^[^：]+：異常：/,'').replace(/^[^：]+：/,'').trim()).filter(Boolean).join('\n');
+      fields[field.key] = [
+        warranty ? '保固：'+warranty : '',
+        acc ? '配件：'+acc : '',
+        val ? '快門：'+val+'次' : '',
+        fnNote ? '備註：'+fnNote : '',
+      ].filter(Boolean).join(' / ');
+    }
+    else fields[field.key] = val;
+  });
+  
+  try{
+    const res = await adminFetch(`?id=${editingId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({fields})
+    });
+    
+    if(res.ok){
+      // 更新本地資料
+      const idx = allRecords.findIndex(r=>r.id===editingId);
+      if(idx>=0) allRecords[idx].fields = {...allRecords[idx].fields, ...fields};
+      closeEdit();
+      filterRecords();
+      showToast('✅ 儲存成功！');
+    } else {
+      const err = await res.json();
+      alert('儲存失敗：'+JSON.stringify(err.error));
+    }
+  } catch(e){
+    alert('網路錯誤：'+e.message);
+  }
+}
+</script>
+</body>
+</html>
