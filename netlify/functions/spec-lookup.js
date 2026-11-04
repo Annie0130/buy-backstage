@@ -47,7 +47,12 @@ export default async (req) => {
       return Response.json({ error: '查詢太頻繁或額度不足，請稍後再試' }, { status: 429 });
     }
     if (err instanceof Anthropic.APIError) {
-      return Response.json({ error: `AI 服務錯誤（${err.status}）` }, { status: 502 });
+      const detail = err.error?.error?.message || err.message || '';
+      console.error('Anthropic API 錯誤', err.status, detail);
+      if (/credit balance/i.test(detail)) {
+        return Response.json({ error: 'AI 額度用完了，請到 console.anthropic.com 的 Billing 儲值' }, { status: 402 });
+      }
+      return Response.json({ error: `AI 服務錯誤（${err.status}）：${detail.slice(0, 200)}` }, { status: 502 });
     }
     throw err;
   }
