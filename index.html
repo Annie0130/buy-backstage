@@ -1509,9 +1509,13 @@ function cardQrDataUrl(text) {
 const CARD_BRANDS = [
   {name:'Canon'}, {name:'Sony'}, {name:'Fujifilm', alias:['Fuji']}, {name:'Nikon'}, {name:'Sigma'},
   {name:'Olympus'}, {name:'OM System'}, {name:'Tamron'}, {name:'Leica'}, {name:'Ricoh'}, {name:'Tokina'},
-  {name:'Pentax'}, {name:'Panasonic'}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'},
+  {name:'Pentax'}, {name:'Panasonic', alias:['Lumix']}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'},
 ];
-const CARD_LOGO_FILES = {};  // 例：{Canon:'logos/canon.svg'}，有圖檔再加進來
+// 圖檔是白色透明背景的 PNG；沒有圖檔的品牌顯示文字
+const CARD_LOGO_FILES = {
+  Canon: 'logos/canon.png', Nikon: 'logos/nikon.png', Leica: 'logos/leica.png',
+  Ricoh: 'logos/ricoh.png', Panasonic: 'logos/lumix.png',
+};
 
 function splitCardName(raw) {
   let name = (raw || '').replace(/\s+/g, ' ').trim();
