@@ -1633,9 +1633,6 @@ function buildCardHTML(d, accOverride) {
     {label:'功能', val: (d.fn||'—').replace(/\n/g,'<br>')},
   ];
   const nm = splitCardName(d.name);
-  // 副標：片幅 · 來源
-  const format = (d.category||'').match(/^(全片幅|APS-C|M43)/);
-  const sub = [format ? format[1] : '', originText !== '—' ? originText : ''].filter(Boolean).join(' · ');
   const specRows = specs.map(s =>
     `<div class="lcard-spec-row"><span class="lcard-spec-label">${s.label}</span><span class="lcard-spec-value">${s.val}</span></div>`
   ).join('');
@@ -1646,7 +1643,6 @@ function buildCardHTML(d, accOverride) {
       <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}</div>
       <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main||'—'}</div>
       ${nm.spec ? `<div class="lcard-prod-spec">${nm.spec}</div>` : ''}
-      ${sub ? `<div class="lcard-prod-sub">${sub}</div>` : ''}
     </div>
     <div class="lcard-header-right">
       ${d.sn ? `<div class="lcard-sn">S/N ${d.sn}</div>` : ''}
