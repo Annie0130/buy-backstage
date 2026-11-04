@@ -1049,8 +1049,8 @@ function showListing(id){
 
   // 配件說明
   const accLabel = isLens ? '鏡頭' : '機身';
-  // 收購時選「不影響」（很老的相機，公司貨／水貨沒差）就不寫來源
-  const originTxt = origin === '不影響' ? '' : origin;
+  // 不寫來源：CCD／Y2K 相機、或收購時選「不影響」（很老的相機，公司貨／水貨沒差）
+  const originTxt = (f['CCD／Y2K'] || origin === '不影響') ? '' : origin;
   const accDesc = `${originTxt}${boxDoc ? (originTxt ? ' ' : '')+boxDoc : ''}${originTxt || boxDoc ? '　' : ''}${accLabel}：${acc}`;
 
   // 品相描述
