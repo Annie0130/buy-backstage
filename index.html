@@ -1375,8 +1375,13 @@ function renderStats(){
 }
 .lcard-header{background:#0d3b66;padding:10px 12px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .lcard-left{flex:1;min-width:0;}
-.lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;}
+.lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+.lcard-brand{display:flex;align-items:center;padding-right:6px;border-right:1px solid rgba(255,255,255,.25);}
+.lcard-brand:last-child{padding-right:0;border-right:none;}
+.lcard-brand-logo{height:12px;width:auto;display:block;filter:brightness(0) invert(1);}
+.lcard-brand-text{font-size:11px;font-weight:900;color:#fff;letter-spacing:.06em;}
 .lcard-prod-name{font-size:20px;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.3px;}
+.lcard-prod-spec{font-size:11px;font-weight:700;color:rgba(255,255,255,.75);margin-top:2px;}
 .lcard-prod-sub{font-size:9px;color:rgba(255,255,255,.45);margin-top:4px;line-height:1.6;}
 .lcard-header-right{text-align:right;flex-shrink:0;}
 .lcard-sn{font-size:8px;color:rgba(255,255,255,.45);font-family:monospace;letter-spacing:.04em;margin-bottom:4px;}
@@ -1500,6 +1505,38 @@ function cardQrDataUrl(text) {
   return cardQrCache[text];
 }
 
+// 品牌：名稱開頭是品牌就拿掉，改用 logo（logos/ 資料夾裡有圖檔的才用圖，否則用文字）
+const CARD_BRANDS = [
+  {name:'Canon'}, {name:'Sony'}, {name:'Fujifilm', alias:['Fuji']}, {name:'Nikon'}, {name:'Sigma'},
+  {name:'Olympus'}, {name:'OM System'}, {name:'Tamron'}, {name:'Leica'}, {name:'Ricoh'}, {name:'Tokina'},
+  {name:'Pentax'}, {name:'Panasonic'}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'},
+];
+const CARD_LOGO_FILES = {};  // 例：{Canon:'logos/canon.svg'}，有圖檔再加進來
+
+function splitCardName(raw) {
+  let name = (raw || '').replace(/\s+/g, ' ').trim();
+  let brand = null;
+  for (const b of CARD_BRANDS) {
+    const hit = [b.name, ...(b.alias || [])].find(n => name.toLowerCase().startsWith(n.toLowerCase()));
+    if (hit) { brand = b.name; name = name.slice(hit.length).trim(); break; }
+  }
+  // 名稱太長時，鏡頭的光圈與規格（mm 後面）放到第二行
+  let main = name, spec = '';
+  const m = name.match(/^(.+?\d+(?:-\d+)?mm)\s+(.+)$/i);
+  if (m && name.length > 14) { main = m[1]; spec = m[2]; }
+  const size = main.length <= 10 ? 20 : main.length <= 14 ? 18 : main.length <= 18 ? 16 : 14;
+  return {brand, main, spec, size};
+}
+
+function cardBrandHTML(brand) {
+  if (!brand) return '';
+  const file = CARD_LOGO_FILES[brand];
+  const inner = file
+    ? `<img class="lcard-brand-logo" src="${new URL(file, location.href).href}" alt="${brand}">`
+    : `<span class="lcard-brand-text">${brand.toUpperCase()}</span>`;
+  return `<span class="lcard-brand">${inner}</span>`;
+}
+
 // 水貨沒有台灣保卡，配件清單不列保卡
 function cardAlwaysAcc(d) {
   return d.origin === '水貨' ? ALWAYS_ACC.filter(a => a !== '保卡') : ALWAYS_ACC;
@@ -1548,6 +1585,7 @@ function buildCardHTML(d, accOverride) {
     {label:'來源', val: originText},
     {label:'功能', val: (d.fn||'—').replace(/\n/g,'<br>')},
   ];
+  const nm = splitCardName(d.name);
   // 副標：片幅 · 來源
   const format = (d.category||'').match(/^(全片幅|APS-C|M43)/);
   const sub = [format ? format[1] : '', originText !== '—' ? originText : ''].filter(Boolean).join(' · ');
@@ -1558,8 +1596,9 @@ function buildCardHTML(d, accOverride) {
   return `<div class="lcard">
   <div class="lcard-header">
     <div class="lcard-left">
-      <div class="lcard-prod-type">${d.category || "林相攝影 LIN'S CAMERA"}</div>
-      <div class="lcard-prod-name">${d.name||'—'}</div>
+      <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}</div>
+      <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main||'—'}</div>
+      ${nm.spec ? `<div class="lcard-prod-spec">${nm.spec}</div>` : ''}
       ${sub ? `<div class="lcard-prod-sub">${sub}</div>` : ''}
     </div>
     <div class="lcard-header-right">
