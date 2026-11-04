@@ -2,17 +2,11 @@
 // GET  ?offset=xxx      讀取一頁紀錄（每頁 100 筆）
 // PATCH ?id=recXXXX     更新一筆紀錄的欄位
 // 不提供刪除；每個請求都要帶正確的後台密碼（x-admin-password）。
-import { timingSafeEqual } from 'node:crypto';
+import { adminPasswordOk } from '../lib/auth.js';
 
 const BASE_ID = 'appAuc0SgpUMOFLsv';
 const TABLE_ID = 'tblnOp2xI0RPOAR3J';
 const AIRTABLE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}`;
-
-function passwordOk(given, expected) {
-  const a = Buffer.from(given || '');
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export default async (req) => {
   const token = process.env.AIRTABLE_TOKEN;
@@ -20,7 +14,7 @@ export default async (req) => {
   if (!token || !adminPassword) {
     return Response.json({ error: '伺服器未設定 AIRTABLE_TOKEN 或 ADMIN_PASSWORD' }, { status: 500 });
   }
-  if (!passwordOk(req.headers.get('x-admin-password'), adminPassword)) {
+  if (!adminPasswordOk(req)) {
     return Response.json({ error: '密碼錯誤' }, { status: 401 });
   }
 

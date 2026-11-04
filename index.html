@@ -262,8 +262,8 @@ function getAdminPassword(){
   }
   return pw;
 }
-async function adminFetch(query, opts = {}) {
-  const res = await fetch(ADMIN_API + query, {
+async function adminFetch(query, opts = {}, api = ADMIN_API) {
+  const res = await fetch(api + query, {
     ...opts,
     headers: { ...(opts.headers || {}), 'x-admin-password': getAdminPassword() }
   });
@@ -1702,50 +1702,33 @@ function openSpecModal() {
   setTimeout(() => document.getElementById('spec-model-input').focus(), 50);
 }
 
-// Anthropic API Key（用於規格查詢）—— 請填入你的 key
-const CLAUDE_API_KEY = '';
-
+// 規格查詢：經由 netlify/functions/spec-lookup.js 請 Claude 寫介紹（API Key 存在 Netlify）
 async function querySpec() {
   const model = document.getElementById('spec-model-input').value.trim();
   if (!model) return;
   const wrap = document.getElementById('spec-result-wrap');
   const fillWrap = document.getElementById('spec-fill-btn-wrap');
-  wrap.innerHTML = '<div style="text-align:center;padding:16px;font-size:12px;color:#6b6b63">查詢中… ✨</div>';
+  wrap.innerHTML = '<div style="text-align:center;padding:16px;font-size:12px;color:#6b6b63">查詢中… ✨（約 5～10 秒）</div>';
   fillWrap.style.display = 'none';
   specResultText = '';
 
-  // 若有 Claude API Key，用 Claude；否則用內建知識庫回傳靜態查詢
-  if (CLAUDE_API_KEY) {
-    try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': CLAUDE_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 200,
-          messages: [{
-            role: 'user',
-            content: `請用繁體中文，針對「${model}」這款相機，用 2~3 行條列式提供：發售年份、有效畫素、感光元件尺寸、主要特色（例如防震、對焦系統、影片規格等）。格式範例：\n2024年 / 3300萬畫素 / 全片幅\n機身防震5.5級、即時追蹤對焦、6K影片\n雙卡槽、防塵防滴\n只要規格，不要解說，不要多餘文字。`
-          }]
-        })
-      });
-      const data = await resp.json();
-      specResultText = data.content?.[0]?.text || '查無結果';
-    } catch(e) {
-      specResultText = '查詢失敗，請手動填入';
-    }
-  } else {
-    // 沒有 API Key：顯示提示，讓同事知道需要設定
-    specResultText = `（尚未設定 API Key）\n請手動填入 ${model} 的規格`;
+  let ok = false;
+  try {
+    const resp = await adminFetch('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model })
+    }, '/.netlify/functions/spec-lookup');
+    const data = await resp.json().catch(() => ({}));
+    ok = resp.ok && !!data.text;
+    specResultText = ok ? data.text : (data.error || `查詢失敗（${resp.status}），請手動填入`);
+  } catch(e) {
+    specResultText = '查詢失敗，請確認網路連線後再試';
   }
 
-  wrap.innerHTML = `<div style="background:#f6f8fb;border:1px solid #dde2e8;border-radius:8px;padding:12px;font-size:12px;color:#141413;line-height:1.8;white-space:pre-line">${specResultText}</div>`;
-  fillWrap.style.display = 'block';
+  const safe = specResultText.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  wrap.innerHTML = `<div style="background:#f6f8fb;border:1px solid #dde2e8;border-radius:8px;padding:12px;font-size:12px;color:${ok?'#141413':'#c0392b'};line-height:1.8;white-space:pre-line">${safe}</div>`;
+  fillWrap.style.display = ok ? 'block' : 'none';
 }
 
 function fillSpecToDesc() {
@@ -1756,7 +1739,7 @@ function fillSpecToDesc() {
   if (ta) ta.value = specResultText;
   renderCardPreview();
   document.getElementById('spec-modal').style.display = 'none';
-  showToast('已填入功能說明 ✅');
+  showToast('已填入商品介紹 ✅');
 }
 
 function printCard() {
