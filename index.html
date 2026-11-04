@@ -1320,6 +1320,7 @@ function renderStats(){
         <button onclick="stockSelectAll(true)" style="padding:7px 12px;background:#f2f2f0;border:1px solid #e4e4e0;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">全選</button>
         <button onclick="stockSelectAll(false)" style="padding:7px 12px;background:#f2f2f0;border:1px solid #e4e4e0;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">取消全選</button>
         <button id="stock-ai-btn" onclick="runStockAI()" style="padding:7px 14px;background:#e8f0fe;border:1px solid #c5d5f8;border-radius:7px;font-size:12px;font-weight:700;color:#1565c0;cursor:pointer;font-family:inherit">✨ AI 處理勾選的商品</button>
+        <button onclick="clearStockAI()" style="padding:7px 12px;background:#fff;border:1px solid #f1c0c0;border-radius:7px;font-size:12px;font-weight:600;color:#c0392b;cursor:pointer;font-family:inherit">🗑️ 清除勾選的 AI 紀錄</button>
         <button onclick="printStockCards()" style="padding:7px 14px;background:#0d3b66;border:none;border-radius:7px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">🖨️ 印出勾選的商品卡</button>
         <span id="stock-progress" style="font-size:12px;color:#6b6b63"></span>
       </div>
@@ -1914,6 +1915,20 @@ function stockCacheGet(key) {
 }
 function stockCacheSet(key, val) {
   try { localStorage.setItem('stockAI:' + key, JSON.stringify(val)); } catch(e) {}
+}
+
+// 規則改了或 AI 寫錯時用：清掉勾選商品記住的 AI 結果，再按「AI 處理」就會重跑
+function clearStockAI() {
+  if (stockRunning) { alert('AI 處理中，請等它跑完再清除'); return; }
+  const picked = stockVisible().filter(it => it.checked && it.ai);
+  if (!picked.length) { alert('勾選的商品沒有 AI 紀錄'); return; }
+  if (!confirm(`確定清除 ${picked.length} 筆的 AI 紀錄？清除後要再按「✨ AI 處理」重新產生（會再花一次 AI 費用）。`)) return;
+  picked.forEach(it => {
+    try { localStorage.removeItem('stockAI:' + it.key); } catch(e) {}
+    it.ai = null; it.status = ''; it.error = '';
+  });
+  document.getElementById('stock-progress').textContent = `已清除 ${picked.length} 筆，請按「✨ AI 處理勾選的商品」重新產生`;
+  renderStockList();
 }
 
 async function loadStockFile(file) {
