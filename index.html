@@ -665,7 +665,7 @@ async function exportSelected(){
       '銷售價': '',
       '品牌': '',
       '供貨商': '現場客人',
-      '公水': origin,
+      '公水': origin === '不影響' ? '' : origin,
       '快門數': shutterField,
       '盒單': boxDoc,
     };
@@ -1049,7 +1049,9 @@ function showListing(id){
 
   // 配件說明
   const accLabel = isLens ? '鏡頭' : '機身';
-  const accDesc = `${origin}${boxDoc ? ' '+boxDoc : ''}　${accLabel}：${acc}`;
+  // 收購時選「不影響」（很老的相機，公司貨／水貨沒差）就不寫來源
+  const originTxt = origin === '不影響' ? '' : origin;
+  const accDesc = `${originTxt}${boxDoc ? (originTxt ? ' ' : '')+boxDoc : ''}${originTxt || boxDoc ? '　' : ''}${accLabel}：${acc}`;
 
   // 品相描述
   let fnDesc = '';
@@ -1691,7 +1693,7 @@ function buildCardHTML(d, accOverride) {
     {label:'新舊', val:`${d.cond ? `<span class="lcard-cond-tag${condCls}">${condText}</span>` : ''}${shutterText}`, empty: !d.cond && !hasShutter},
     {label:'原廠保', val: cardWarrantyHTML(d), empty: !d.mfgw},
     {label:'本店保', val: d.shopw||'—'},
-    {label:'來源', val: originText},
+    {label:'來源', val: originText, empty: d.origin === '不影響'},
     {label:'功能', val: (d.fn||'—').replace(/\n/g,'<br>'), empty: !d.fn},
   ].filter(s => !s.empty);
   const nm = splitCardName(d.name);
