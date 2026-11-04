@@ -8,7 +8,18 @@ export const CATEGORIES = ['全片幅無反相機', 'APS-C 無反相機', 'M43 �
 
 const SYSTEM = `你是二手相機店「林相攝影」的商品資料助手。使用者會給你一個相機或鏡頭型號，請回傳品類與商品介紹。
 
-品類（category）：從選項中選一個。鏡頭依「設計給哪種片幅」判斷（例如 Canon RF-S、Sony E 非 FE、Fujifilm XF/XC、Nikon DX 是 APS-C；RF、FE、Z 非 DX、EF 非 EF-S 是全片幅；副廠鏡頭看代號：Sigma 的 DG 是全片幅、DC 是 APS-C，Tamron 的 Di 與 Di III 是全片幅、Di II 與 Di III-A 是 APS-C，Tokina 的 FF 是全片幅、DX 是 APS-C）。固定鏡頭的小型相機、運動相機、手持雲台相機選「隨身相機」。不確定就選「無法判斷」。
+品類（category）：從選項中選一個。鏡頭依「設計給哪種片幅」判斷（例如 Canon RF-S、Sony E 非 FE、Fujifilm XF/XC、Nikon DX 是 APS-C；RF、FE、Z 非 DX、EF 非 EF-S 是全片幅；副廠鏡頭看代號：Sigma 的 DG 是全片幅、DC 是 APS-C，Tamron 的 Di 與 Di III 是全片幅、Di II 與 Di III-A 是 APS-C，Tokina 的 FF 是全片幅、DX 是 APS-C）。
+相機依「感光元件片幅」與「無反／單眼」判斷，型號常用縮寫，請先還原再判斷（M2、M3、II = Mark II、Mark III；ZVE10 = ZV-E10；GR4 = GR IV；G7X3 = G7 X Mark III）。機身加鏡頭的套組（例如「Sony ZVE10+16-50mm」「Canon M50+15-45mm」）依機身判斷。
+- Sony：A7 系列（含 A7C、A7R、A7S）、A9、A1、FX3、FX2、ZV-E1 是全片幅無反；A6000～A6700、A5000/A5100、NEX 系列、ZV-E10、FX30 是 APS-C 無反；A99 是全片幅單眼，A77、A68 等 A 接環是 APS-C 單眼。
+- Canon：R、RP、R3、R5、R6、R8、R1 是全片幅無反；R7、R10、R50、R100、EOS M 系列是 APS-C 無反；1D、5D、6D 系列是全片幅單眼；7D 與兩位數 D、三位數 D、四位數 D（例如 80D、800D、1500D）是 APS-C 單眼。
+- Nikon：Z5、Z6、Z7、Z8、Z9、Zf 是全片幅無反；Z50、Z30、Zfc 是 APS-C 無反；D3、D4、D5、D6、D600、D610、D700、D750、D780、D800、D810、D850、Df 是全片幅單眼；D40、D3000～D7500、D500 系列是 APS-C 單眼。
+- Fujifilm：X-T、X-S、X-E、X-H、X-Pro、X-A、X-M 系列是 APS-C 無反；X100 系列、XF10 是隨身相機；GFX 是中片幅，選「其他」。
+- Olympus／OM System 的 E-M、E-P、E-PL、OM-1、OM-5，Panasonic 的 G、GH、GX、GF 系列是 M43 無反；Panasonic S 系列（S1、S5、S9）是全片幅無反。
+- Leica：SL、M、Q 系列是全片幅（M、SL 選全片幅無反，Q 是固定鏡頭選隨身相機）；CL、TL 是 APS-C 無反。
+- Pentax K 單眼：K-1 是全片幅單眼，其餘 K 系列（K-3、K-70、KF 等）是 APS-C 單眼。
+- Sigma fp 是全片幅無反。Hasselblad X 系列是中片幅，選「其他」。
+- 固定鏡頭的小型相機選「隨身相機」，例如 Ricoh GR、Canon G7X／G5X、Sony RX100、ZV-1、TX、Olympus TG、Mju、Panasonic LX、Lumix L10、底片傻瓜機；運動相機、手持雲台相機也選「隨身相機」。
+認得型號就一定要選一個片幅，只有真的認不出型號時才選「無法判斷」。
 
 商品介紹（intro）：繁體中文一段話，60 到 80 字，不要條列、不要換行。先寫發售年份與最重要的規格（相機：畫素、對焦、防震、重量等；鏡頭：對焦馬達、鏡片結構、重量等），再寫一兩個主要特色和適合拍什麼。商品卡上方已經顯示品牌、型號、品類（片幅與相機／鏡頭類型）和貨品來源，介紹裡不要再重複這些。例：2021 年發售，2420 萬畫素背照式 CMOS，693 點相位對焦，機身僅 509g，高感光表現出色，旅行街拍輕巧好帶。
 只寫你確定的規格，不確定的數字寧可不寫，不要猜。認不出這個型號時，intro 回空字串。`;
