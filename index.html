@@ -1407,8 +1407,10 @@ function renderStats(){
 
 <script>
 // ─── 商品卡欄位定義 ───
+const CARD_CATEGORIES = ['全片幅無反相機','APS-C 無反相機','M43 無反相機','全片幅單眼相機','APS-C 單眼相機','全片幅定焦鏡頭','全片幅變焦鏡頭','APS-C 定焦鏡頭','APS-C 變焦鏡頭','M43 鏡頭','隨身相機','其他'];
 const CARD_FIELDS = [
   {id:'name',   label:'商品名稱', type:'text',     full:true},
+  {id:'category',label:'品類（片幅請自己選）', type:'select', full:false, options:['', ...CARD_CATEGORIES]},
   {id:'price',  label:'售價 NT$', type:'number',   full:false, placeholder:'請填入售價'},
   {id:'cond',   label:'新舊程度', type:'select',   full:false, options:['近無使用痕跡','些許使用痕跡','使用痕跡多','全新']},
   {id:'sn',     label:'序號',     type:'text',     full:false},
@@ -1417,7 +1419,8 @@ const CARD_FIELDS = [
   {id:'mfgw',   label:'原廠保固', type:'select',   full:false, options:['已過保','在保（請填日期）','不確定']},
   {id:'shopw',  label:'店保',     type:'select',   full:false, options:['半年保固(180天)','7天保固','無保固']},
   {id:'acc',    label:'配件清單', type:'textarea', full:true,  placeholder:'例：原廠充電器、充電線…（原廠盒/保卡另有勾選）'},
-  {id:'desc',   label:'功能說明', type:'textarea-spec', full:true, placeholder:'例：2024年推出，3300萬畫素，全片幅，6K影片'},
+  {id:'fn',     label:'功能狀態', type:'textarea', full:true,  placeholder:'例：全數正常'},
+  {id:'desc',   label:'商品介紹', type:'textarea-spec', full:true, placeholder:'例：2024年推出，3300萬畫素，全片幅，6K影片'},
 ];
 // 原廠盒、保卡 — 永遠顯示，用勾選控制
 const ALWAYS_ACC = ['原廠盒','保卡'];
@@ -1430,60 +1433,9 @@ function openCardEditor(recordId) {
   const record = allRecords.find(r => r.id === recordId);
   if (!record) return;
   currentCardRecordId = recordId;
-  const f = record.fields;
-  console.log('[openCardEditor] 售價欄位值:', f['售價'], '| 全部欄位:', Object.keys(f));
-
-  // 新舊程度
-  const condRaw = f['新舊程度'] || '';
-  let condVal = '近無使用痕跡';
-  if (condRaw.includes('全新')) condVal = '全新';
-  else if (condRaw.includes('些許') || condRaw.includes('輕微')) condVal = '些許使用痕跡';
-  else if (condRaw.includes('痕跡多') || condRaw.includes('明顯')) condVal = '使用痕跡多';
-
-  // 快門數
-  const shutterRaw = f['快門數'] || '';
-  const shutterMatch = shutterRaw.match(/(\d+)/);
-
-  // 配件 — 分開處理 原廠盒/保卡 和其他
-  const box = f['盒裝'] || '';
-  const boxDoc = f['盒單'] || '';
-  const hasBox = box === '有盒子' || boxDoc === '有盒有單' || boxDoc === '有盒無單';
-  const hasCard = boxDoc === '有盒有單' || boxDoc === '無盒有單';
-  cardAccChecked = { '原廠盒': hasBox, '保卡': hasCard };
-
-  // 其他配件清單（去掉原廠盒/保卡）
-  const accRaw = f['配件清單'] || '';
-  const accFiltered = accRaw.split(/[、,，\n]/)
-    .map(s => s.trim())
-    .filter(s => s && !ALWAYS_ACC.some(a => s.includes(a)))
-    .join('、');
-
-  // 原廠保固
-  const mfgwRaw = f['原廠保固'] || '';
-  let mfgwVal = '已過保';
-  if (mfgwRaw.startsWith('在保')) mfgwVal = '在保（請填日期）';
-  else if (mfgwRaw === '不確定') mfgwVal = '不確定';
-
-  // 功能說明
-  const fnRaw = f['功能備註'] || '';
-  const fnClean = fnRaw.split('\n')
-    .map(l => l.trim())
-    .filter(l => l && !l.startsWith('[機身]') && !l.startsWith('[鏡頭]'))
-    .map(l => l.replace(/^[^：]+：異常：/, '').replace(/^[^：]+：正常/, '').replace(/^[^：]+：/, '').trim())
-    .filter(Boolean).join('\n') || '全數正常';
-
-  cardData = {
-    name:    f['器材一'] || '',
-    price:   f['售價'] != null ? String(f['售價']) : '',
-    cond:    condVal,
-    sn:      f['序號'] || '',
-    shutter: shutterMatch ? shutterMatch[1] : '',
-    origin:  f['貨品來源'] || '公司貨',
-    mfgw:    mfgwVal,
-    shopw:   '半年保固(180天)',
-    acc:     accFiltered,
-    desc:    fnClean,
-  };
+  const {data, accOverride} = recordToCardData(record);
+  cardData = data;
+  cardAccChecked = accOverride;
 
   renderCardForm();
   renderCardPreview();
@@ -1498,8 +1450,9 @@ function renderCardForm() {
     const val = cardData[f.id] || '';
     let input = '';
     if (f.type === 'select') {
-      const opts = f.options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
-      input = `<select onchange="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}cursor:pointer">${opts}</select>`;
+      const opts = f.options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
+      const rerender = f.id === 'origin' ? 'renderCardForm();' : '';
+      input = `<select onchange="cardData['${f.id}']=this.value;${rerender}renderCardPreview()" style="${baseS}cursor:pointer">${opts}</select>`;
     } else if (f.type === 'textarea' || f.type === 'textarea-spec') {
       const textarea = `<textarea id="card-field-${f.id}" oninput="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}min-height:52px;resize:vertical" placeholder="${f.placeholder||''}">${val}</textarea>`;
       if (f.type === 'textarea-spec') {
@@ -1519,8 +1472,8 @@ function renderCardForm() {
     </div>`;
   }).join('');
 
-  // 原廠盒 / 保卡 勾選
-  const accChecks = ALWAYS_ACC.map(item => {
+  // 原廠盒 / 保卡 勾選（水貨沒有保卡）
+  const accChecks = cardAlwaysAcc(cardData).map(item => {
     const on = cardAccChecked[item];
     return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#141413;user-select:none">
       <input type="checkbox" ${on?'checked':''} onchange="cardAccChecked['${item}']=this.checked;renderCardPreview()" style="width:15px;height:15px;accent-color:#0d3b66">
@@ -1528,18 +1481,45 @@ function renderCardForm() {
     </label>`;
   }).join('');
   html += `<div style="grid-column:1/-1">
-    <div style="font-size:11px;font-weight:700;color:#8a96a5;margin-bottom:6px;letter-spacing:.04em">原廠盒 / 保卡</div>
+    <div style="font-size:11px;font-weight:700;color:#8a96a5;margin-bottom:6px;letter-spacing:.04em">${cardData.origin==='水貨'?'原廠盒（水貨不列保卡）':'原廠盒 / 保卡'}</div>
     <div style="display:flex;gap:16px">${accChecks}</div>
   </div>`;
 
   form.innerHTML = html;
 }
 
+// QR code 在瀏覽器裡產生（Google Chart 的 QR 服務已停用）
+let cardQrCache = {};
+function cardQrDataUrl(text) {
+  if (cardQrCache[text]) return cardQrCache[text];
+  if (typeof QRCode === 'undefined') return '';
+  const div = document.createElement('div');
+  new QRCode(div, {text, width:100, height:100, colorDark:'#111', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.M});
+  const canvas = div.querySelector('canvas');
+  cardQrCache[text] = canvas ? canvas.toDataURL('image/png') : (div.querySelector('img')?.src || '');
+  return cardQrCache[text];
+}
+
+// 水貨沒有台灣保卡，配件清單不列保卡
+function cardAlwaysAcc(d) {
+  return d.origin === '水貨' ? ALWAYS_ACC.filter(a => a !== '保卡') : ALWAYS_ACC;
+}
+
+// 原廠保固顯示：「在保（至2025-11-30）」→「在保 至 25/11/30」
+function cardWarrantyHTML(d) {
+  if (!d.mfgw || !d.mfgw.startsWith('在保')) {
+    return `<span style="color:#aaa">${d.mfgw || '—'}</span>`;
+  }
+  const m = (d.mfgwRaw || '').match(/(\d{4})-(\d{2})-(\d{2})/);
+  const text = m ? `在保 至 ${m[1].slice(2)}/${m[2]}/${m[3]}` : '在保';
+  return `<span style="color:#1565c0;font-weight:700">${text}</span>`;
+}
+
 // accOverride: {原廠盒: bool, 保卡: bool} — 若不傳，使用全域 cardAccChecked
 function buildCardHTML(d, accOverride) {
   const price = d.price ? parseInt(d.price).toLocaleString() : '—';
   const hasShutter = d.shutter && /\d/.test(d.shutter);
-  const qrUrl = `https://chart.googleapis.com/chart?chs=100x100&cht=qr&chl=${encodeURIComponent('https://linscam.fslol.com/')}&choe=UTF-8`;
+  const qrUrl = cardQrDataUrl('https://linscam.fslol.com/');
 
   // 新舊程度 tag class
   const condCls = (d.cond === '全新' || d.cond === '近無使用痕跡') ? '' : d.cond === '些許使用痕跡' ? ' mid' : ' low';
@@ -1548,7 +1528,7 @@ function buildCardHTML(d, accOverride) {
   // 配件 checklist
   const checkedAcc = accOverride || cardAccChecked;
   const allAccItems = [
-    ...ALWAYS_ACC.map(a => ({name: a, on: checkedAcc[a]})),
+    ...cardAlwaysAcc(d).map(a => ({name: a, on: checkedAcc[a]})),
     ...(d.acc ? d.acc.split(/[、,，\n]/).map(s=>s.trim()).filter(s=>s&&!ALWAYS_ACC.some(a=>s.includes(a))).map(a=>({name:a,on:true})) : [])
   ];
   const clItems = allAccItems.map(it =>
@@ -1559,14 +1539,18 @@ function buildCardHTML(d, accOverride) {
   ).join('');
 
   // spec rows
+  const shutterText = hasShutter ? ` <span style="color:#8a96a5;font-weight:500">約 ${parseInt(d.shutter).toLocaleString()} 次</span>` : '';
+  const originText = d.origin === '水貨' ? '平行輸入' : (d.origin || '—');
   const specs = [
-    {label:'新舊', val:`<span class="lcard-cond-tag${condCls}">${condText}</span>`},
-    {label:'來源', val: d.origin||'—'},
-    {label:'原廠保', val: d.mfgw !== '已過保' ? `<span class="lcard-spec-value" style="color:#1565c0;font-weight:700">${d.mfgw}</span>` : '<span style="color:#aaa">已過保</span>'},
-    {label:'店保', val: d.shopw||'—'},
-    ...(hasShutter ? [{label:'快門', val: parseInt(d.shutter).toLocaleString()+' 次'}] : []),
-    ...(d.sn ? [{label:'序號', val:`<span style="font-family:monospace;font-size:10px">${d.sn}</span>`}] : []),
+    {label:'新舊', val:`<span class="lcard-cond-tag${condCls}">${condText}</span>${shutterText}`},
+    {label:'原廠保', val: cardWarrantyHTML(d)},
+    {label:'本店保', val: d.shopw||'—'},
+    {label:'來源', val: originText},
+    {label:'功能', val: (d.fn||'—').replace(/\n/g,'<br>')},
   ];
+  // 副標：片幅 · 來源
+  const format = (d.category||'').match(/^(全片幅|APS-C|M43)/);
+  const sub = [format ? format[1] : '', originText !== '—' ? originText : ''].filter(Boolean).join(' · ');
   const specRows = specs.map(s =>
     `<div class="lcard-spec-row"><span class="lcard-spec-label">${s.label}</span><span class="lcard-spec-value">${s.val}</span></div>`
   ).join('');
@@ -1574,10 +1558,12 @@ function buildCardHTML(d, accOverride) {
   return `<div class="lcard">
   <div class="lcard-header">
     <div class="lcard-left">
-      <div class="lcard-prod-type">林相攝影 LIN'S CAMERA</div>
+      <div class="lcard-prod-type">${d.category || "林相攝影 LIN'S CAMERA"}</div>
       <div class="lcard-prod-name">${d.name||'—'}</div>
+      ${sub ? `<div class="lcard-prod-sub">${sub}</div>` : ''}
     </div>
     <div class="lcard-header-right">
+      ${d.sn ? `<div class="lcard-sn">S/N ${d.sn}</div>` : ''}
       <div class="lcard-price-label">售　價</div>
       <div><span class="lcard-price">${price}</span><span class="lcard-price-unit">NT$</span></div>
     </div>
@@ -1585,7 +1571,7 @@ function buildCardHTML(d, accOverride) {
   <div class="lcard-body">
     <div class="lcard-spec-col">${specRows}</div>
     <div class="lcard-cl-col">
-      <div class="lcard-cl-title">配件</div>
+      <div class="lcard-cl-title">隨附配件</div>
       <div>${clItems}</div>
     </div>
   </div>
@@ -1621,13 +1607,18 @@ async function saveCardToAirtable() {
   const fields = {};
   fields['序號']     = cardData.sn      || '';
   fields['快門數']   = cardData.shutter  || '';
-  fields['功能備註'] = cardData.desc     || '';
+  fields['功能備註'] = cardData.fn       || '';
+  fields['商品介紹'] = cardData.desc     || '';
+  fields['品類']     = cardData.category || null;
   fields['新舊程度'] = cardData.cond     || '';
   fields['貨品來源'] = cardData.origin   || '';
-  fields['原廠保固'] = cardData.mfgw     || '';
+  // 在保：保留原本「在保（至日期）」的日期，不要蓋成「在保（請填日期）」
+  fields['原廠保固'] = (cardData.mfgw||'').startsWith('在保')
+    ? ((cardData.mfgwRaw||'').startsWith('在保') ? cardData.mfgwRaw : '在保')
+    : (cardData.mfgw || '');
   if (cardData.price) fields['售價'] = parseInt(cardData.price) || 0;
   // 配件清單：合併勾選的 always_acc 與手動填寫的配件
-  const checkedAlways = Object.entries(cardAccChecked).filter(([,v])=>v).map(([k])=>k);
+  const checkedAlways = cardAlwaysAcc(cardData).filter(a => cardAccChecked[a]);
   const accExtra = (cardData.acc || '').trim();
   const accAll = [...checkedAlways, ...(accExtra ? [accExtra] : [])].join('、');
   fields['配件清單'] = accAll;
@@ -1782,7 +1773,10 @@ function recordToCardData(r) {
       mfgw:    mfgwVal,
       shopw:   '半年保固(180天)',
       acc:     accFiltered,
-      desc:    fnClean,
+      fn:      fnClean,
+      desc:    f['商品介紹'] || '',
+      category: f['品類'] || '',
+      mfgwRaw: mfgwRaw,
     },
     accOverride
   };
@@ -1861,6 +1855,7 @@ const EDIT_FIELDS = [
   {key:'電子信箱', label:'電子信箱', type:'text'},
   {key:'交易日期', label:'交易日期', type:'date'},
   {key:'器材一', label:'器材一', type:'text'},
+  {key:'品類', label:'品類（片幅請自己選）', type:'select', options:['', ...CARD_CATEGORIES]},
   {key:'器材二', label:'器材二', type:'text'},
   {key:'器材三', label:'器材三', type:'text'},
   {key:'收購總金額', label:'收購金額', type:'number'},
@@ -1898,7 +1893,7 @@ function openEdit(id){
     if(field.type==='textarea'){
       input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
     } else if(field.type==='select'){
-      const opts = field.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('');
+      const opts = field.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
       input = `<select id="edit-${field.key}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>`;
     } else {
       input = `<input type="${field.type}" id="edit-${field.key}" value="${val}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
@@ -1926,6 +1921,7 @@ async function saveEdit(){
     if(!el) return;
     const val = el.value.trim();
     if(field.key==='收購總金額') fields[field.key] = parseInt(val)||0;
+    else if(field.key==='品類') fields[field.key] = val || null;
     else if(field.key==='快門數'){
       // 重新組合快門數欄位格式
       const record = allRecords.find(r=>r.id===editingId);
@@ -1970,5 +1966,6 @@ async function saveEdit(){
   }
 }
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>
 </html>
