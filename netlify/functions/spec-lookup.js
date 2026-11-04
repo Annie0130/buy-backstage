@@ -16,8 +16,12 @@ export default async (req) => {
   }
 
   let model = '';
+  let notes;
   try {
-    model = String((await req.json()).model || '').trim();
+    const body = await req.json();
+    model = String(body.model || '').trim();
+    // 匯入舊庫存時會帶備註，請 AI 一併拆出配件、快門、保固、瑕疵
+    if (body.notes !== undefined) notes = String(body.notes || '').slice(0, 500);
   } catch {
     return Response.json({ error: '資料格式錯誤' }, { status: 400 });
   }
@@ -26,11 +30,15 @@ export default async (req) => {
   }
 
   try {
-    const result = await describeGear(model);
-    if (!result || !result.intro) {
-      return Response.json({ error: '查無此型號，請手動填寫', category: result?.category || '' }, { status: 422 });
+    const result = await describeGear(model, notes);
+    if (!result) {
+      return Response.json({ error: '這個型號查不到，請手動填寫' }, { status: 422 });
     }
-    return Response.json({ text: result.intro, category: result.category });
+    const { intro, ...rest } = result;
+    if (!intro && notes === undefined) {
+      return Response.json({ error: '查無此型號，請手動填寫', ...rest }, { status: 422 });
+    }
+    return Response.json({ text: intro, ...rest });
   } catch (err) {
     if (err instanceof Anthropic.AuthenticationError) {
       return Response.json({ error: 'Anthropic API Key 錯誤，請檢查 Netlify 的 ANTHROPIC_API_KEY' }, { status: 500 });
