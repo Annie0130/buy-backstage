@@ -500,7 +500,7 @@ function renderRecords(records) {
         <div class="record-info">
           <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
           <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
-          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${r.fields['上架飛鼠']?' <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#fff4e6;color:#d9480f;font-weight:700">🛒 待上架飛鼠</span>':''}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${r.fields['上架飛鼠']?' <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#fff4e6;color:#d9480f;font-weight:700">🛒 待上架飛鼠</span>':''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
         </div>
         <div class="record-right" style="display:flex;align-items:center;gap:10px">
           <div>
