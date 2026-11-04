@@ -1375,10 +1375,11 @@ function renderStats(){
 }
 .lcard-header{background:#0d3b66;padding:10px 12px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .lcard-left{flex:1;min-width:0;}
-.lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+.lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;gap:3px 6px;white-space:nowrap;}
 .lcard-brand{display:flex;align-items:center;padding-right:6px;border-right:1px solid rgba(255,255,255,.25);}
 .lcard-brand:last-child{padding-right:0;border-right:none;}
-.lcard-brand-logo{height:12px;width:auto;display:block;filter:brightness(0) invert(1);}
+.lcard-brand.wide{flex-basis:100%;padding-right:0;border-right:none;}
+.lcard-brand-logo{height:12px;width:auto;max-width:110px;object-fit:contain;object-position:left center;display:block;filter:brightness(0) invert(1);}
 .lcard-brand-text{font-size:11px;font-weight:900;color:#fff;letter-spacing:.06em;}
 .lcard-prod-name{font-size:20px;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.3px;}
 .lcard-prod-spec{font-size:11px;font-weight:700;color:rgba(255,255,255,.75);margin-top:2px;}
@@ -1509,16 +1510,17 @@ function cardQrDataUrl(text) {
 const CARD_BRANDS = [
   {name:'Canon'}, {name:'Sony'}, {name:'Fujifilm', alias:['Fuji']}, {name:'Nikon'}, {name:'Sigma'},
   {name:'Olympus'}, {name:'OM System'}, {name:'Tamron'}, {name:'Leica'}, {name:'Ricoh'}, {name:'Tokina'},
-  {name:'Pentax'}, {name:'Panasonic', alias:['Lumix']}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'},
+  {name:'Pentax'}, {name:'Panasonic', alias:['Lumix']}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'}, {name:'Hasselblad'},
 ];
 // 圖檔是白色透明背景的 PNG；沒有圖檔的品牌顯示文字
 const CARD_LOGO_FILES = {
   Canon: 'logos/canon.png', Nikon: 'logos/nikon.png', Leica: 'logos/leica.png',
   Ricoh: 'logos/ricoh.png', Panasonic: 'logos/lumix.png', Sony: 'logos/sony.png',
   Fujifilm: 'logos/fujifilm.png', Olympus: 'logos/olympus.png', Tamron: 'logos/tamron.png',
-  DJI: 'logos/dji.png',
+  DJI: 'logos/dji.png', Sigma: 'logos/sigma.png', Hasselblad: 'logos/hasselblad.png',
 };
 const CARD_LOGO_HEIGHT = { DJI: 16 };  // 比較方的 LOGO 放大一點，其他預設 12px
+const CARD_LOGO_WIDE = ['Hasselblad'];  // 太寬的 LOGO 自己一行，品類放下一行
 
 function splitCardName(raw) {
   let name = (raw || '').replace(/\s+/g, ' ').trim();
@@ -1528,9 +1530,13 @@ function splitCardName(raw) {
     if (hit) { brand = b.name; name = name.slice(hit.length).trim(); break; }
   }
   // 名稱太長時，鏡頭的光圈與規格（mm 後面）放到第二行
+  // 只有焦段太短（例如「35mm」）時，把光圈一起留在第一行
   let main = name, spec = '';
   const m = name.match(/^(.+?\d+(?:-\d+)?mm)\s+(.+)$/i);
-  if (m && name.length > 14) { main = m[1]; spec = m[2]; }
+  const mf = name.match(/^(.+?\d+(?:-\d+)?mm\s+F\/?[\d.]+(?:-[\d.]+)?)\s+(.+)$/i);
+  if (m && name.length > 14) {
+    [main, spec] = (m[1].length < 6 && mf) ? [mf[1], mf[2]] : [m[1], m[2]];
+  }
   const size = main.length <= 10 ? 20 : main.length <= 14 ? 18 : main.length <= 18 ? 16 : 14;
   return {brand, main, spec, size};
 }
@@ -1541,7 +1547,7 @@ function cardBrandHTML(brand) {
   const inner = file
     ? `<img class="lcard-brand-logo" src="${new URL(file, location.href).href}" alt="${brand}"${CARD_LOGO_HEIGHT[brand] ? ` style="height:${CARD_LOGO_HEIGHT[brand]}px"` : ''}>`
     : `<span class="lcard-brand-text">${brand.toUpperCase()}</span>`;
-  return `<span class="lcard-brand">${inner}</span>`;
+  return `<span class="lcard-brand${file && CARD_LOGO_WIDE.includes(brand) ? ' wide' : ''}">${inner}</span>`;
 }
 
 // 水貨沒有台灣保卡，配件清單不列保卡
