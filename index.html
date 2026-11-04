@@ -1446,6 +1446,26 @@ function openCardEditor(recordId) {
   renderCardForm();
   renderCardPreview();
   document.getElementById('card-modal').style.display = 'flex';
+
+  // 商品介紹是空的就自動請 AI 寫一段，按「儲存到 Airtable」才會存起來
+  if (!cardData.desc && cardData.name) autoFillDesc(recordId, cardData.name);
+}
+
+async function autoFillDesc(recordId, model) {
+  const ta = document.getElementById('card-field-desc');
+  if (ta) ta.placeholder = '✨ AI 自動撰寫中…（約 5～10 秒）';
+  const {ok, text} = await fetchSpecText(model);
+  // 等待期間換了別張卡，或已經自己打字了，就不要蓋掉
+  if (currentCardRecordId !== recordId || cardData.desc) return;
+  const box = document.getElementById('card-field-desc');
+  if (!ok) {
+    if (box) box.placeholder = `自動撰寫失敗：${text}（可手動填寫或按「查規格」）`;
+    return;
+  }
+  cardData.desc = text;
+  if (box) box.value = text;
+  renderCardPreview();
+  showToast('✨ 已自動填入商品介紹，請確認內容後按儲存');
 }
 
 function renderCardForm() {
@@ -1716,6 +1736,21 @@ function openSpecModal() {
 }
 
 // 規格查詢：經由 netlify/functions/spec-lookup.js 請 Claude 寫介紹（API Key 存在 Netlify）
+async function fetchSpecText(model) {
+  try {
+    const resp = await adminFetch('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model })
+    }, '/.netlify/functions/spec-lookup');
+    const data = await resp.json().catch(() => ({}));
+    if (resp.ok && data.text) return {ok: true, text: data.text};
+    return {ok: false, text: data.error || `查詢失敗（${resp.status}），請手動填入`};
+  } catch(e) {
+    return {ok: false, text: '查詢失敗，請確認網路連線後再試'};
+  }
+}
+
 async function querySpec() {
   const model = document.getElementById('spec-model-input').value.trim();
   if (!model) return;
@@ -1725,19 +1760,9 @@ async function querySpec() {
   fillWrap.style.display = 'none';
   specResultText = '';
 
-  let ok = false;
-  try {
-    const resp = await adminFetch('', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model })
-    }, '/.netlify/functions/spec-lookup');
-    const data = await resp.json().catch(() => ({}));
-    ok = resp.ok && !!data.text;
-    specResultText = ok ? data.text : (data.error || `查詢失敗（${resp.status}），請手動填入`);
-  } catch(e) {
-    specResultText = '查詢失敗，請確認網路連線後再試';
-  }
+  const result = await fetchSpecText(model);
+  const ok = result.ok;
+  specResultText = result.text;
 
   const safe = specResultText.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   wrap.innerHTML = `<div style="background:#f6f8fb;border:1px solid #dde2e8;border-radius:8px;padding:12px;font-size:12px;color:${ok?'#141413':'#c0392b'};line-height:1.8;white-space:pre-line">${safe}</div>`;
