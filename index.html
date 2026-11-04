@@ -153,6 +153,14 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
       style="background:#1565c0;border:none;border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">
       📥 匯入到商品 Sheet
     </button>
+    <button onclick="markForListing(true)"
+      style="background:#d9480f;border:none;border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">
+      🛒 標記上架飛鼠
+    </button>
+    <button onclick="markForListing(false)"
+      style="background:#fff;border:1px solid #d9480f;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:#d9480f;cursor:pointer;font-family:inherit">
+      取消上架標記
+    </button>
     <button onclick="printSelectedCards()"
       style="background:#0d3b66;border:none;border-radius:var(--radius-sm);padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">
       🖨️ 批次印卡
@@ -492,7 +500,7 @@ function renderRecords(records) {
         <div class="record-info">
           <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
           <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
-          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${r.fields['上架飛鼠']?' <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#fff4e6;color:#d9480f;font-weight:700">🛒 待上架飛鼠</span>':''}</div>
         </div>
         <div class="record-right" style="display:flex;align-items:center;gap:10px">
           <div>
@@ -577,6 +585,32 @@ function selectAll(){
 function clearSelect(){
   document.querySelectorAll('.record-checkbox').forEach(cb=>cb.checked=false);
   updateExportCount();
+}
+
+// 標記要上架飛鼠：上架腳本只會抓有這個標記、且售價有填的商品（送修的不要標記就不會上架）
+async function markForListing(on){
+  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb=>cb.dataset.id);
+  if(!checkedIds.length){ alert('請先勾選商品'); return; }
+  const noPrice = on ? allRecords.filter(r=>checkedIds.includes(r.id) && !(r.fields['售價']>0)).length : 0;
+  document.getElementById('export-count').textContent = on ? '標記中…' : '取消中…';
+  let ok = 0, fail = 0;
+  for (const id of checkedIds) {
+    try {
+      const res = await adminFetch(`?id=${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({fields: {'上架飛鼠': on}})
+      });
+      if (!res.ok) throw new Error(res.status);
+      const rec = allRecords.find(r => r.id === id);
+      if (rec) rec.fields['上架飛鼠'] = on;
+      ok++;
+    } catch(e) { fail++; }
+  }
+  filterRecords();
+  if (selectModeOn) toggleSelectMode(true);
+  showToast(on ? `🛒 已標記 ${ok} 筆要上架飛鼠${fail ? `，${fail} 筆失敗` : ''}` : `已取消 ${ok} 筆的上架標記${fail ? `，${fail} 筆失敗` : ''}`);
+  if (noPrice) setTimeout(() => alert(`有 ${noPrice} 筆還沒填售價，上架腳本會先跳過，記得到「✏️ 編輯」補上售價。`), 300);
 }
 
 async function exportSelected(){
