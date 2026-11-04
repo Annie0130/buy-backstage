@@ -1416,7 +1416,7 @@ function renderStats(){
 const CARD_CATEGORIES = ['全片幅無反相機','APS-C 無反相機','M43 無反相機','全片幅單眼相機','APS-C 單眼相機','全片幅定焦鏡頭','全片幅變焦鏡頭','APS-C 定焦鏡頭','APS-C 變焦鏡頭','M43 鏡頭','隨身相機','其他'];
 const CARD_FIELDS = [
   {id:'name',   label:'商品名稱', type:'text',     full:true},
-  {id:'category',label:'品類（片幅請自己選）', type:'select', full:false, options:['', ...CARD_CATEGORIES]},
+  {id:'category',label:'品類（AI 自動判斷，可修改）', type:'select', full:false, options:['', ...CARD_CATEGORIES]},
   {id:'price',  label:'售價 NT$', type:'number',   full:false, placeholder:'請填入售價'},
   {id:'cond',   label:'新舊程度', type:'select',   full:false, options:['近無使用痕跡','些許使用痕跡','使用痕跡多','全新']},
   {id:'sn',     label:'序號',     type:'text',     full:false},
@@ -1434,6 +1434,7 @@ let cardData = {};
 let cardAccChecked = {};  // {原廠盒: true/false, 保卡: true/false}
 let currentCardRecordId = null;
 let specResultText = '';
+let specResultCategory = '';
 
 function openCardEditor(recordId) {
   const record = allRecords.find(r => r.id === recordId);
@@ -1447,25 +1448,38 @@ function openCardEditor(recordId) {
   renderCardPreview();
   document.getElementById('card-modal').style.display = 'flex';
 
-  // 商品介紹是空的就自動請 AI 寫一段，按「儲存到 Airtable」才會存起來
-  if (!cardData.desc && cardData.name) autoFillDesc(recordId, cardData.name);
+  // 商品介紹或品類是空的（例如收購時自動填入失敗）就請 AI 補上，並直接存回 Airtable
+  if ((!cardData.desc || !cardData.category) && cardData.name) autoFillDesc(recordId, cardData.name);
 }
 
 async function autoFillDesc(recordId, model) {
   const ta = document.getElementById('card-field-desc');
-  if (ta) ta.placeholder = '✨ AI 自動撰寫中…（約 5～10 秒）';
-  const {ok, text} = await fetchSpecText(model);
-  // 等待期間換了別張卡，或已經自己打字了，就不要蓋掉
-  if (currentCardRecordId !== recordId || cardData.desc) return;
-  const box = document.getElementById('card-field-desc');
-  if (!ok) {
-    if (box) box.placeholder = `自動撰寫失敗：${text}（可手動填寫或按「查規格」）`;
+  if (ta && !cardData.desc) ta.placeholder = '✨ AI 自動撰寫中…（約 5～10 秒）';
+  const {ok, text, category} = await fetchSpecText(model);
+  if (currentCardRecordId !== recordId) return;  // 等待期間換了別張卡
+  const fields = {};
+  // 已經有內容（或等待期間自己打了字）就不要蓋掉
+  if (ok && !cardData.desc) { cardData.desc = text; fields['商品介紹'] = text; }
+  if (category && !cardData.category) { cardData.category = category; fields['品類'] = category; }
+  if (!Object.keys(fields).length) {
+    const box = document.getElementById('card-field-desc');
+    if (!ok && box && !cardData.desc) box.placeholder = `自動撰寫失敗：${text}（可手動填寫或按「查規格」）`;
     return;
   }
-  cardData.desc = text;
-  if (box) box.value = text;
+  renderCardForm();
   renderCardPreview();
-  showToast('✨ 已自動填入商品介紹，請確認內容後按儲存');
+  const res = await adminFetch(`?id=${recordId}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({fields})
+  });
+  if (res.ok) {
+    const rec = allRecords.find(r => r.id === recordId);
+    if (rec) Object.assign(rec.fields, fields);
+    showToast('✨ AI 已自動填入' + Object.keys(fields).join('、') + '並儲存');
+  } else {
+    showToast('❌ AI 填入的內容儲存失敗，請按「儲存到 Airtable」');
+  }
 }
 
 function renderCardForm() {
@@ -1744,8 +1758,8 @@ async function fetchSpecText(model) {
       body: JSON.stringify({ model })
     }, '/.netlify/functions/spec-lookup');
     const data = await resp.json().catch(() => ({}));
-    if (resp.ok && data.text) return {ok: true, text: data.text};
-    return {ok: false, text: data.error || `查詢失敗（${resp.status}），請手動填入`};
+    if (resp.ok && data.text) return {ok: true, text: data.text, category: data.category || ''};
+    return {ok: false, text: data.error || `查詢失敗（${resp.status}），請手動填入`, category: data.category || ''};
   } catch(e) {
     return {ok: false, text: '查詢失敗，請確認網路連線後再試'};
   }
@@ -1763,6 +1777,7 @@ async function querySpec() {
   const result = await fetchSpecText(model);
   const ok = result.ok;
   specResultText = result.text;
+  specResultCategory = result.category;
 
   const safe = specResultText.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   wrap.innerHTML = `<div style="background:#f6f8fb;border:1px solid #dde2e8;border-radius:8px;padding:12px;font-size:12px;color:${ok?'#141413':'#c0392b'};line-height:1.8;white-space:pre-line">${safe}</div>`;
@@ -1772,6 +1787,7 @@ async function querySpec() {
 function fillSpecToDesc() {
   if (!specResultText) return;
   cardData['desc'] = specResultText;
+  if (specResultCategory && !cardData.category) { cardData.category = specResultCategory; renderCardForm(); }
   // 更新 textarea
   const ta = document.getElementById('card-field-desc');
   if (ta) ta.value = specResultText;
@@ -1915,7 +1931,7 @@ const EDIT_FIELDS = [
   {key:'電子信箱', label:'電子信箱', type:'text'},
   {key:'交易日期', label:'交易日期', type:'date'},
   {key:'器材一', label:'器材一', type:'text'},
-  {key:'品類', label:'品類（片幅請自己選）', type:'select', options:['', ...CARD_CATEGORIES]},
+  {key:'品類', label:'品類（AI 自動判斷，可修改）', type:'select', options:['', ...CARD_CATEGORIES]},
   {key:'器材二', label:'器材二', type:'text'},
   {key:'器材三', label:'器材三', type:'text'},
   {key:'收購總金額', label:'收購金額', type:'number'},
