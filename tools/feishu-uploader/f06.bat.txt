@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0.."
-title 拍照順序：照這個順序拍，每件拍完拍一張全黑
-echo ===== 拍照順序：照這個順序拍，每件拍完拍一張全黑 =====
+cd /d "%~dp0"
+title 上架控制台（這個視窗不要關）
+echo ===== 上架控制台 =====
+echo 瀏覽器會自動打開 http://localhost:3939
+echo 這個黑色視窗不要關，關掉控制台就停了
 echo.
-node upload.js photos --order
-echo.
-echo ===== 跑完了，可以關掉這個視窗 =====
+node panel.js
 pause

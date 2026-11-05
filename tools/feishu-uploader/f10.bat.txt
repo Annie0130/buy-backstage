@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0.."
-title 草稿補照片並發佈
-echo ===== 草稿補照片並發佈 =====
+title 飛鼠上架：自動存草稿
+echo ===== 飛鼠上架：自動存草稿 =====
 echo.
-node upload.js drafts
+node upload.js airtable --draft
 echo.
 echo ===== 跑完了，可以關掉這個視窗 =====
 pause
