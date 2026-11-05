@@ -1174,6 +1174,21 @@ async function ensureAiCutout(page) {
   if (r === 'checked') console.log('   ☑️ 已勾選「上傳後 AI 自動去背」');
   else if (r !== 'already') console.log(`   ⚠️ 找不到或勾不起來「上傳後 AI 自動去背」（${r}），請手動確認`);
 }
+// 飛鼠「商品圖片」區現在已經有幾張照片（在「商品圖片」和「廣告圖片」兩個標題中間的圖）；讀不到回傳 null
+async function existingImageCount(page) {
+  await page.waitForTimeout(1500); // 等舊照片的縮圖載入
+  return page.evaluate(() => {
+    const labels = [...document.querySelectorAll('label')];
+    const flat = (el) => el.textContent.replace(/\s/g, '');
+    const head = labels.find((l) => flat(l) === '商品圖片');
+    if (!head) return null;
+    const next = labels.find((l) => (head.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING) && /^(廣告圖片|尺寸表圖片|SPU編號)/.test(flat(l)));
+    const inRange = (el) => (head.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) && (!next || (el.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const previews = [...document.querySelectorAll('.dz-preview')].filter(inRange);
+    if (previews.length) return previews.length;
+    return [...document.querySelectorAll('img')].filter((im) => inRange(im) && (im.naturalWidth || im.width) >= 40).length;
+  }).catch(() => null);
+}
 async function uploadImages(page, files, problems) {
   files = (files || []).filter(Boolean);
   if (!files.length) return;
@@ -1891,8 +1906,13 @@ async function draftsMain(opts = {}) {
     try {
       p = await openDraftEditor(page, r['條碼']);
       const problems = [];
-      await uploadImages(p, productPhotos(r['條碼']), problems);
-      if (problems.length) throw new Error(problems.join('；'));
+      const have = await existingImageCount(p);
+      if (have) console.log(`   ⏭️ 飛鼠上已經有 ${have} 張商品圖片，不重複上傳，直接發佈`);
+      else {
+        await uploadImages(p, productPhotos(r['條碼']), problems);
+        if (problems.length) throw new Error(problems.join('；'));
+      }
+      recordPhotoUpload(r['條碼']); // 傳完馬上記下來，就算後面發佈沒確認到，下次也不會重傳
       const btns = p.locator('button, a, [role=button], input[type=button], input[type=submit]').filter({ hasText: /^[\s✓✔]*發佈\s*$/ });
       let clicked = false;
       const before = await visibleMessages(p);
@@ -1966,8 +1986,16 @@ async function addPhotosMain(opts = {}) {
     try {
       p = await openDraftEditor(page, r['條碼'], { useSearch: true });
       const problems = [];
+      const have = await existingImageCount(p);
+      if (have && !process.argv.includes('--force')) {
+        recordPhotoUpload(r['條碼']);
+        console.log(`   ⏭️ 飛鼠上已經有 ${have} 張商品圖片，不重複上傳（要換照片：先到飛鼠刪掉舊照片，再補一次）`);
+        ok++;
+        continue;
+      }
       await uploadImages(p, productPhotos(r['條碼']), problems);
       if (problems.length) throw new Error(problems.join('；'));
+      recordPhotoUpload(r['條碼']); // 傳完馬上記下來，就算後面儲存沒確認到，下次也不會重傳
       // 不按「儲存草稿」（已上架的會變回草稿）；依序找 發佈 → 更新 → 儲存
       let clicked = '';
       const before = await visibleMessages(p);

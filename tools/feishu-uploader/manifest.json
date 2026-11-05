@@ -1,6 +1,6 @@
 {
- "version": "20261105-2031",
- "note": "新增「★控制台.bat」：所有功能變成網頁按鈕",
+ "version": "20261105-2037",
+ "note": "補照片不會再重複上傳（飛鼠上已經有照片就略過）",
  "files": [
   {
    "path": "package.json",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "0c425355ecfbe523caa13cc104da6840226f5815c2854ac4b728b06865105c69"
+   "sha256": "0d63ad44f57918d26147daf8dc76cbfc2ced2611feb62647b62d69804f936f8e"
   },
   {
    "path": "★一鍵上架.bat",
