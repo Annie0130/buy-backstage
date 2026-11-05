@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
-title 待辦清單：哪些還沒做完
-echo ===== 待辦清單：哪些還沒做完 =====
+cd /d "%~dp0.."
+title 草稿補照片並發佈
+echo ===== 草稿補照片並發佈 =====
 echo.
-node upload.js todo
+node upload.js drafts
 echo.
 echo ===== 跑完了，可以關掉這個視窗 =====
 pause
