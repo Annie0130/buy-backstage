@@ -232,7 +232,7 @@ $('replyText').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(
 $('serials').addEventListener('keydown', (e) => { if (e.key === 'Enter') runAddPhotos(); });
 
 // ---------- 商品狀態 ----------
-const STAGES = { new: ['🛒 還沒上架', 'b-new'], draft: ['📝 飛鼠草稿', 'b-draft'], shopee: ['🦐 蝦皮待補', 'b-shopee'], danger: ['🚨 要馬上處理', 'b-danger'], done: ['✅ 完成', 'b-done'], error: ['⚠️ 資料不全', 'b-error'] };
+const STAGES = { new: ['🛒 還沒上架', 'b-new'], draft: ['📝 飛鼠草稿', 'b-draft'], shopee: ['🦐 蝦皮待確認', 'b-shopee'], danger: ['🚨 要馬上處理', 'b-danger'], done: ['✅ 完成', 'b-done'], error: ['⚠️ 資料不全', 'b-error'] };
 let items = [], filter = 'todo';
 async function loadStatus() {
   $('statusInfo').textContent = '讀取中…（會到官網確認，約 10 秒）';
@@ -245,7 +245,7 @@ async function loadStatus() {
 }
 function drawTable() {
   const count = (f) => items.filter(f).length;
-  const F = { todo: ['待處理', (x) => x.stage !== 'done'], all: ['全部', () => true], new: ['還沒上架', (x) => x.stage === 'new'], draft: ['草稿', (x) => x.stage === 'draft'], shopee: ['蝦皮待補', (x) => x.stage === 'shopee' || x.stage === 'danger'], done: ['完成', (x) => x.stage === 'done'] };
+  const F = { todo: ['待處理', (x) => x.stage !== 'done'], all: ['全部', () => true], new: ['還沒上架', (x) => x.stage === 'new'], draft: ['草稿', (x) => x.stage === 'draft'], shopee: ['蝦皮待確認', (x) => x.stage === 'shopee' || x.stage === 'danger'], done: ['完成', (x) => x.stage === 'done'] };
   $('filters').innerHTML = Object.entries(F).map(([k, [t, f]]) => `<button class="${filter === k ? 'on' : ''}" onclick="filter='${k}';drawTable()">${t} ${count(f)}</button>`).join('');
   const list = items.filter(F[filter][1]);
   if (!list.length) { $('table').innerHTML = '<div class="empty">沒有商品 🎉</div>'; return; }
@@ -257,8 +257,13 @@ function drawTable() {
       <td><div class="name">${esc(x.name)}</div><div class="sub">序號 ${esc(x.serial)}　${x.type}　售價 ${esc(x.price || '-')}</div><div class="sub">${esc(x.hint)}</div></td>
       <td>${x.photos ? `${x.photos} 張${x.pending ? '<div class="sub">還沒傳</div>' : ''}` : '<span class="sub">沒有</span>'}</td>
       <td style="white-space:nowrap">${live ? `<button onclick="${inList ? `saveRefill(refill.filter(s=>s!=='${esc(x.serial)}'))` : `addRefill('${esc(x.serial)}')`}">${inList ? '✓ 在補照片清單' : '＋ 補照片清單'}</button>` : ''}
-        ${x.photos && x.stage !== 'new' ? `<button onclick="run('addphotos',['${esc(x.serial)}'])">🖼️ 傳照片</button>` : ''}</td></tr>`;
+        ${x.photos && x.stage !== 'new' ? `<button onclick="run('addphotos',['${esc(x.serial)}'])">🖼️ 傳照片</button>` : ''}
+        ${x.stage === 'shopee' || x.stage === 'danger' ? `<button onclick="markShopee('${esc(x.serial)}','${esc(x.name)}')">✓ 蝦皮已手動補好</button>` : ''}</td></tr>`;
   }).join('')}</table>`;
+}
+function markShopee(sn, name) {
+  if (!confirm(`確定「${name}」（序號 ${sn}）在蝦皮已經都改好了嗎？\n\n請先到蝦皮確認這 4 件事：\n1. 保存狀況：二手\n2. NCC 字號\n3. 價格正確（2 萬以下 ×1.18、2 萬以上原價）\n4. 2 萬以上：最低購買數量 3\n\n按「確定」會記成完成，之後不會再檢查。`)) return;
+  run('markshopee', [sn]);
 }
 loadRefill(); loadStatus();
 </script>

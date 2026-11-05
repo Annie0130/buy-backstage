@@ -22,6 +22,7 @@ const COMMANDS = {
   shopee: { label: '🦐 蝦皮補資料', args: ['upload.js', 'shopee', '--auto'] },
   check: { label: '💰 蝦皮價格檢查', args: ['upload.js', 'shopee', '--auto', '--check'] },
   todo: { label: '📋 待辦清單', args: ['upload.js', 'todo'] },
+  markshopee: { label: '✓ 蝦皮已手動補好', args: ['upload.js', 'markshopee'], serials: true },
   update: { label: '🔄 更新程式', args: ['update.js'] },
 };
 

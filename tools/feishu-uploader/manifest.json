@@ -1,6 +1,6 @@
 {
- "version": "20261105-2037",
- "note": "補照片不會再重複上傳（飛鼠上已經有照片就略過）",
+ "version": "20261105-2040",
+ "note": "控制台：「蝦皮待補」改名「蝦皮待確認」，新增「✓ 蝦皮已手動補好」按鈕",
  "files": [
   {
    "path": "package.json",
@@ -10,12 +10,12 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "4d7965db067773e957ce68b9853e1525c7119d1f6e3b31e571f2634a50ca533e"
+   "sha256": "62f256c480df1e93bfb441496095bfe62dfb69c8ed514f718efb9afb420a9373"
   },
   {
    "path": "panel.js",
    "url": "f02.js.txt",
-   "sha256": "2cb347e9d950723e7b5aea64a40cfe9303d630b3d55aa5a69a9ecab56a596942"
+   "sha256": "eaf8d6e3a8ad7814a354a5c1b047c5d5dc37f8e447f434bd2ceb80468936051c"
   },
   {
    "path": "shopee-minqty.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "0d63ad44f57918d26147daf8dc76cbfc2ced2611feb62647b62d69804f936f8e"
+   "sha256": "e0646994bdf83be6e0e1c5beb4a07a09b0859365fbd2e5c8fd385fff55fdc394"
   },
   {
    "path": "★一鍵上架.bat",

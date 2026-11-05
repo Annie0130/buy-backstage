@@ -2110,7 +2110,7 @@ async function statusMain() {
     else if (live) {
       if (sp && sp.status.startsWith('成功')) { stage = 'done'; hint = '全部完成'; }
       else if (sp && sp.status.includes('🚨')) { stage = 'danger'; hint = sp.note.slice(0, 80); }
-      else { stage = 'shopee'; hint = sp ? `蝦皮上次${sp.status}：${sp.note.slice(0, 50)}` : '蝦皮還沒補資料'; }
+      else { stage = 'shopee'; hint = sp ? `蝦皮上次${sp.status}：${sp.note.slice(0, 50)}` : '蝦皮資料還沒確認（保存狀況、NCC、價格、最低購買數量）→ 按「💰 蝦皮價格檢查」'; }
     } else if (f && f.status.startsWith('成功') || /草稿/.test(r._fsStatus || '')) { stage = 'draft'; hint = '飛鼠草稿（官網還看不到）'; }
     else if (miss.length) { stage = 'error'; hint = '缺 ' + miss.join('、'); }
     else { stage = 'new'; hint = f ? `上次${f.status}：${f.note.slice(0, 50)}` : '還沒上架'; }
@@ -2119,6 +2119,16 @@ async function statusMain() {
   }));
   out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
   console.log('__STATUS__' + JSON.stringify({ items: out, refill, inbox: fs.existsSync(INBOX_DIR) ? fs.readdirSync(INBOX_DIR).filter((x) => IMG_RE.test(x)).length : 0 }));
+}
+// 控制台用：蝦皮已經手動改好 → 記成完成（node upload.js markshopee 序號…）
+async function markShopeeMain() {
+  const serials = process.argv.slice(3).filter((a) => !a.startsWith('--'));
+  const rows = await readAirtable().catch(() => []);
+  for (const sn of serials) {
+    const r = rows.find((x) => x['條碼'] === sn) || {};
+    shopeeLog(r['商品名稱'] || '', sn, '成功（手動確認）', '在控制台按「已手動補好」');
+    console.log(`✅ ${r['商品名稱'] || ''} 序號 ${sn}：蝦皮記成已補好`);
+  }
 }
 async function todoMain() {
   const rows = await readAirtable();
@@ -2519,7 +2529,7 @@ async function checkUpdate() {
     if (m.version && m.version !== local) console.log(`\n🔔 上架程式有新版（${m.version}）！跑完後雙擊「更新程式.bat」就會自動更新${m.note ? '：' + m.note : ''}\n`);
   } catch (e) {}
 }
-if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
+if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
