@@ -2112,7 +2112,7 @@ async function statusMain() {
     autoFill(r);
     const sn = r['條碼'];
     const f = feishu.get(keyOf(r)), sp = shopee.get(sn);
-    const live = sn && (f && f.status.startsWith('成功') || /已上架|草稿/.test(r._fsStatus || '')) ? await isOnStorefront(sn) : false;
+    const live = sn ? await isOnStorefront(sn) : false; // 每件都到官網確認（手動上架的也算）
     let stage, hint;
     const miss = validate(r);
     if (!sn) { stage = 'error'; hint = '沒有序號'; }
@@ -2123,11 +2123,17 @@ async function statusMain() {
     } else if (f && f.status.startsWith('成功') || /草稿/.test(r._fsStatus || '')) { stage = 'draft'; hint = '飛鼠草稿（官網還看不到）'; }
     else if (miss.length) { stage = 'error'; hint = '缺 ' + miss.join('、'); }
     else { stage = 'new'; hint = f ? `上次${f.status}：${f.note.slice(0, 50)}` : '還沒上架'; }
+    // 收購後台狀態沒跟上的，順便補寫回去
+    if (live && sn) {
+      const want = stage === 'done' ? '飛鼠已上架＋蝦皮已補' : '飛鼠已上架';
+      if (!String(r._fsStatus || '').startsWith(want) || (want === '飛鼠已上架' && /蝦皮/.test(r._fsStatus || ''))) setFeishuStatus(sn, want, r._id);
+    }
     out.push({ name: r['商品名稱'], serial: sn, price: r['銷售價'], type: gearType(r) === 'lens' ? '鏡頭' : '相機',
       photos: sn ? productPhotos(sn).length : 0, pending: sn ? photosPending(sn) : false, stage, hint, refill: refill.includes(sn), date: r['交易日期'] || '' });
   }));
   out.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  console.log('__STATUS__' + JSON.stringify({ items: out, refill, inbox: fs.existsSync(INBOX_DIR) ? fs.readdirSync(INBOX_DIR).filter((x) => IMG_RE.test(x)).length : 0 }));
+  await flushAirtable();
+  console.log('__STATUS__' + JSON.stringify({ writeOff: AT_WRITE_OFF, items: out, refill, inbox: fs.existsSync(INBOX_DIR) ? fs.readdirSync(INBOX_DIR).filter((x) => IMG_RE.test(x)).length : 0 }));
 }
 // 控制台用：蝦皮已經手動改好 → 記成完成（node upload.js markshopee 序號…）
 async function markShopeeMain() {

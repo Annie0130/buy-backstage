@@ -1,6 +1,6 @@
 {
- "version": "20261105-2052",
- "note": "支援 Mac（.command 按鈕）",
+ "version": "20261105-2055",
+ "note": "控制台重新整理時，會自動把已上架的商品回寫到收購後台",
  "files": [
   {
    "path": "package.json",
@@ -10,7 +10,7 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "7a0c41b95f1910c68f8fe0ebcc0ad1a994f1cb2ed0beaa4702fc2b396edf632a"
+   "sha256": "87d35b70f3d66a1e52ccceed96ca673ee09f65137c8696fa5f17eb67a01f6b44"
   },
   {
    "path": "panel.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "c110e9ce30eb19661f3517aba9e0493be4544bda42b17e04efe186f16fbaf3ff"
+   "sha256": "8ec0461d55eb8f932f9d050a053aeef3415bee4ab56e64573dad3036c513a45d"
   },
   {
    "path": "★一鍵上架.bat",

@@ -256,6 +256,10 @@ async function loadStatus() {
   const r = await (await fetch('/api/status')).json().catch(() => ({ ok: false, msg: '控制台沒有回應' }));
   if (!r.ok) { $('statusInfo').textContent = '讀取失敗'; $('table').innerHTML = `<div class="empty">${esc(r.msg)}</div>`; return; }
   items = r.items;
+  if (r.writeOff) {
+    $('alert').innerHTML = '⚠️ Airtable 金鑰沒有「寫入」權限，收購後台的上架狀態不會自動更新。<br>請到 airtable.com/create/tokens 打開你的金鑰 → Scopes 加上 <b>data.records:write</b> → Save changes（金鑰不用重貼）。';
+    $('alert').classList.add('show');
+  }
   $('inboxInfo').textContent = r.inbox ? `收件匣現在有 ${r.inbox} 張照片` : '收件匣是空的，照片全部放進來';
   $('statusInfo').textContent = `收購後台有標記的 ${items.length} 件`;
   drawTable();
