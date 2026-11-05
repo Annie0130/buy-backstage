@@ -673,6 +673,7 @@ async function exportSelected(){
     try{
       const params = new URLSearchParams();
       Object.keys(rowData).forEach(k=>params.append(k, rowData[k]));
+      params.append('airtableId', r.id); // 讓試算表記下這一列對應哪筆 Airtable 紀錄，KEY 售價時才找得到
       await fetch(SHEET_URL+'?'+params.toString(),{method:'GET',mode:'no-cors'});
       success++;
     }catch(e){ fail++; }
