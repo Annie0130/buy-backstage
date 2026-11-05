@@ -1688,7 +1688,8 @@ function buildCardHTML(d, accOverride) {
   ).join('');
 
   // spec rows
-  const shutterText = hasShutter ? ` <span style="color:#8a96a5;font-weight:500">約 ${parseInt(d.shutter).toLocaleString()} 次</span>` : '';
+  // 寫清楚是「快門數」，只寫「約 6,000 次」客人看不懂
+  const shutterText = hasShutter ? ` <span style="color:#555;font-weight:600">快門數 ${parseInt(d.shutter)}</span>` : '';
   const originText = d.origin === '水貨' ? '平行輸入' : (d.origin || '—');
   const specs = [
     {label:'新舊', val:`${d.cond ? `<span class="lcard-cond-tag${condCls}">${condText}</span>` : ''}${shutterText}`, empty: !d.cond && !hasShutter},
