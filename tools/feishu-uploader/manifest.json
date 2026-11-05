@@ -1,6 +1,6 @@
 {
- "version": "20261105-1958",
- "note": "加入自動更新；補照片會先確認 SPU；修正標題變成 S95",
+ "version": "20261105-2003",
+ "note": "蝦皮補資料時會檢查價格（不對自動改）；新增「蝦皮價格檢查.bat」",
  "files": [
   {
    "path": "package.json",
@@ -20,7 +20,7 @@
   {
    "path": "upload.js",
    "url": "f03.js.txt",
-   "sha256": "d7ad92aa5299e31460c885a4addd8dd5160e8afdfaf8e4bc5eb4970388ffc9a0"
+   "sha256": "b678ae4e826a8715648386ab2ea4ceed4d83b19b1f36fc99af3f278c2230ecab"
   },
   {
    "path": "★一鍵上架.bat",
@@ -30,7 +30,7 @@
   {
    "path": "使用說明.txt",
    "url": "f05.txt.txt",
-   "sha256": "c81ba7c944d5acac3eabf6ba765f14836e1e57065307ec9b13a48bd2ff4d7f35"
+   "sha256": "a6e0a61b7b68630e6e32e6f5da8ae7f4087ab27b1fb8b353292cdd37a3c5c72f"
   },
   {
    "path": "其他功能/0_拍照順序.bat",
@@ -73,8 +73,13 @@
    "sha256": "94b07cf4d384833f2565f00279c4e7d64b6f9ca20319d970431206f8d4dcab0d"
   },
   {
-   "path": "補照片.bat",
+   "path": "蝦皮價格檢查.bat",
    "url": "f14.bat.txt",
+   "sha256": "af00fc116b6e9debb42212ff7fb6c0b9aa95a50fbdf06c36b70b4dd2ecd347a6"
+  },
+  {
+   "path": "補照片.bat",
+   "url": "f15.bat.txt",
    "sha256": "fa1a5326c05aa985e668810f8819d92798afece7feb0b8616a6ee86292b42654"
   }
  ],

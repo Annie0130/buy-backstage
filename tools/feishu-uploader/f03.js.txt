@@ -2207,6 +2207,28 @@ async function setMinQty(p) {
   return before;
 }
 
+// 蝦皮價格檢查：應該是多少 → 2 萬以下 售價×1.18 進位到百；2 萬以上 原價
+function expectedShopeePrice(price) {
+  const n = Number(price);
+  if (!n) return 0;
+  return n >= CONFIG.shopee.highPrice ? n : Number(shopeePrice(n));
+}
+async function checkShopeePrice(p, price) {
+  const want = expectedShopeePrice(price);
+  if (!want) return { ok: false, msg: '收購紀錄沒有售價，蝦皮價格無法檢查' };
+  const tab = p.getByText('銷售資訊', { exact: true }).first();
+  if (await tab.isVisible().catch(() => false)) { await tab.click().catch(() => {}); await p.waitForTimeout(800); }
+  const box = await visibleFieldAfter(p, '價格');
+  if (!box) return { ok: false, msg: `找不到蝦皮「價格」欄位，請手動確認價格是 ${want}` };
+  const cur = Number(String(await box.inputValue().catch(() => '')).replace(/[^\d.]/g, '')) || 0;
+  if (cur === want) return { ok: true, cur, want, changed: false };
+  await box.fill(String(want), { timeout: 5000 });
+  await box.press('Tab').catch(() => {});
+  await p.waitForTimeout(400);
+  const now = Number(String(await box.inputValue().catch(() => '')).replace(/[^\d.]/g, '')) || 0;
+  if (now !== want) return { ok: false, msg: `蝦皮價格是 ${cur}，應該是 ${want}，改不過去，請馬上手動改！` };
+  return { ok: true, cur, want, changed: true };
+}
 async function save(p) {
   const btns = p.locator('button').filter({ hasText: /^\s*(更新|儲存並上架|儲存)\s*$/ });
   for (let k = 0, n = await btns.count(); k < n; k++) {
@@ -2295,10 +2317,12 @@ async function setShopeeNcc(p, ncc) {
   return true;
 }
 
+const DANGER = [];
 async function shopeeMain() {
   const auto = process.argv.includes('--auto');
+  const recheck = process.argv.includes('--check'); // 全部重新檢查（補過的也再看一次價格）
   const done = loadDoneSerials();
-  let targets = (await findTargets()).filter((t) => !done.has(t.serial));
+  let targets = (await findTargets()).filter((t) => recheck || !done.has(t.serial));
 
   if (!targets.length) {
     console.log('沒有需要補蝦皮資料的商品。');
@@ -2344,17 +2368,33 @@ async function shopeeMain() {
       } else {
         notes.push(`NCC字號.csv 沒有「${t.name || t.serial}」，NCC 請手動填`);
       }
-      // 3) 2 萬以上：最低購買數量 3
+      // 3) 2 萬以上：最低購買數量 3（改不成功一定要提醒，不然會被用錯的方式下標）
       if (!t.price || t.price >= CONFIG.shopee.highPrice) {
-        const before = await setMinQty(p);
-        console.log(`   ✏️ 最低購買數量：${before || '?'} → ${SHOPEE.minQty}`);
+        const before = await setMinQty(p).catch(() => null);
+        if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${SHOPEE.minQty}，請馬上到蝦皮手動改！`); }
+        else console.log(`   ✏️ 最低購買數量：${before || '?'} → ${SHOPEE.minQty}`);
       }
+      // 4) 價格檢查：不對就改成正確價格
+      const pr = await checkShopeePrice(p, t.price).catch((e) => ({ ok: false, msg: '價格檢查失敗：' + e.message }));
+      if (!pr.ok) { failed.push('價格'); notes.push('🚨 ' + pr.msg); }
+      else if (pr.changed) console.log(`   💰 蝦皮價格不對：${pr.cur} → 改成 ${pr.want}`);
+      else console.log(`   💰 蝦皮價格正確：${pr.want}`);
       notes.forEach((x) => console.log('   • ' + x));
       if (failed.length) await dumpShopeeFields(p, failed.map((x) => (x === '保存狀況' ? '保存狀況' : 'NCC')));
-      if (auto && failed.length) {
+      const danger = failed.some((x) => x === '價格' || x === '最低購買數量');
+      if (auto && failed.length && !danger) {
         console.log('   ⏭️ 有欄位沒填成功，這筆先不儲存，之後再手動補（已記在紀錄檔）');
         shopeeLog(t.name, t.serial, '需手動補', notes.join('；'));
         continue;
+      }
+      if (danger) {
+        // 價格／最低購買數量有問題：先把改得動的存起來，並大聲提醒
+        DANGER.push(`${t.name || ''} 序號 ${t.serial}：${notes.filter((x) => x.startsWith('🚨')).join('；')}`);
+        if (auto) {
+          await save(p).catch(() => false);
+          shopeeLog(t.name, t.serial, '🚨需馬上處理', notes.join('；'));
+          continue;
+        }
       }
       if (auto) {
         if (!(await save(p))) throw new Error('找不到「更新」按鈕，已填好，請手動按儲存');
@@ -2382,6 +2422,11 @@ async function shopeeMain() {
     }
   }
   console.log(`\n完成：成功 ${ok} 筆、失敗 ${fail} 筆。紀錄在 ${SHOPEE.logFile}`);
+  if (DANGER.length) {
+    console.log('\n🚨🚨🚨 下面這些蝦皮價格／最低購買數量有問題，請「馬上」到蝦皮手動改，不然可能被用錯的價格下標：');
+    DANGER.forEach((x) => console.log('   🚨 ' + x));
+    console.log('   （不確定的話，可以先在蝦皮把這幾件「下架」，改好再上架）');
+  }
   if (!auto) await ask('按 Enter 關閉瀏覽器...');
   closeAsk();
   await ctx.close();
