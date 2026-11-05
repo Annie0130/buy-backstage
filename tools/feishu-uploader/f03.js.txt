@@ -1609,6 +1609,7 @@ function lastFeishuStatus() {
 }
 // 補照片清單：已經上架的商品要補拍照時，把序號一行一個打在這個檔案裡（照拍照順序）
 const REFILL_FILE = path.join(__dirname, '補照片清單.txt');
+let LAST_REFILL = []; // 這次分組用到的補照片清單序號
 function ensureRefillFile() {
   if (fs.existsSync(REFILL_FILE)) return;
   fs.writeFileSync(REFILL_FILE, '\uFEFF# 補照片清單：已經上架、要補拍照片的商品，照拍照順序一行打一個序號\r\n# 例如：\r\n# 70039\r\n# 008362\r\n# （# 開頭的行不會被讀取；清單是空的就照收購後台的標記）\r\n', 'utf8');
@@ -1781,6 +1782,7 @@ ${warn ? `<p class="warn">${warn}</p>` : ''}${sec}${missingRows ? `<h2 style="co
   });
   for (const it of items) fs.renameSync(it.src, path.join(backup, it.file)); // 原始照片移到已處理（不會刪掉）
   console.log(`\n完成！原始照片已移到 ${backup}`);
+  LAST_REFILL = rows.filter((r) => r._refill).map((r) => r['條碼']);
   if (rows.some((r) => r._refill) && fs.existsSync(REFILL_FILE)) {
     fs.renameSync(REFILL_FILE, path.join(backup, '補照片清單（已用）.txt'));
     ensureRefillFile();
@@ -1796,7 +1798,17 @@ const isEditPage = (page) => page.getByText('商品編輯', { exact: true }).fir
 async function draftTargets() {
   const st = lastFeishuStatus();
   const rows = await readAirtable();
-  return rows.filter((r) => r['條碼'] && (st.get(keyOf(r)) || '').includes('草稿') && photosPending(r['條碼']));
+  const cand = rows.filter((r) => r['條碼'] && (st.get(keyOf(r)) || '').includes('草稿') && photosPending(r['條碼']));
+  // 紀錄寫草稿、但其實已經上架了（例如在飛鼠手動按了發佈）→ 不再處理，紀錄改成已上架
+  const out = [];
+  for (const r of cand) {
+    if (/已上架/.test(r._fsStatus || '') || (await isOnStorefront(r['條碼']))) {
+      console.log(`⏭️  ${r['商品名稱']}　序號 ${r['條碼']} 已經上架了（不是草稿），略過`);
+      log(r, '成功（已建立）', '官網已有，補記紀錄');
+      recordPhotoUpload(r['條碼']);
+    } else out.push(r);
+  }
+  return out;
 }
 async function openDraftEditor(page, serial, { useSearch = false } = {}) {
   // 商品管理 → 商品列表 → 「草稿」分頁
@@ -1923,7 +1935,8 @@ async function addPhotosMain(opts = {}) {
       && !/草稿|已上架/.test(r._fsStatus || '')                       // 收購後台顯示已在飛鼠
       && !/重複|已存在|已被使用/.test(notes.get(keyOf(r)) || '')).map((r) => r['條碼'])); // 建立時說編號重複 = 飛鼠上已經有（多半是草稿）
     const dirs = fs.existsSync(PHOTO_DIR) ? fs.readdirSync(PHOTO_DIR, { withFileTypes: true }).filter((d) => d.isDirectory() && !['收件匣', '已處理'].includes(d.name)).map((d) => d.name) : [];
-    const pending = dirs.filter((sn) => photosPending(sn) && !notYetListed.has(sn));
+    let pending = dirs.filter((sn) => photosPending(sn) && !notYetListed.has(sn));
+    if (opts.keepQuiet) pending = pending.filter((sn) => LAST_REFILL.includes(sn)); // 一鍵上架：只補「補照片清單」裡的
     targets = pending.length ? await rowsBySerials(pending) : [];
   }
   if (!targets.length) {
