@@ -1,0 +1,94 @@
+{
+ "version": "20261105-1958",
+ "note": "加入自動更新；補照片會先確認 SPU；修正標題變成 S95",
+ "files": [
+  {
+   "path": "package.json",
+   "url": "f00.json.txt",
+   "sha256": "dd611abb9a95323bb6fe5ac4923f05570040a1d62f6b8b64263f1062d7ba2cb4"
+  },
+  {
+   "path": "shopee-minqty.js",
+   "url": "f01.js.txt",
+   "sha256": "e1487fd319267ad3b41ddb2a96c601d7c23119d084ede782286b8647bc0c647d"
+  },
+  {
+   "path": "update.js",
+   "url": "f02.js.txt",
+   "sha256": "a1a03ddb282a8959a4778f885aae9c5c6d33b9c6990edde384134d2d309a1559"
+  },
+  {
+   "path": "upload.js",
+   "url": "f03.js.txt",
+   "sha256": "d7ad92aa5299e31460c885a4addd8dd5160e8afdfaf8e4bc5eb4970388ffc9a0"
+  },
+  {
+   "path": "★一鍵上架.bat",
+   "url": "f04.bat.txt",
+   "sha256": "722f87454e3ec84d9f01fb63598b43b12c97096aaf86fc1b0a9d6793fa60143a"
+  },
+  {
+   "path": "使用說明.txt",
+   "url": "f05.txt.txt",
+   "sha256": "c81ba7c944d5acac3eabf6ba765f14836e1e57065307ec9b13a48bd2ff4d7f35"
+  },
+  {
+   "path": "其他功能/0_拍照順序.bat",
+   "url": "f06.bat.txt",
+   "sha256": "11cd1e18c15c130b1440f8e7301778c87ed801819c54352723e5151a21ce2691"
+  },
+  {
+   "path": "其他功能/0_照片分組.bat",
+   "url": "f07.bat.txt",
+   "sha256": "a7ba3d19f8d40f6906471523ecfe8328052f7124df3872bf78aa475369508787"
+  },
+  {
+   "path": "其他功能/1_飛鼠上架（存草稿）.bat",
+   "url": "f08.bat.txt",
+   "sha256": "212f4954b8f8d19919714ef63aa92f9ceaac059a752d9610ecb9381b057a8100"
+  },
+  {
+   "path": "其他功能/2_蝦皮補資料.bat",
+   "url": "f09.bat.txt",
+   "sha256": "7db3799feb534c22c83c21ef9f6363858b6c7862e8fd918a4dad23b9d9e1892a"
+  },
+  {
+   "path": "其他功能/4_草稿補照片並發佈.bat",
+   "url": "f10.bat.txt",
+   "sha256": "8476c53ab8950c21841bd7c5b6d41942135a412e89ef6553c003672a3569ac38"
+  },
+  {
+   "path": "待辦清單.bat",
+   "url": "f11.bat.txt",
+   "sha256": "cc0ee0459bcece7c9abc9f974b2fcf975a77a824a57e699c979f15d4c22fa0fd"
+  },
+  {
+   "path": "拍攝中.jpg",
+   "url": "f12.jpg",
+   "sha256": "15eb65ffa3f9502f307ec81e57483d08c332f3a294b52d992cd63021e4f37541"
+  },
+  {
+   "path": "更新程式.bat",
+   "url": "f13.bat.txt",
+   "sha256": "94b07cf4d384833f2565f00279c4e7d64b6f9ca20319d970431206f8d4dcab0d"
+  },
+  {
+   "path": "補照片.bat",
+   "url": "f14.bat.txt",
+   "sha256": "fa1a5326c05aa985e668810f8819d92798afece7feb0b8616a6ee86292b42654"
+  }
+ ],
+ "remove": [
+  "★一鍵上架（照片＋建立＋蝦皮）.bat",
+  "3_待辦清單.bat",
+  "0_拍照順序.bat",
+  "0_照片分組.bat",
+  "1_飛鼠上架（存草稿）.bat",
+  "2_蝦皮補資料.bat",
+  "4_草稿補照片並發佈.bat",
+  "5_單獨補照片.bat",
+  "其他功能/5_單獨補照片.bat",
+  "圖片欄位診斷.txt",
+  "欄位診斷.txt"
+ ]
+}

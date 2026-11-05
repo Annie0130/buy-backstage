@@ -1,0 +1,11 @@
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+title 更新程式
+echo ===== 更新上架程式到最新版 =====
+echo （不會動金鑰、紀錄、照片）
+echo.
+node update.js
+echo.
+echo ===== 跑完了，可以關掉這個視窗 =====
+pause

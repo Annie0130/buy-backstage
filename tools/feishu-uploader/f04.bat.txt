@@ -1,0 +1,10 @@
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+title 一鍵上架（沒照片時：顯示拍照順序／有照片時：上架）
+echo ===== 一鍵上架（沒照片時：顯示拍照順序／有照片時：上架） =====
+echo.
+node upload.js all
+echo.
+echo ===== 跑完了，可以關掉這個視窗 =====
+pause
