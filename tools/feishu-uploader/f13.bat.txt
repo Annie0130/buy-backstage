@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0.."
+pushd "%~dp0.."
 title 蝦皮補資料：二手、NCC、最低購買數量
 echo ===== 蝦皮補資料：二手、NCC、最低購買數量 =====
 echo.

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0.."
+pushd "%~dp0.."
 title 草稿補照片並發佈
 echo ===== 草稿補照片並發佈 =====
 echo.

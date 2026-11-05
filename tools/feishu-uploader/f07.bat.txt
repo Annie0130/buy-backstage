@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+pushd "%~dp0"
 title 上架控制台（這個視窗不要關）
 echo ===== 上架控制台 =====
 echo 瀏覽器會自動打開 http://localhost:3939

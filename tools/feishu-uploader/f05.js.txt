@@ -16,7 +16,22 @@ const path = require('path');
 const readline = require('readline');
 
 // 開啟 Chrome；同一份登入資料已經有 Chrome 在用時，給中文提示
+// 舊版把登入資料放在程式資料夾的 chrome-profile：第一次自動搬到這台電腦自己的位置（不用重新登入）
+function migrateProfile() {
+  const old = path.join(__dirname, 'chrome-profile');
+  if (fs.existsSync(CONFIG.profileDir) || !fs.existsSync(old)) return;
+  const owner = fs.existsSync(path.join(old, '平台.txt')) ? fs.readFileSync(path.join(old, '平台.txt'), 'utf8').trim() : 'win32';
+  if (owner !== process.platform) return; // 別台電腦的登入資料不能用
+  try {
+    console.log('（第一次：把登入資料搬到這台電腦，約 10～30 秒…）');
+    fs.mkdirSync(path.dirname(CONFIG.profileDir), { recursive: true });
+    fs.cpSync(old, CONFIG.profileDir, { recursive: true });
+    fs.renameSync(old, old + '（舊，已搬走，可以刪）');
+  } catch (e) { console.log('   登入資料沒搬成功，等一下請重新登入一次'); }
+}
 async function launchBrowser(opts) {
+  migrateProfile();
+  fs.mkdirSync(CONFIG.profileDir, { recursive: true });
   try {
     return await chromium.launchPersistentContext(CONFIG.profileDir, opts);
   } catch (e) {
@@ -86,7 +101,8 @@ const CONFIG = {
   browserChannel: 'chrome',
 
   // 登入狀態會存在這個資料夾，下次執行不用重新登入
-  profileDir: path.join(__dirname, 'chrome-profile'),
+  // 登入資料放在這台電腦自己的硬碟（Mac、Windows 各一份；共享資料夾裡放 Chrome 會很慢又容易壞）
+  profileDir: path.join(require('os').homedir(), '.linscam-uploader', `chrome-profile-${process.platform}`),
 
   // 上架紀錄：成功的會記錄下來，重跑時自動跳過，不會重複上架
   logFile: path.join(__dirname, '上架紀錄.csv'),
@@ -2534,6 +2550,34 @@ async function shopeeMain() {
 }
 
 
+// 兩台電腦（例如 Mac 和 Windows 共用資料夾）不能同時跑，不然紀錄會打架
+const LOCK_FILE = path.join(__dirname, '使用中.lock');
+const HOST = require('os').hostname();
+const MACHINE = process.platform === 'darwin' ? 'Mac' : process.platform === 'win32' ? 'Windows 電腦' : '另一台電腦';
+function takeLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const l = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+      const fresh = Date.now() - l.time < 3 * 60 * 1000; // 3 分鐘內有更新 = 還在跑
+      let alive = true;
+      if (l.host === HOST) { try { process.kill(l.pid, 0); } catch (e) { alive = false; } } // 同一台電腦：那個程式已經關掉就不算
+      if (fresh && alive && !(l.host === HOST && l.pid === process.pid)) {
+        const who = l.host === HOST ? '這台電腦的另一個視窗' : `${l.machine}（${l.host}）`;
+        console.log(`\n⛔ ${who}正在跑「${l.what}」，請等它跑完再按。`);
+        console.log('   （如果確定沒有在跑，等 3 分鐘後再試，或刪掉資料夾裡的「使用中.lock」）');
+        process.exit(1);
+      }
+    }
+    const write = () => fs.writeFileSync(LOCK_FILE, JSON.stringify({ host: HOST, machine: MACHINE, pid: process.pid, what: ({ all: '一鍵上架', photos: process.argv.includes('--order') ? '拍照順序' : '照片分組', addphotos: '補照片', shopee: '蝦皮補資料', airtable: '飛鼠上架', drafts: '草稿補照片', markshopee: '記錄蝦皮完成' })[process.argv[2]] || process.argv.slice(2).join(' '), time: Date.now() }));
+    write();
+    setInterval(() => { try { write(); } catch (e) {} }, 60 * 1000).unref();
+    const release = () => { try { const l = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')); if (l.host === HOST && l.pid === process.pid) fs.unlinkSync(LOCK_FILE); } catch (e) {} };
+    process.on('exit', release);
+    process.on('SIGINT', () => { release(); process.exit(130); });
+    process.on('SIGTERM', () => { release(); process.exit(143); });
+  } catch (e) {}
+}
+const READ_ONLY_CMDS = ['status', 'todo'];
 // 有新版時提醒（最多等 3 秒，查不到就算了）
 async function checkUpdate() {
   try {
@@ -2544,6 +2588,7 @@ async function checkUpdate() {
     if (m.version && m.version !== local) console.log(`\n🔔 上架程式有新版（${m.version}）！跑完後雙擊「更新程式.bat」就會自動更新${m.note ? '：' + m.note : ''}\n`);
   } catch (e) {}
 }
+if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
 if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()

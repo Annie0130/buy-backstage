@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
+pushd "%~dp0"
 title 待辦清單：哪些還沒做完
 echo ===== 待辦清單：哪些還沒做完 =====
 echo.

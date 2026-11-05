@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0.."
+pushd "%~dp0.."
 title 照片分組：收件匣的照片依黑畫面分組
 echo ===== 照片分組：收件匣的照片依黑畫面分組 =====
 echo.

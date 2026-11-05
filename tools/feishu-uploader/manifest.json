@@ -1,6 +1,6 @@
 {
- "version": "20261105-2055",
- "note": "控制台重新整理時，會自動把已上架的商品回寫到收購後台",
+ "version": "20261105-2100",
+ "note": "支援 Mac、Windows 共用同一個共享資料夾",
  "files": [
   {
    "path": "package.json",
@@ -30,17 +30,17 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "8ec0461d55eb8f932f9d050a053aeef3415bee4ab56e64573dad3036c513a45d"
+   "sha256": "7118be58a1bf7adc5b7720c869c386acec22d03903f690aa4796099bce7c590e"
   },
   {
    "path": "★一鍵上架.bat",
    "url": "f06.bat.txt",
-   "sha256": "722f87454e3ec84d9f01fb63598b43b12c97096aaf86fc1b0a9d6793fa60143a"
+   "sha256": "1b896954b552919aa7aa2be18130b9bb1a8dcc2214dea239aac238fdfae6c317"
   },
   {
    "path": "★控制台.bat",
    "url": "f07.bat.txt",
-   "sha256": "eabe024b84639579eadf209e3bc31b60037a323a949d37a63f804acf8c6bd812"
+   "sha256": "b5b9cf524770a862bbda509f91fbacfe361510a6256cc7b9cb2b56b438a56749"
   },
   {
    "path": "★控制台.command",
@@ -50,37 +50,37 @@
   {
    "path": "使用說明.txt",
    "url": "f09.txt.txt",
-   "sha256": "20f46316c32ba0a51d09d11159354a6d6017c4fb1b4ebfc7f70284c70994dcf8"
+   "sha256": "9ec7786465d73ea1255c59814494ee3ab4d91232e6a2d72095954d89583d493b"
   },
   {
    "path": "其他功能/0_拍照順序.bat",
    "url": "f10.bat.txt",
-   "sha256": "11cd1e18c15c130b1440f8e7301778c87ed801819c54352723e5151a21ce2691"
+   "sha256": "e5c8b6e50ad043e29d9341ff43b9a8ca6939636f2aca30db5ea762fbdf3d4f10"
   },
   {
    "path": "其他功能/0_照片分組.bat",
    "url": "f11.bat.txt",
-   "sha256": "a7ba3d19f8d40f6906471523ecfe8328052f7124df3872bf78aa475369508787"
+   "sha256": "6d7694e1b3fb93c6f19fb244a54b1557ee5f13acfe0d4c76d1dab3079f381ddb"
   },
   {
    "path": "其他功能/1_飛鼠上架（存草稿）.bat",
    "url": "f12.bat.txt",
-   "sha256": "212f4954b8f8d19919714ef63aa92f9ceaac059a752d9610ecb9381b057a8100"
+   "sha256": "01158c3568e5470dcedf7edf26ea8511063cfbaf8b21c2e05a127564ef6fd08b"
   },
   {
    "path": "其他功能/2_蝦皮補資料.bat",
    "url": "f13.bat.txt",
-   "sha256": "7db3799feb534c22c83c21ef9f6363858b6c7862e8fd918a4dad23b9d9e1892a"
+   "sha256": "77913a72f2335ed14603c8e8b7217b785b63aaf6ff75291ca642a1ffc13e6065"
   },
   {
    "path": "其他功能/4_草稿補照片並發佈.bat",
    "url": "f14.bat.txt",
-   "sha256": "8476c53ab8950c21841bd7c5b6d41942135a412e89ef6553c003672a3569ac38"
+   "sha256": "c897a85d7f852969e5f9129043c8f897771419797235a43fd0aeb8d8dc793804"
   },
   {
    "path": "待辦清單.bat",
    "url": "f15.bat.txt",
-   "sha256": "cc0ee0459bcece7c9abc9f974b2fcf975a77a824a57e699c979f15d4c22fa0fd"
+   "sha256": "5c556c42199e6b213d68a56e7debb641b9c31be09e0fa8bb74e4418c0a3424a3"
   },
   {
    "path": "拍攝中.jpg",
@@ -90,7 +90,7 @@
   {
    "path": "更新程式.bat",
    "url": "f17.bat.txt",
-   "sha256": "94b07cf4d384833f2565f00279c4e7d64b6f9ca20319d970431206f8d4dcab0d"
+   "sha256": "5efc481e991b2e8b80fc127724ede94342b47cc7f51b05e08b8859f1cbf4316e"
   },
   {
    "path": "更新程式.command",
@@ -100,12 +100,12 @@
   {
    "path": "蝦皮價格檢查.bat",
    "url": "f19.bat.txt",
-   "sha256": "af00fc116b6e9debb42212ff7fb6c0b9aa95a50fbdf06c36b70b4dd2ecd347a6"
+   "sha256": "ee8ab9e98eb3b5e067517816cd0fa80182692ecccde45b026ebc1c6643e9f7f8"
   },
   {
    "path": "補照片.bat",
    "url": "f20.bat.txt",
-   "sha256": "fa1a5326c05aa985e668810f8819d92798afece7feb0b8616a6ee86292b42654"
+   "sha256": "3839fac564883662db7d66958e146bbfb990daaf3883c17d262d6a1b72c88e0b"
   }
  ],
  "remove": [
