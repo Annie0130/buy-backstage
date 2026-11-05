@@ -1030,7 +1030,8 @@ function showListing(id){
   const fnNote = (f['功能備註']||'').trim();
 
   // 判斷是否鏡頭（從器材名稱判斷，含 mm 或 F 字眼）
-  const isLens = /\dmm|\dF\d|F\d\.\d/.test(name);
+  // 名稱有「+」是機身＋鏡頭套組，算機身
+  const isLens = !/\+/.test(name) && /\dmm|\dF\d|F\d\.\d/.test(name);
 
   // 快門數從欄位解析
   const shutterRaw = f['快門數']||'';
