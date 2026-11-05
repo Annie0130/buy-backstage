@@ -57,6 +57,13 @@ tr:last-child td{border-bottom:none}
 .alert{display:none;padding:12px 14px;border-radius:12px;background:#ffe3e5;color:var(--bad);font-weight:700;margin-bottom:12px}
 .alert.show{display:block}
 .empty{color:var(--mute);text-align:center;padding:24px 0}
+.tool{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.why{color:var(--mute);font-size:13px;line-height:1.6}
+.how{margin:0 0 10px;padding-left:20px;color:var(--ink);font-size:14px}.how li{margin:2px 0}
+details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
+.advlist{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:700px){.advlist{grid-template-columns:1fr}}
+.acts{display:flex;flex-wrap:wrap;gap:6px;max-width:230px}.acts button{padding:5px 10px;font-size:13px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;opacity:0;transition:.2s;pointer-events:none;z-index:9}
 .toast.show{opacity:1}
 </style>
@@ -82,30 +89,40 @@ tr:last-child td{border-bottom:none}
     </section>
 
     <section class="card">
-      <h2>🧰 其他功能</h2>
-      <div class="tools">
-        <button onclick="run('check')">💰 蝦皮價格檢查</button>
-        <button onclick="run('shopee')">🦐 蝦皮補資料</button>
-        <button onclick="run('drafts')">📝 草稿補照片並發佈</button>
-        <button onclick="run('group')">🗂️ 只分組照片</button>
-        <button onclick="run('draft')">💾 全部存成草稿</button>
-        <button onclick="openPreview()">🖼️ 看分組預覽</button>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <input type="text" id="serials" placeholder="補照片：輸入序號（好幾個用空白隔開）" style="flex:1">
-        <button onclick="runAddPhotos()">🖼️ 補照片</button>
+      <h2>💰 上架完按一次</h2>
+      <div class="tool">
+        <button class="primary" onclick="run('check')">💰 蝦皮價格檢查</button>
+        <div class="why">每次上架完按一次。到蝦皮檢查每件商品的<b>價格、最低購買數量、保存狀況、NCC</b>，不對的自動改好，避免被用錯的價格下標。</div>
       </div>
     </section>
 
     <section class="card">
-      <h2>📋 補照片清單 <small>已上架、要補拍照的商品，照拍照順序排</small></h2>
+      <h2>📸 已經上架的商品，想重拍照片？ <small>平常不用管這區</small></h2>
+      <ol class="how">
+        <li>在下面打序號、按 Enter，加進「要重拍的清單」（或在下方商品狀態按「＋ 要重拍照片」）</li>
+        <li>按上面「步驟 1 看拍照順序」→ 這些商品會排在最前面</li>
+        <li>照順序拍好、放進收件匣，按「步驟 3 一鍵上架」，照片就會傳到這些商品上</li>
+      </ol>
       <div class="chips" id="chips"></div>
       <div class="row" style="margin-top:10px">
-        <input type="text" id="refillInput" placeholder="輸入序號按 Enter 加入" style="flex:1">
+        <input type="text" id="refillInput" placeholder="輸入要重拍的商品序號，按 Enter" style="flex:1">
         <button onclick="addRefill()">＋ 加入</button>
         <button onclick="saveRefill([])" class="danger">清空</button>
       </div>
+      <div class="why" style="margin-top:8px">⚠️ 要「換掉」舊照片的話，請先到飛鼠把舊照片刪掉（飛鼠上已經有照片的不會重複傳）。</div>
     </section>
+
+    <details class="card adv">
+      <summary>🔧 進階功能（平常不用，出問題時才用）</summary>
+      <div class="advlist">
+        <div class="tool"><button onclick="run('shopee')">🦐 蝦皮補資料</button><div class="why">只補「還沒補過」的商品。一鍵上架最後會自動做，通常不用按。</div></div>
+        <div class="tool"><button onclick="run('drafts')">📝 草稿補照片並發佈</button><div class="why">飛鼠上是草稿、照片已經分好的商品：傳照片並按發佈。一鍵上架會自動做。</div></div>
+        <div class="tool"><button onclick="run('group')">🗂️ 只分組照片</button><div class="why">只把收件匣的照片分組，不上架。</div></div>
+        <div class="tool"><button onclick="openPreview()">🖼️ 看分組預覽</button><div class="why">再看一次上次照片分組的結果。</div></div>
+        <div class="tool"><button onclick="run('draft')">💾 全部存成草稿</button><div class="why">不管有沒有照片，標記的商品全部先存成飛鼠草稿（不會上架）。</div></div>
+        <div class="tool"><div class="row" style="width:100%"><input type="text" id="serials" placeholder="商品序號（好幾個用空白隔開）" style="flex:1"><button onclick="runAddPhotos()">🖼️ 傳照片</button></div><div class="why">照片已經在「商品照片\序號」資料夾裡，直接傳到飛鼠那件商品（已經有照片的會略過）。</div></div>
+      </div>
+    </details>
 
     <section class="card">
       <h2>📦 商品狀態 <small id="statusInfo">讀取中…</small><span class="spacer"></span><button onclick="loadStatus()">↻ 重新整理</button></h2>
@@ -225,7 +242,7 @@ function addRefill(sn) {
 function drawChips() {
   $('chips').innerHTML = refill.length
     ? refill.map((s, i) => `<span class="chip">${i + 1}. ${esc(s)}<button title="移除" onclick="saveRefill(refill.filter(x=>x!=='${esc(s)}'))">✕</button></span>`).join('')
-    : '<span class="sub">（空的：拍照順序只會列收購後台標記、還沒上架的新商品）</span>';
+    : '<span class="sub">（目前沒有要重拍的商品）</span>';
 }
 $('refillInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addRefill(); });
 $('replyText').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(e.target.value); });
@@ -255,10 +272,10 @@ function drawTable() {
     const live = x.stage === 'shopee' || x.stage === 'done' || x.stage === 'danger';
     return `<tr><td><span class="badge ${c}">${t}</span></td>
       <td><div class="name">${esc(x.name)}</div><div class="sub">序號 ${esc(x.serial)}　${x.type}　售價 ${esc(x.price || '-')}</div><div class="sub">${esc(x.hint)}</div></td>
-      <td>${x.photos ? `${x.photos} 張${x.pending ? '<div class="sub">還沒傳</div>' : ''}` : '<span class="sub">沒有</span>'}</td>
-      <td style="white-space:nowrap">${live ? `<button onclick="${inList ? `saveRefill(refill.filter(s=>s!=='${esc(x.serial)}'))` : `addRefill('${esc(x.serial)}')`}">${inList ? '✓ 在補照片清單' : '＋ 補照片清單'}</button>` : ''}
+      <td style="white-space:nowrap">${x.photos ? `${x.photos} 張${x.pending ? '<div class="sub">還沒傳</div>' : ''}` : '<span class="sub">沒有</span>'}</td>
+      <td><div class="acts">${live ? `<button onclick="${inList ? `saveRefill(refill.filter(s=>s!=='${esc(x.serial)}'))` : `addRefill('${esc(x.serial)}')`}">${inList ? '✓ 已加入重拍清單' : '＋ 要重拍照片'}</button>` : ''}
         ${x.photos && x.stage !== 'new' ? `<button onclick="run('addphotos',['${esc(x.serial)}'])">🖼️ 傳照片</button>` : ''}
-        ${x.stage === 'shopee' || x.stage === 'danger' ? `<button onclick="markShopee('${esc(x.serial)}','${esc(x.name)}')">✓ 蝦皮已手動補好</button>` : ''}</td></tr>`;
+        ${x.stage === 'shopee' || x.stage === 'danger' ? `<button onclick="markShopee('${esc(x.serial)}','${esc(x.name)}')">✓ 蝦皮已手動補好</button>` : ''}</div></td></tr>`;
   }).join('')}</table>`;
 }
 function markShopee(sn, name) {

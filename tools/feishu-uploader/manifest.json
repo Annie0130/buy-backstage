@@ -1,6 +1,6 @@
 {
- "version": "20261105-2040",
- "note": "控制台：「蝦皮待補」改名「蝦皮待確認」，新增「✓ 蝦皮已手動補好」按鈕",
+ "version": "20261105-2047",
+ "note": "控制台改簡單：每個按鈕都寫「什麼時候按」，少用的收進進階功能",
  "files": [
   {
    "path": "package.json",
@@ -10,7 +10,7 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "62f256c480df1e93bfb441496095bfe62dfb69c8ed514f718efb9afb420a9373"
+   "sha256": "7a0c41b95f1910c68f8fe0ebcc0ad1a994f1cb2ed0beaa4702fc2b396edf632a"
   },
   {
    "path": "panel.js",
