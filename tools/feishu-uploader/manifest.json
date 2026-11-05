@@ -1,6 +1,6 @@
 {
- "version": "20261105-2100",
- "note": "支援 Mac、Windows 共用同一個共享資料夾",
+ "version": "20261105-2112",
+ "note": "單筆新增的商品，飛鼠備註會寫進貨管道（維修回來、面交…）",
  "files": [
   {
    "path": "package.json",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "7118be58a1bf7adc5b7720c869c386acec22d03903f690aa4796099bce7c590e"
+   "sha256": "381a1834f02cb91f22fecfea6e2977bac59a17acb4319ba4b15bd25cf8a8fb25"
   },
   {
    "path": "★一鍵上架.bat",

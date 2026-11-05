@@ -175,7 +175,7 @@ function openPath(p) {
 // ---------- Airtable 讀取 ----------
 // 只讀商品相關欄位，不讀客戶個資
 const AT_FIELDS = ['器材一', '序號', '收購總金額', '售價', '貨品來源', '盒單', '配件清單',
-  '新舊程度', '原廠保固', '功能備註', '快門數', '商品介紹', '交易日期', '品類', 'CCD／Y2K', '記憶卡類型', '選單語言', '飛鼠狀態'];
+  '新舊程度', '原廠保固', '功能備註', '快門數', '商品介紹', '交易日期', '品類', 'CCD／Y2K', '記憶卡類型', '選單語言', '飛鼠狀態', '進貨管道'];
 
 async function readAirtable(formulaOverride) {
   const { baseId, tableId, tokenFile, sinceDate } = CONFIG.airtable;
@@ -379,7 +379,7 @@ function airtableToRow(f, tag) {
     進貨價: str(f['收購總金額']),
     銷售價: str(f['售價']),
     品牌: '',
-    供貨商: '現場客人',
+    供貨商: str(f['進貨管道']) || '現場客人',
     '公/水': str(f['貨品來源']),
     快門數: sm && !isLensName(str(f['器材一'])) ? sm[1] : '',
     盒單: str(f['盒單']),

@@ -139,7 +139,8 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
   <div id="view-records">
 
   <!-- 勾選模式開關 -->
-  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <button onclick="openAddItem()" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;background:#2b8a3e;border:none;border-radius:var(--radius-sm);padding:6px 12px;font-family:inherit">➕ 單筆新增商品</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);cursor:pointer;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:6px 12px">
       <input type="checkbox" id="select-mode-toggle" onchange="toggleSelectMode(this.checked)">
       ☑️ 勾選匯入模式
@@ -464,7 +465,7 @@ function renderRecords(records) {
   
   list.innerHTML = records.map((r, i) => {
     const f = r.fields;
-    const name = f['客戶姓名'] || '—';
+    const name = f['客戶姓名'] || f['進貨管道'] || '—';
     const amount = f['收購總金額'] ? 'NT$ ' + parseInt(f['收購總金額']).toLocaleString() : '—';
     const date = f['交易日期'] || f['建立時間']?.slice(0,10) || '—';
     const eq = [f['器材一'],f['器材二'],f['器材三']].filter(Boolean).join('、') || '—';
@@ -500,7 +501,7 @@ function renderRecords(records) {
         <div class="record-info">
           <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
           <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
-          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${feishuBadge(r.fields)}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${feishuBadge(r.fields)}${r.fields['進貨管道']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#ebfbee;color:#2b8a3e;font-weight:700">📦 ${r.fields['進貨管道']}</span>`:''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
         </div>
         <div class="record-right" style="display:flex;align-items:center;gap:10px">
           <div>
@@ -673,7 +674,7 @@ async function exportSelected(){
       '進貨價': f['收購總金額']||'',
       '銷售價': '',
       '品牌': '',
-      '供貨商': '現場客人',
+      '供貨商': f['進貨管道'] || '現場客人',
       '公水': origin === '不影響' ? '' : origin,
       '快門數': shutterField,
       '盒單': boxDoc,
@@ -2318,6 +2319,97 @@ async function saveEdit(){
   } catch(e){
     alert('網路錯誤：'+e.message);
   }
+}
+</script>
+
+<!-- 單筆新增商品（維修回來、面交、寄賣等不是從合約網站來的） -->
+<div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding:20px 18px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:16px;font-weight:700;color:var(--black)">➕ 單筆新增商品</div>
+      <button onclick="closeAddItem()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--gray-400);margin-bottom:14px;line-height:1.6">給不是從收購合約來的商品用（維修回來、面交、寄賣…）。存檔後 AI 會自動寫「商品介紹」和判斷品類。<br>⚠️ 原本就有收購紀錄的商品（例如送修回來的），請直接搜尋那一筆、勾選「標記上架飛鼠」，不要重複新增。</div>
+    <div id="add-fields"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:6px 0 4px;font-size:14px;font-weight:700;color:#d9480f;cursor:pointer">
+      <input type="checkbox" id="add-mark" checked style="width:18px;height:18px"> 🛒 存檔後直接標記上架飛鼠
+    </label>
+    <div style="display:flex;gap:10px;margin-top:18px">
+      <button id="add-save-btn" onclick="saveAddItem()" style="flex:1;padding:14px;background:#2b8a3e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">存檔</button>
+      <button onclick="closeAddItem()" style="padding:14px 20px;background:var(--gray-100);color:var(--gray-600);border:1px solid var(--gray-200);border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">取消</button>
+    </div>
+  </div>
+</div>
+<script>
+const ADD_FIELDS = [
+  {key:'進貨管道', label:'進貨管道 *', type:'select', options:['維修回來','面交收購','寄賣','其他']},
+  {key:'器材一', label:'器材名稱 *（例：Sony A7M4、Canon RF 24-70mm F2.8）', type:'text'},
+  {key:'序號', label:'序號 *（上架的 SPU／SKU 會用這個）', type:'text'},
+  {key:'交易日期', label:'進貨日期', type:'date'},
+  {key:'收購總金額', label:'成本（進貨價）', type:'number'},
+  {key:'售價', label:'售價', type:'number'},
+  {key:'貨品來源', label:'貨品來源', type:'select', options:['公司貨','水貨','不影響']},
+  {key:'新舊程度', label:'新舊程度', type:'select', options:['近無使用痕跡','全新','些許使用痕跡','使用痕跡多']},
+  {key:'盒單', label:'盒單', type:'select', options:['無盒無單','有盒無單','有盒有單','無盒有單']},
+  {key:'快門數', label:'快門數（純數字，鏡頭不用填）', type:'number'},
+  {key:'配件清單', label:'配件清單（例：原廠電池、充電器、背帶）', type:'textarea'},
+  {key:'功能備註', label:'功能／外觀備註（例：已維修更換快門組）', type:'textarea'},
+  {key:'CCD／Y2K', label:'CCD／Y2K 相機（不是就不用選）', type:'select', options:['','CCD 相機','Y2K 復古']},
+  {key:'經手人員', label:'經手人員', type:'text'},
+];
+const addInputStyle = 'width:100%;padding:9px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;outline:none;box-sizing:border-box;background:#fff';
+function openAddItem(){
+  const today = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  document.getElementById('add-fields').innerHTML = ADD_FIELDS.map(f=>{
+    let input;
+    if(f.type==='select') input = `<select id="add-${f.key}" style="${addInputStyle}">${f.options.map(o=>`<option value="${o}">${o||'（不是）'}</option>`).join('')}</select>`;
+    else if(f.type==='textarea') input = `<textarea id="add-${f.key}" style="${addInputStyle};min-height:56px;resize:vertical"></textarea>`;
+    else input = `<input type="${f.type}" id="add-${f.key}" value="${f.key==='交易日期'?today:''}" style="${addInputStyle}" ${f.type==='number'?'inputmode="numeric"':''}>`;
+    return `<div style="margin-bottom:11px"><div style="font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:4px">${f.label}</div>${input}</div>`;
+  }).join('');
+  document.getElementById('add-mark').checked = true;
+  document.getElementById('add-modal').style.display='flex';
+}
+function closeAddItem(){ document.getElementById('add-modal').style.display='none'; }
+async function saveAddItem(){
+  const v = (k)=>{ const el=document.getElementById('add-'+k); return el ? el.value.trim() : ''; };
+  const name = v('器材一'), serial = v('序號');
+  if(!name){ alert('請填器材名稱'); return; }
+  if(!serial){ alert('請填序號（上架飛鼠要用）'); return; }
+  if(allRecords.some(r=>String(r.fields['序號']||'').replace(/^0+/,'')===serial.replace(/^0+/,''))
+     && !confirm(`序號 ${serial} 已經有一筆紀錄了，確定還要新增嗎？\n（送修回來的商品請直接找原本那筆標記上架）`)) return;
+  const mark = document.getElementById('add-mark').checked;
+  if(mark && !(Number(v('售價'))>0) && !confirm('還沒填售價，上架腳本會略過這筆。仍要存檔嗎？')) return;
+  const fields = {};
+  ADD_FIELDS.forEach(f=>{
+    const val = v(f.key);
+    if(!val) return;
+    if(f.key==='收購總金額' || f.key==='售價') fields[f.key] = Number(val);
+    else if(f.key==='快門數') fields[f.key] = '快門：'+parseInt(val)+'次';
+    else fields[f.key] = val;
+  });
+  if(mark) fields['上架飛鼠'] = true;
+  const btn = document.getElementById('add-save-btn');
+  btn.disabled = true; btn.textContent = '存檔中…';
+  try{
+    const res = await adminFetch('', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fields})});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok){ alert('存檔失敗：'+JSON.stringify(data.error||data)); return; }
+    allRecords.unshift(data);
+    closeAddItem();
+    filterRecords();
+    showToast('✅ 已新增！AI 正在寫商品介紹…');
+    // AI 寫商品介紹、判斷品類，寫回這一筆
+    const {ok, text, category} = await fetchSpecText(name);
+    const upd = {};
+    if(ok) upd['商品介紹'] = text;
+    if(category) upd['品類'] = category;
+    if(Object.keys(upd).length){
+      const r2 = await adminFetch(`?id=${data.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fields: upd})});
+      if(r2.ok){ Object.assign(data.fields, upd); filterRecords(); showToast('✅ 商品介紹已寫好'); }
+    } else showToast('⚠️ AI 沒寫出商品介紹，可以之後在商品卡按「查規格」');
+  } catch(e){ alert('網路錯誤：'+e.message); }
+  finally { btn.disabled = false; btn.textContent = '存檔'; }
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
