@@ -1,0 +1,8 @@
+#!/bin/bash
+# Mac 用：雙擊執行
+cd "$(dirname "$0")"
+echo "===== 上架控制台（這個視窗不要關） ====="
+echo
+node panel.js
+echo
+read -p "跑完了，按 Enter 關閉…"

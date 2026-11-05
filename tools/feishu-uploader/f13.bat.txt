@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0.."
-title 草稿補照片並發佈
-echo ===== 草稿補照片並發佈 =====
+title 蝦皮補資料：二手、NCC、最低購買數量
+echo ===== 蝦皮補資料：二手、NCC、最低購買數量 =====
 echo.
-node upload.js drafts
+node upload.js shopee --auto
 echo.
 echo ===== 跑完了，可以關掉這個視窗 =====
 pause

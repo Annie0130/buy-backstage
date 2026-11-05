@@ -1,0 +1,8 @@
+#!/bin/bash
+# Mac 用：雙擊執行
+cd "$(dirname "$0")"
+echo "===== 更新上架程式到最新版 ====="
+echo
+node update.js
+echo
+read -p "跑完了，按 Enter 關閉…"

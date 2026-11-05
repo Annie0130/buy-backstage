@@ -147,6 +147,15 @@ async function readRows(file) {
   return rows;
 }
 
+// 用電腦預設的程式打開檔案／資料夾（Windows：start；Mac：open）
+function openPath(p) {
+  try {
+    const { exec } = require('child_process');
+    if (process.platform === 'win32') exec(`start "" "${p}"`);
+    else if (process.platform === 'darwin') exec(`open "${p.replace(/"/g, '\\"')}"`);
+  } catch (e) {}
+}
+
 // ---------- Airtable 讀取 ----------
 // 只讀商品相關欄位，不讀客戶個資
 const AT_FIELDS = ['器材一', '序號', '收購總金額', '售價', '貨品來源', '盒單', '配件清單',
@@ -1776,7 +1785,7 @@ ${warn ? `<p class="warn">${warn}</p>` : ''}${sec}${missingRows ? `<h2 style="co
   console.log(`\n分成 ${groups.length} 組（黑畫面 ${blacks} 張），商品 ${rows.length} 件`);
   if (warn) console.log(warns.join('\n'));
   console.log(`預覽：${preview}`);
-  try { if (process.platform === 'win32') require('child_process').exec(`start "" "${preview}"`); } catch (e) {}
+  openPath(preview);
 
   const a = await ask(warn
     ? '\n⚠️ 上面有警告！確定還是要套用嗎？輸入 yes 套用，其他鍵取消：'
@@ -2057,7 +2066,7 @@ async function allMain() {
     // 收件匣沒照片、也沒有分好照片的商品 → 這次只告訴你拍照順序，什麼都不上架
     console.log('\n📷 收件匣還沒有照片，先告訴你拍照順序（什麼都還沒上架）：\n');
     await photosOrderMain();
-    try { if (process.platform === 'win32') require('child_process').exec(`start "" notepad "${path.join(__dirname, '拍照順序.txt')}"`); } catch (e) {}
+    openPath(path.join(__dirname, '拍照順序.txt'));
     console.log('\n👉 照上面的順序拍（每件拍完蓋鏡頭蓋拍 1 張全黑），');
     console.log('   照片放進 商品照片\\收件匣 後，再雙擊同一顆「★一鍵上架」就會開始上架。');
     return;

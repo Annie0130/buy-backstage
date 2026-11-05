@@ -163,6 +163,19 @@
 - 腳本只會寫「飛鼠狀態」這一欄，不會改其他資料
 - 沒開寫入權限也可以上架，只是收購後台的狀態不會變
 
+【在 Mac 上使用】
+1. 安裝 Node.js（https://nodejs.org 下載 LTS 版的 macOS 安裝檔）和 Google Chrome
+2. 打開「終端機」，貼上這 3 行（一次一行，按 Enter）：
+     mkdir -p ~/Desktop/feishu-uploader && cd ~/Desktop/feishu-uploader
+     curl -o update.js https://precious-otter-3873db.netlify.app/tools/feishu-uploader/update.js.txt
+     node update.js
+3. 金鑰：在終端機打 cd ~/Desktop/feishu-uploader 按 Enter，
+   把 Airtable 金鑰複製起來後，打 pbpaste > airtable-token.txt 按 Enter
+4. 雙擊桌面 feishu-uploader 資料夾裡的「★控制台.command」
+   （第一次如果說「無法打開」：按右鍵 → 打開 → 再按一次「打開」）
+- Mac 的按鈕是 .command 檔；.bat 是 Windows 用的，Mac 上不用理它
+- Mac 和 Windows 的紀錄、照片、登入資料是分開的，同一批商品請在同一台電腦做完
+
 【其他】
 - 上架紀錄.csv 會記錄結果；成功的商品重跑時不會重複上架
 - 商品圖片要手動上傳

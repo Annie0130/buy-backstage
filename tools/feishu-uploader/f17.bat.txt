@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title 蝦皮價格檢查
-echo ===== 蝦皮價格檢查：所有已上架商品重新檢查價格、最低購買數量 =====
-echo （2 萬以下 = 售價 x1.18 進位到百；2 萬以上 = 原價＋最低購買數量 3；不對會自動改）
+title 更新程式
+echo ===== 更新上架程式到最新版 =====
+echo （不會動金鑰、紀錄、照片）
 echo.
-node upload.js shopee --auto --check
+node update.js
 echo.
-echo ===== 跑完了，有 🚨 的請馬上處理 =====
+echo ===== 跑完了，可以關掉這個視窗 =====
 pause

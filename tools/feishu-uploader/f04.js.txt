@@ -50,6 +50,7 @@ const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
     if (fs.existsSync(dest)) backup(dest);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, buf);
+    if (dest.endsWith('.command')) fs.chmodSync(dest, 0o755); // Mac 的按鈕要能雙擊執行
     console.log('  ✅ 更新 ' + f.path);
     changed++;
     if (f.path === 'package.json') pkgChanged = true;
@@ -60,6 +61,7 @@ const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
     if (!PROTECTED.test(old) && fs.existsSync(p)) { backup(p); console.log('  🗑️ 移走舊檔 ' + old); changed++; }
   }
   fs.writeFileSync(VERSION_FILE, manifest.version, 'utf8');
+  if (process.platform !== 'win32') for (const f of fs.readdirSync(__dirname)) if (f.endsWith('.command')) fs.chmodSync(path.join(__dirname, f), 0o755);
 
   if (pkgChanged) {
     console.log('\n套件有更新，執行 npm install…');

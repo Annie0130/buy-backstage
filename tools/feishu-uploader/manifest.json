@@ -1,6 +1,6 @@
 {
- "version": "20261105-2047",
- "note": "控制台改簡單：每個按鈕都寫「什麼時候按」，少用的收進進階功能",
+ "version": "20261105-2052",
+ "note": "支援 Mac（.command 按鈕）",
  "files": [
   {
    "path": "package.json",
@@ -15,7 +15,7 @@
   {
    "path": "panel.js",
    "url": "f02.js.txt",
-   "sha256": "eaf8d6e3a8ad7814a354a5c1b047c5d5dc37f8e447f434bd2ceb80468936051c"
+   "sha256": "8abd92bcd11f9b810000f473e80da64a4ebdf03e9dfd568f7ea28d7296dace1d"
   },
   {
    "path": "shopee-minqty.js",
@@ -25,12 +25,12 @@
   {
    "path": "update.js",
    "url": "f04.js.txt",
-   "sha256": "a1a03ddb282a8959a4778f885aae9c5c6d33b9c6990edde384134d2d309a1559"
+   "sha256": "ae63768bd7e40a105c66dd14882916f34688d7b14b578d019386485157f577f5"
   },
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "e0646994bdf83be6e0e1c5beb4a07a09b0859365fbd2e5c8fd385fff55fdc394"
+   "sha256": "c110e9ce30eb19661f3517aba9e0493be4544bda42b17e04efe186f16fbaf3ff"
   },
   {
    "path": "★一鍵上架.bat",
@@ -43,58 +43,68 @@
    "sha256": "eabe024b84639579eadf209e3bc31b60037a323a949d37a63f804acf8c6bd812"
   },
   {
+   "path": "★控制台.command",
+   "url": "f08.command.txt",
+   "sha256": "1cd31b553913245bc5636ceee6211b1f613face67e9a467aaad000b1c04d485d"
+  },
+  {
    "path": "使用說明.txt",
-   "url": "f08.txt.txt",
-   "sha256": "95cf310e0e4b850841a1fa79ea787915dff27b9476e59fd1d23f2f5179bada1a"
+   "url": "f09.txt.txt",
+   "sha256": "20f46316c32ba0a51d09d11159354a6d6017c4fb1b4ebfc7f70284c70994dcf8"
   },
   {
    "path": "其他功能/0_拍照順序.bat",
-   "url": "f09.bat.txt",
+   "url": "f10.bat.txt",
    "sha256": "11cd1e18c15c130b1440f8e7301778c87ed801819c54352723e5151a21ce2691"
   },
   {
    "path": "其他功能/0_照片分組.bat",
-   "url": "f10.bat.txt",
+   "url": "f11.bat.txt",
    "sha256": "a7ba3d19f8d40f6906471523ecfe8328052f7124df3872bf78aa475369508787"
   },
   {
    "path": "其他功能/1_飛鼠上架（存草稿）.bat",
-   "url": "f11.bat.txt",
+   "url": "f12.bat.txt",
    "sha256": "212f4954b8f8d19919714ef63aa92f9ceaac059a752d9610ecb9381b057a8100"
   },
   {
    "path": "其他功能/2_蝦皮補資料.bat",
-   "url": "f12.bat.txt",
+   "url": "f13.bat.txt",
    "sha256": "7db3799feb534c22c83c21ef9f6363858b6c7862e8fd918a4dad23b9d9e1892a"
   },
   {
    "path": "其他功能/4_草稿補照片並發佈.bat",
-   "url": "f13.bat.txt",
+   "url": "f14.bat.txt",
    "sha256": "8476c53ab8950c21841bd7c5b6d41942135a412e89ef6553c003672a3569ac38"
   },
   {
    "path": "待辦清單.bat",
-   "url": "f14.bat.txt",
+   "url": "f15.bat.txt",
    "sha256": "cc0ee0459bcece7c9abc9f974b2fcf975a77a824a57e699c979f15d4c22fa0fd"
   },
   {
    "path": "拍攝中.jpg",
-   "url": "f15.jpg",
+   "url": "f16.jpg",
    "sha256": "15eb65ffa3f9502f307ec81e57483d08c332f3a294b52d992cd63021e4f37541"
   },
   {
    "path": "更新程式.bat",
-   "url": "f16.bat.txt",
+   "url": "f17.bat.txt",
    "sha256": "94b07cf4d384833f2565f00279c4e7d64b6f9ca20319d970431206f8d4dcab0d"
   },
   {
+   "path": "更新程式.command",
+   "url": "f18.command.txt",
+   "sha256": "5d1ac060f523772cef09c013f8ccc1220f174fe9c4568ee831bf9834a36f1727"
+  },
+  {
    "path": "蝦皮價格檢查.bat",
-   "url": "f17.bat.txt",
+   "url": "f19.bat.txt",
    "sha256": "af00fc116b6e9debb42212ff7fb6c0b9aa95a50fbdf06c36b70b4dd2ecd347a6"
   },
   {
    "path": "補照片.bat",
-   "url": "f18.bat.txt",
+   "url": "f20.bat.txt",
    "sha256": "fa1a5326c05aa985e668810f8819d92798afece7feb0b8616a6ee86292b42654"
   }
  ],
