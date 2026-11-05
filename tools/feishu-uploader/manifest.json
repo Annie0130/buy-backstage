@@ -1,6 +1,6 @@
 {
- "version": "20261105-2003",
- "note": "蝦皮補資料時會檢查價格（不對自動改）；新增「蝦皮價格檢查.bat」",
+ "version": "20261105-2017",
+ "note": "修正照片分組順序（沒有拍攝時間的照片改照檔名號碼排）",
  "files": [
   {
    "path": "package.json",
@@ -20,7 +20,7 @@
   {
    "path": "upload.js",
    "url": "f03.js.txt",
-   "sha256": "b678ae4e826a8715648386ab2ea4ceed4d83b19b1f36fc99af3f278c2230ecab"
+   "sha256": "61bb7178bd9dc939e1a81161714ec53209b3351f3652305d1187563524c4c4ab"
   },
   {
    "path": "★一鍵上架.bat",

@@ -1672,8 +1672,14 @@ async function photosMain() {
   const items = files.map((f) => {
     const full = path.join(INBOX_DIR, f);
     const buf = fs.readFileSync(full, { start: 0, end: 256 * 1024 });
-    return { file: f, src: full, time: exifTime(buf) || fs.statSync(full).mtimeMs };
-  }).sort((a, b) => a.time - b.time || a.file.localeCompare(b.file, 'en', { numeric: true }));
+    return { file: f, src: full, exif: exifTime(buf) };
+  });
+  // 排順序：每張都有拍攝時間（EXIF）→ 照拍攝時間；只要有一張沒有（例如手機傳過來、軟體匯出的）→ 照檔名的號碼
+  // （檔案的「修改時間」複製後會亂掉，不能用）
+  const byName = (a, b) => a.file.localeCompare(b.file, 'en', { numeric: true });
+  const allExif = items.every((it) => it.exif);
+  items.sort(allExif ? (a, b) => a.exif - b.exif || byName(a, b) : byName);
+  console.log(allExif ? '（照拍攝時間排順序）' : '（有照片沒有拍攝時間，改照檔名號碼排順序）');
 
   // 用瀏覽器量亮度、做縮圖和縮小版（不用另外裝套件）
   const browser = await chromium.launch({ channel: CONFIG.browserChannel, headless: true }).catch(() => chromium.launch({ headless: true }));
