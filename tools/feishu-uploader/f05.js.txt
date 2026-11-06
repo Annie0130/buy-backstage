@@ -2054,6 +2054,55 @@ async function addPhotosMain(opts = {}) {
 
 // =================== 一鍵上架（node upload.js all）===================
 // 照片分組 → 有照片的直接「建立」上架（沒照片或有問題的存草稿）→ 等同步 → 蝦皮補資料
+// 飛鼠建立後，蝦皮狀態常常是橘色勾勾、沒有真的傳到蝦皮：打開商品編輯頁再按一次「發佈」，就會推到蝦皮
+async function clickPublish(p) {
+  const before = await visibleMessages(p);
+  for (const word of ['發佈', '更新', '儲存']) {
+    const btns = p.locator('button, a, [role=button], input[type=button], input[type=submit]').filter({ hasText: new RegExp(`^[\\s✓✔💾🖫]*${word}\\s*$`) });
+    for (let k = 0, n = await btns.count(); k < n; k++) {
+      if (await btns.nth(k).isVisible().catch(() => false)) {
+        await btns.nth(k).click({ timeout: 5000 });
+        await confirmSaved(p, word, before, isEditPage).catch(() => {}); // 編輯頁存完常常沒有變化，不算失敗
+        return word;
+      }
+    }
+  }
+  return '';
+}
+async function republishMain(serials) {
+  serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).filter(Boolean);
+  if (!serials.length) { console.log('沒有要重新發佈的商品。'); return 0; }
+  console.log(`要重新發佈（推到蝦皮）的商品 ${serials.length} 件：${serials.join('、')}`);
+  const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
+  const page = ctx.pages()[0] || (await ctx.newPage());
+  page.on('dialog', (d) => d.accept().catch(() => {}));
+  const url = fs.existsSync(NEW_URL_FILE) ? fs.readFileSync(NEW_URL_FILE, 'utf8').trim() : CONFIG.startUrl;
+  let loggedIn = false;
+  if (url) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    loggedIn = await page.getByText('商品管理', { exact: true }).first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+  }
+  if (!loggedIn) await ask('👉 請在瀏覽器登入飛鼠後台，看到左側選單後，回這裡按 Enter 開始...');
+  let ok = 0;
+  for (const [i, sn] of serials.entries()) {
+    console.log(`\n[${i + 1}/${serials.length}] 序號 ${sn}`);
+    let p = page;
+    try {
+      p = await openDraftEditor(page, sn, { useSearch: true });
+      const w = await clickPublish(p);
+      if (!w) throw new Error('找不到「發佈」按鈕，請手動點進去按發佈');
+      console.log(`   ✅ 已重新按「${w}」，等一下會推到蝦皮`);
+      ok++;
+    } catch (e) {
+      console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
+    } finally {
+      if (p !== page) await p.close().catch(() => {});
+    }
+  }
+  await ctx.close();
+  console.log(`\n重新發佈：成功 ${ok} 件、失敗 ${serials.length - ok} 件`);
+  return ok;
+}
 // 等飛鼠同步到蝦皮，再自動補蝦皮資料（終端機不要關）
 async function waitThenShopee() {
   const wait = 150;
@@ -2093,15 +2142,20 @@ async function allMain() {
   CONFIG.mode = 'create';
   CONFIG.closeWhenDone = true;
   CONFIG.onlyWithPhotos = true; // 一鍵上架只處理有照片的商品，沒照片的完全不動（之後拍好再一鍵上架）
-  const doneBefore = readCsv(CONFIG.logFile).filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '')).length;
+  const logBefore = readCsv(CONFIG.logFile).length;
   console.log('\n===== ②-1 之前存成草稿的：補照片並發佈 =====');
   await draftsMain({ keepQuiet: true });
   console.log('\n===== ②-2 新商品：直接建立 =====');
   await main('airtable');
   console.log('\n===== ②-3 已上架的商品：補照片（補照片清單）=====');
   await addPhotosMain({ keepQuiet: true });
-  const created = readCsv(CONFIG.logFile).filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '')).length - doneBefore;
-  if (created <= 0) { console.log('\n這次沒有新上架的商品，蝦皮補資料就不用跑了。'); return; }
+  // 這次新上架的（不含「官網已有，補記紀錄」）
+  const created = [...new Set(readCsv(CONFIG.logFile).slice(logBefore)
+    .filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '') && !/官網已有/.test(c[4] || '')).map((c) => c[2]).filter(Boolean))];
+  if (!created.length) { console.log('\n這次沒有新上架的商品，蝦皮補資料就不用跑了。'); return; }
+  console.log('\n===== ③ 重新發佈一次，讓飛鼠真的推到蝦皮 =====');
+  await new Promise((r) => setTimeout(r, 20000)); // 先等飛鼠存好
+  await republishMain(created);
   await waitThenShopee();
   console.log('\n===== 全部完成 =====');
   console.log('存成草稿的商品（沒照片或有欄位要補），雙擊「待辦清單.bat」可以看到。');
@@ -2265,7 +2319,13 @@ async function findTargets() {
     return args.map((sn) => { const r = rows.find((x) => x['條碼'] === sn); return r ? mk(r) : { name: '', serial: sn, price: 0 }; });
   }
   const feishuDone = loadFeishuDone();
-  return rows.filter((r) => r['條碼'] && feishuDone.has(keyOf(r))).map(mk);
+  // 飛鼠已上架：上架紀錄有成功、收購後台顯示已上架、或官網查得到（在飛鼠手動上架的也算）
+  const out = [];
+  for (const r of rows) {
+    if (!r['條碼']) continue;
+    if (feishuDone.has(keyOf(r)) || /已上架/.test(r._fsStatus || '') || (await isOnStorefront(r['條碼']))) out.push(mk(r));
+  }
+  return out;
 }
 
 async function openEditBySerial(ctx, page, serial) {
@@ -2593,7 +2653,7 @@ async function checkUpdate() {
   } catch (e) {}
 }
 if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
-if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
+if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });

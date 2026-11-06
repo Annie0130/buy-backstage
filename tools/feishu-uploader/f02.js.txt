@@ -25,7 +25,9 @@ const COMMANDS = {
   draft: { label: '📝 全部存草稿', args: ['upload.js', 'airtable', '--draft'] },
   drafts: { label: '📝 草稿補照片並發佈', args: ['upload.js', 'drafts'] },
   shopee: { label: '🦐 蝦皮補資料', args: ['upload.js', 'shopee', '--auto'] },
-  check: { label: '💰 蝦皮價格檢查', args: ['upload.js', 'shopee', '--auto', '--check'] },
+  check: { label: '💰 蝦皮價格檢查', args: ['upload.js', 'shopee', '--auto'] },          // 只處理還沒補好的
+  recheck: { label: '💰 全部重新檢查蝦皮', args: ['upload.js', 'shopee', '--auto', '--check'] },
+  republish: { label: '🔁 重新發佈到蝦皮', args: ['upload.js', 'republish'], serials: true },
   todo: { label: '📋 待辦清單', args: ['upload.js', 'todo'] },
   markshopee: { label: '✓ 蝦皮已手動補好', args: ['upload.js', 'markshopee'], serials: true },
   update: { label: '🔄 更新程式', args: ['update.js'] },

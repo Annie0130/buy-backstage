@@ -1,6 +1,6 @@
 {
- "version": "20261106-1341",
- "note": "控制台：程式問問題時一定會跳出按鈕；分組預覽直接在網頁上按「分組正確，開始上架」；更新改從 GitHub 下載",
+ "version": "20261106-1351",
+ "note": "一鍵上架建立後自動再按一次發佈，讓商品真的傳到蝦皮；蝦皮價格檢查只處理還沒確認的",
  "files": [
   {
    "path": "package.json",
@@ -10,12 +10,12 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "ccf8a1c20c6e7383a5544d6686b668d280c1b745b4e6a2a2eaca56883c182b3a"
+   "sha256": "af4d59e93cab47fc1f2006624658f27bc45bbb43547abd13be55e9f96910da91"
   },
   {
    "path": "panel.js",
    "url": "f02.js.txt",
-   "sha256": "3bc4ef3d01c7e512dba3d329d61b43c8fa8da2ffc3adbefb33fc515eb1b0d1f2"
+   "sha256": "b421c42ed7f60589f142b9189ee32159f2093676f42b0a92ea87b18aab820e67"
   },
   {
    "path": "shopee-minqty.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "172034b92d24d9d60ecd974f5ca25a33ea92544793aee5f1a5bd28a499f1829b"
+   "sha256": "310a12a027a4747b79a90a539c8cbb9e0f49fc5b1e6d59788e3a6f7e3c31e20c"
   },
   {
    "path": "★一鍵上架.bat",
@@ -100,7 +100,7 @@
   {
    "path": "蝦皮價格檢查.bat",
    "url": "f19.bat.txt",
-   "sha256": "ee8ab9e98eb3b5e067517816cd0fa80182692ecccde45b026ebc1c6643e9f7f8"
+   "sha256": "657b24dcacf865696020e298751652f63a36fd4393f09315387185c7f2ce317b"
   },
   {
    "path": "補照片.bat",
