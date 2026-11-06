@@ -81,4 +81,10 @@ const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
   }
   console.log(changed ? `\n完成！更新了 ${changed} 個檔案（舊檔備份在 舊版備份\\${stamp}）` : '\n已經是最新版，不用更新。');
   if (manifest.note) console.log('\n這次更新：' + manifest.note);
+  // 整理資料夾（只做一次）；整理過的話，順便更新最外層的按鈕
+  try {
+    const M = require(path.join(__dirname, 'migrate.js'));
+    if (M.needsMigration(__dirname)) M.migrate(__dirname);
+    else if (path.basename(__dirname) === M.SYS) M.writeLaunchers(path.dirname(__dirname));
+  } catch (e) {}
 })().catch((e) => { console.error('\n❌ ' + (e.message || e)); process.exit(1); });
