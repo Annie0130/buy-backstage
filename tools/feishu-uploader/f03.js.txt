@@ -160,6 +160,27 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST') { const b = await body(req); return json(res, { ok: true, list: writeRefill(b.list || []) }); }
       return json(res, { ok: true, list: readRefill() });
     }
+    if (url.pathname === '/api/ncc' && req.method === 'POST') {
+      // 在控制台補 NCC／BSMI：寫進 NCC字號.csv（同型號就更新，並清掉 ⚠️ 備註）
+      const b = await body(req);
+      const model = String(b.model || '').trim(), ncc = String(b.ncc || '').trim(), bsmi = String(b.bsmi || '').trim();
+      if (!model || model.length > 60 || /[,"\r\n]/.test(model + ncc + bsmi)) return json(res, { ok: false, msg: '型號不能空白，也不能有逗號' });
+      if (!ncc && !bsmi) return json(res, { ok: false, msg: 'NCC 和 BSMI 至少填一個' });
+      const f = path.join(DIR, 'NCC字號.csv');
+      const nk = (t) => String(t || '').toLowerCase().replace(/[\s\-_]/g, '');
+      const lines = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean) : ['型號,NCC字號,BSMI字號,備註'];
+      let hit = false;
+      const out = lines.map((l, i) => {
+        if (i === 0) return l;
+        const c = l.split(',');
+        if (nk(c[0]) !== nk(model)) return l;
+        hit = true;
+        return [c[0], ncc || c[1] || '', bsmi || c[2] || '', '在控制台補的'].join(',');
+      });
+      if (!hit) out.push([model, ncc, bsmi, '在控制台補的'].join(','));
+      fs.writeFileSync(f, '\uFEFF' + out.join('\r\n') + '\r\n', 'utf8');
+      return json(res, { ok: true });
+    }
     if (url.pathname === '/api/open' && req.method === 'POST') {
       // 打開資料夾（只限這幾個）
       const b = await body(req);

@@ -1,6 +1,6 @@
 {
- "version": "20261106-1912",
- "note": "商品全部完成（飛鼠＋蝦皮）後，會自動取消收購後台的上架標記",
+ "version": "20261106-2010",
+ "note": "控制台會列出還沒有 NCC／BSMI 的相機，可以直接在網頁上補",
  "files": [
   {
    "path": "migrate.js",
@@ -15,12 +15,12 @@
   {
    "path": "panel.html",
    "url": "f02.html.txt",
-   "sha256": "e5da44500e29c86f19b01fbe2ddb786eda04ddd837239632545262b5962982d2"
+   "sha256": "c755fe6f58972ac2977ea4a1c8cadd32dd08aa50588b374d1683f0e7c7a3d667"
   },
   {
    "path": "panel.js",
    "url": "f03.js.txt",
-   "sha256": "8913652e0ddd04767061bedd4af091a67ed821dcc49cb51908885c305635e1e3"
+   "sha256": "1378797af029e4ca4536a395d5592108ff94f1f8b2e77e6ea2cf9b5fc9ad645f"
   },
   {
    "path": "shopee-minqty.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "dc4d69d6d7c7f56f11c80d5076f2d22734104d59777e2f4dd3735d79f54c21ea"
+   "sha256": "dbf0fd280470d98ae004d2634d3a61cd11b3094f1a8751ddd5209bf9452d2635"
   },
   {
    "path": "使用說明.txt",
