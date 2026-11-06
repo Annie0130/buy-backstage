@@ -1544,7 +1544,10 @@ async function main(srcOverride) {
       const noPhotos = problems.some((x) => x.startsWith('沒有整理好的實拍照') || x.startsWith('商品圖片沒上傳成功'));
       // 直接建立模式：沒有照片、或有欄位沒填好 → 不上架，先存草稿（之後補好再建立）
       const asDraft = CONFIG.mode === 'create' && (serious || noPhotos);
-      if (asDraft) console.log(`   ⚠️ ${noPhotos ? '沒有照片' : '有欄位沒填好'}，這筆先存草稿、不上架`);
+      if (asDraft) {
+        const bad = problems.filter((x) => /沒填成功|沒選成功|沒設定成功|判斷不出來|被清掉了/.test(x)).map((x) => x.replace(/，請.*$/, ''));
+        console.log(`   ⚠️ ${noPhotos ? '沒有照片' : `有欄位沒填好（${bad.join('；')}）`}，這筆先存草稿、不上架。到飛鼠草稿補好後按「發佈」就好`);
+      }
       const needHuman = CONFIG.mode === 'review';
       if (needHuman) {
         const a = await ask(
