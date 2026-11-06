@@ -2063,17 +2063,24 @@ async function addPhotosMain(opts = {}) {
 // 飛鼠建立後，蝦皮狀態常常是橘色勾勾、沒有真的傳到蝦皮：打開商品編輯頁再按一次「發佈」，就會推到蝦皮
 async function clickPublish(p) {
   const before = await visibleMessages(p);
-  for (const word of ['發佈', '更新', '儲存']) {
-    const btns = p.locator('button, a, [role=button], input[type=button], input[type=submit]').filter({ hasText: new RegExp(`^[\\s✓✔💾🖫]*${word}\\s*$`) });
-    for (let k = 0, n = await btns.count(); k < n; k++) {
-      if (await btns.nth(k).isVisible().catch(() => false)) {
-        await btns.nth(k).click({ timeout: 5000 });
-        await confirmSaved(p, word, before, isEditPage).catch(() => {}); // 編輯頁存完常常沒有變化，不算失敗
-        return word;
-      }
+  // 找畫面上看得到的按鈕：草稿要按「發佈」；已上架的按「發佈／更新」；只有在沒有「儲存草稿」的頁面才會按「儲存」
+  const pick = await p.evaluate(() => {
+    const vis = (el) => { const r = el.getBoundingClientRect(); const st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden' && st.display !== 'none'; };
+    const els = [...document.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(vis);
+    const txt = (el) => (el.value || el.textContent || '').replace(/[\s✓✔💾🖫]/g, '');
+    const texts = [...new Set(els.map(txt).filter((t) => t && t.length <= 8))];
+    const hasDraftBtn = texts.includes('儲存草稿');
+    const order = hasDraftBtn ? ['發佈'] : ['發佈', '更新', '儲存'];
+    for (const w of order) {
+      const el = els.find((e) => txt(e) === w);
+      if (el) { document.querySelectorAll('[data-pub-pick]').forEach((x) => x.removeAttribute('data-pub-pick')); el.setAttribute('data-pub-pick', '1'); return { word: w, texts }; }
     }
-  }
-  return '';
+    return { word: '', texts };
+  }).catch(() => ({ word: '', texts: [] }));
+  if (!pick.word) { console.log('   （畫面上的按鈕：' + pick.texts.join('、') + '）'); return ''; }
+  await p.locator('[data-pub-pick="1"]').first().click({ timeout: 5000 });
+  await confirmSaved(p, pick.word, before, isEditPage).catch(() => {}); // 編輯頁存完常常沒有變化，不算失敗
+  return pick.word;
 }
 async function republishMain(serials) {
   serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).filter(Boolean);
@@ -2097,7 +2104,11 @@ async function republishMain(serials) {
       p = await openDraftEditor(page, sn, { useSearch: true });
       const w = await clickPublish(p);
       if (!w) throw new Error('找不到「發佈」按鈕，請手動點進去按發佈');
-      console.log(`   ✅ 已重新按「${w}」，等一下會推到蝦皮`);
+      // 確認真的上架了（官網查得到）；還是草稿的話通常是有必填欄位沒填，飛鼠不讓發佈
+      let live = false;
+      for (let t = 0; t < 4 && !live; t++) { await page.waitForTimeout(5000); live = !!(await isOnStorefront(sn)); }
+      if (!live) throw new Error(`按了「${w}」，但官網還看不到，可能還是草稿（有必填欄位沒填？）。請點進去看飛鼠的紅字提示，補好再按發佈`);
+      console.log(`   ✅ 已重新按「${w}」，官網已上架，2～5 分鐘內會推到蝦皮`);
       ok++;
     } catch (e) {
       console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
@@ -2114,7 +2125,7 @@ async function waitThenShopee() {
   const wait = 150;
   console.log(`\n===== 等 ${wait / 60} 分半讓飛鼠同步到蝦皮（視窗不要關）… =====`);
   for (let t = wait; t > 0; t -= 30) { console.log(`   還有 ${t} 秒`); await new Promise((r) => setTimeout(r, Math.min(30, t) * 1000)); }
-  console.log('\n===== 蝦皮補資料 =====');
+  console.log('\n===== 蝦皮補資料＋價格檢查（保存狀況、NCC／BSMI、價格、最低購買數量）=====');
   if (!process.argv.includes('--auto')) process.argv.push('--auto');
   await shopeeMain();
 }

@@ -1,6 +1,6 @@
 {
- "version": "20261106-1444",
- "note": "新增「🗂️ 批次改蝦皮分類」；BSMI補填.csv 會提示 Canon／Panasonic 常見號碼",
+ "version": "20261106-1818",
+ "note": "重新發佈會按對「發佈」（草稿不會再按到儲存），並確認官網真的上架",
  "files": [
   {
    "path": "package.json",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "cc7086095536f81a2bb00b9301691cea6170770b7b9b29d5a4311e201a4dd41d"
+   "sha256": "fa3a36dfed91f9a8670197a8e1ef1f40d0f6c85d7bd8c90269a7ec4bf770a592"
   },
   {
    "path": "★一鍵上架.bat",
