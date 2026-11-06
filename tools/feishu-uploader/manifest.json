@@ -1,6 +1,6 @@
 {
- "version": "20261106-1356",
- "note": "上架文案的保固會照每台的「原廠保固」「店保」寫",
+ "version": "20261106-1400",
+ "note": "蝦皮規則改成：15000 以上原價＋最低購買數量 3；15000 以下才 ×1.18",
  "files": [
   {
    "path": "package.json",
@@ -10,7 +10,7 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "af4d59e93cab47fc1f2006624658f27bc45bbb43547abd13be55e9f96910da91"
+   "sha256": "5d2b3b7b38e2a3cc98770e5e9b1aeb13e7906a7dda10b2a8f3db92a8b20fc47c"
   },
   {
    "path": "panel.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "181afd805307b42f329314245181fe3de788ccccdf939e7ccba6030541f2f1fa"
+   "sha256": "4f967263ae8ee01e6e9af2391ef64880ca87bb916b6e758a6ad32ed1fa9b7d4d"
   },
   {
    "path": "★一鍵上架.bat",
@@ -50,7 +50,7 @@
   {
    "path": "使用說明.txt",
    "url": "f09.txt.txt",
-   "sha256": "9ec7786465d73ea1255c59814494ee3ab4d91232e6a2d72095954d89583d493b"
+   "sha256": "33b32255245bec3f36b02a051accb92971e7121804b04db77fb04d49bb96fdc3"
   },
   {
    "path": "其他功能/0_拍照順序.bat",
@@ -100,7 +100,7 @@
   {
    "path": "蝦皮價格檢查.bat",
    "url": "f19.bat.txt",
-   "sha256": "657b24dcacf865696020e298751652f63a36fd4393f09315387185c7f2ce317b"
+   "sha256": "3a1004ef1fa63db37aec170043cb3d271de9d2dac93b2758e49d08e4612d5733"
   },
   {
    "path": "補照片.bat",

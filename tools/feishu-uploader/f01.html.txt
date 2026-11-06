@@ -337,7 +337,7 @@ function drawTable() {
   }).join('')}</table>`;
 }
 function markShopee(sn, name) {
-  if (!confirm(`確定「${name}」（序號 ${sn}）在蝦皮已經都改好了嗎？\n\n請先到蝦皮確認這 4 件事：\n1. 保存狀況：二手\n2. NCC 字號\n3. 價格正確（2 萬以下 ×1.18、2 萬以上原價）\n4. 2 萬以上：最低購買數量 3\n\n按「確定」會記成完成，之後不會再檢查。`)) return;
+  if (!confirm(`確定「${name}」（序號 ${sn}）在蝦皮已經都改好了嗎？\n\n請先到蝦皮確認這 4 件事：\n1. 保存狀況：二手\n2. NCC 字號\n3. 價格正確（15000 以下 ×1.18、15000 以上原價）\n4. 15000 以上：最低購買數量 3\n\n按「確定」會記成完成，之後不會再檢查。`)) return;
   run('markshopee', [sn]);
 }
 loadRefill(); loadStatus();

@@ -3,7 +3,7 @@
 //   node upload.js airtable          從收購紀錄（Airtable）讀「售價有填」的商品來上架
 //   node upload.js airtable --list   只列出會上架哪些商品，不開瀏覽器（先看看用）
 //   node upload.js 商品.xlsx          從 Excel 讀（舊方式，仍可用）
-//   node upload.js shopee            蝦皮：保存狀況二手、NCC、2 萬以上最低購買數量 3
+//   node upload.js shopee            蝦皮：保存狀況二手、NCC、15000 以上最低購買數量 3
 //   node upload.js todo              待辦清單：哪些還沒上架／還是草稿／蝦皮還沒補
 //
 // 流程：開啟瀏覽器 → 你自己登入飛鼠後台 → 回終端機按 Enter →
@@ -91,7 +91,7 @@ const CONFIG = {
     enable: true,          // 自動填蝦皮自訂價格
     markup: 1.18,          // 蝦皮抽成：售價 × 1.18
     roundTo: 100,          // 無條件進位到百位（7,080 → 7,100）
-    highPrice: 20000,      // 售價 ≥ 這個金額：自訂價格留空（用原價），並提醒到蝦皮把最低購買數量改 3
+    highPrice: 15000,      // 售價 ≥ 這個金額：自訂價格留空（用原價），並提醒到蝦皮把最低購買數量改 3
   },
 
   // 供貨商要寫進「備註 (管理人員使用)」嗎？（備註不會公開給買家）
@@ -2275,7 +2275,7 @@ async function todoMain() {
 }
 
 // =================== 蝦皮「最低購買數量」改 3（node upload.js shopee）===================
-// 售價 2 萬以上、飛鼠已上架成功的商品，到蝦皮賣家中心把最低購買數量改成 3
+// 售價 15000 以上、飛鼠已上架成功的商品，到蝦皮賣家中心把最低購買數量改成 3
 //   node upload.js shopee              自動找商品
 //   node upload.js shopee 70039        只處理指定序號
 //   node upload.js shopee --auto       改好自動按「更新」
@@ -2390,7 +2390,7 @@ async function setMinQty(p) {
   return before;
 }
 
-// 蝦皮價格檢查：應該是多少 → 2 萬以下 售價×1.18 進位到百；2 萬以上 原價
+// 蝦皮價格檢查：應該是多少 → 15000 以下 售價×1.18 進位到百；15000 以上 原價
 function expectedShopeePrice(price) {
   const n = Number(price);
   if (!n) return 0;
@@ -2551,7 +2551,7 @@ async function shopeeMain() {
       } else {
         notes.push(`NCC字號.csv 沒有「${t.name || t.serial}」，NCC 請手動填`);
       }
-      // 3) 2 萬以上：最低購買數量 3（改不成功一定要提醒，不然會被用錯的方式下標）
+      // 3) 15000 以上：最低購買數量 3（改不成功一定要提醒，不然會被用錯的方式下標）
       if (!t.price || t.price >= CONFIG.shopee.highPrice) {
         const before = await setMinQty(p).catch(() => null);
         if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${SHOPEE.minQty}，請馬上到蝦皮手動改！`); }
