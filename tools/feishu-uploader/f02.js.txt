@@ -27,6 +27,7 @@ const COMMANDS = {
   shopee: { label: '🦐 蝦皮補資料', args: ['upload.js', 'shopee', '--auto'] },
   check: { label: '💰 蝦皮價格檢查', args: ['upload.js', 'shopee', '--auto'] },          // 只處理還沒補好的
   recheck: { label: '💰 全部重新檢查蝦皮', args: ['upload.js', 'shopee', '--auto', '--check'] },
+  bsmi: { label: '🧾 批次補 BSMI', args: ['upload.js', 'bsmifix'] },
   republish: { label: '🔁 重新發佈到蝦皮', args: ['upload.js', 'republish'], serials: true },
   todo: { label: '📋 待辦清單', args: ['upload.js', 'todo'] },
   markshopee: { label: '✓ 蝦皮已手動補好', args: ['upload.js', 'markshopee'], serials: true },
@@ -154,8 +155,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/open' && req.method === 'POST') {
       // 打開資料夾（只限這幾個）
       const b = await body(req);
-      const target = { inbox: path.join(DIR, '商品照片', '收件匣'), photos: path.join(DIR, '商品照片'), root: DIR }[b.what];
-      if (target) { fs.mkdirSync(target, { recursive: true }); openPath(target); }
+      const target = { inbox: path.join(DIR, '商品照片', '收件匣'), photos: path.join(DIR, '商品照片'), root: DIR, bsmi: path.join(DIR, 'BSMI補填.csv') }[b.what];
+      if (target) { if (b.what !== 'bsmi') fs.mkdirSync(target, { recursive: true }); if (fs.existsSync(target)) openPath(target); }
       return json(res, { ok: !!target });
     }
     if (url.pathname === '/preview') {

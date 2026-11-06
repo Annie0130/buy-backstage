@@ -2494,7 +2494,18 @@ async function setShopeeCondition(p) {
 
 // NCC 字號 → 從 NCC字號.csv 對照表帶入
 async function setShopeeField(p, label, value) {
-  const box = await shopeeFieldBox(p, label);
+  // 先找「標題剛好是 label」的欄位（避免抓到上面的違規說明文字），找不到才用包含
+  let box = null;
+  const exact = p.locator(`xpath=//*[not(self::script) and not(self::style)][normalize-space(text())='${label}' or (starts-with(normalize-space(text()),'${label}') and string-length(normalize-space(text())) <= ${label.length + 8})]`);
+  for (let k = 0, n = await exact.count(); k < n && !box; k++) {
+    const lab = exact.nth(k);
+    if (!(await lab.isVisible().catch(() => false))) continue;
+    for (let up = 1; up <= 5 && !box; up++) {
+      const b = lab.locator(`xpath=ancestor::*[${up}]`);
+      if (await b.evaluate((e) => !!e.querySelector('input:not([type=hidden]),textarea')).catch(() => false)) box = b;
+    }
+  }
+  if (!box) box = await shopeeFieldBox(p, label);
   if (!box) return false;
   const input = box.locator(`xpath=.//${TEXT_INPUT}`).first();
   if (!(await input.count())) return false;
@@ -2502,12 +2513,102 @@ async function setShopeeField(p, label, value) {
   return true;
 }
 async function setShopeeNcc(p, ncc) {
+  return setShopeeField(p, 'NCC', ncc);
+}
+async function setShopeeNccOld(p, ncc) {
   const box = await shopeeFieldBox(p, 'NCC');
   if (!box) return false;
   const input = box.locator(`xpath=.//${TEXT_INPUT}`).first();
   if (!(await input.count())) return false;
   await input.fill(ncc, { timeout: 4000 });
   return true;
+}
+
+// =================== 蝦皮違規：批次補 BSMI（node upload.js bsmifix）===================
+// 「BSMI補填.csv」：序號,商品,BSMI字號,備註,結果 —— BSMI 字號請照機身／盒子標籤填真的號碼，空白的會略過
+const BSMI_FILE = path.join(__dirname, 'BSMI補填.csv');
+const BSMI_SEED = [
+  ['059285', 'Sony TX100V'], ['21539', 'Fujifilm Finepix F80EXR'], ['001449', 'Lumix LX5'], ['101300', 'Ricoh GR 一代'],
+  ['402466', 'Canon S90'], ['02744', 'Fujifilm X100S'], ['000841', 'Fujifilm FinePix F700'], ['001348', 'Lumix ZS3'],
+  ['m65074', 'Fujifilm X20'], ['70664', 'Sony DSC-T5'],
+];
+const csvLine = (a) => a.map((x) => `"${String(x ?? '').replace(/"/g, '""')}"`).join(',');
+function ensureBsmiFile() {
+  if (fs.existsSync(BSMI_FILE)) return false;
+  const rows = BSMI_SEED.map(([sn, name]) => {
+    const e = lookupNcc(name);
+    return [sn, name, e && e.bsmi ? e.bsmi : '', e && e.bsmi ? '官網同型號有填過，請對照機身標籤確認' : '請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼）', ''];
+  });
+  fs.writeFileSync(BSMI_FILE, '﻿' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...rows.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
+  return true;
+}
+// 把確認過的 BSMI 記進 NCC字號.csv（同型號下次上架會自動帶入）
+function rememberBsmi(model, bsmi) {
+  try {
+    const f = CONFIG.nccFile;
+    const lines = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').replace(/^﻿/, '').split(/\r?\n/).filter(Boolean) : ['型號,NCC字號,BSMI字號,備註'];
+    const key = normKey(model);
+    let hit = false;
+    const out = lines.map((l, i) => {
+      if (i === 0) return l;
+      const c = l.split(',');
+      if (normKey(c[0] || '') === key) { hit = true; if (!c[2]) c[2] = bsmi; return c.join(','); }
+      return l;
+    });
+    if (!hit) out.push(`${model},,${bsmi},從 BSMI補填 加入`);
+    fs.writeFileSync(f, '﻿' + out.join('\r\n') + '\r\n', 'utf8');
+    NCC_TABLE = null;
+  } catch (e) {}
+}
+async function bsmiFixMain() {
+  if (ensureBsmiFile()) {
+    console.log('已建立「BSMI補填.csv」（用 Excel 或記事本打開）：');
+    console.log('  1. 照每台相機底部或盒子上的標籤，把真的 BSMI 字號填進「BSMI字號」那一欄');
+    console.log('  2. 查不到標籤的就留空白（會略過，那台建議不要上蝦皮）');
+    console.log('  3. 存檔後再按一次「批次補 BSMI」');
+    openPath(BSMI_FILE);
+    return;
+  }
+  const rows = readCsv(BSMI_FILE).filter((c) => c[0]);
+  const todo = rows.filter((c) => (c[2] || '').trim() && !/^成功/.test(c[4] || ''));
+  const bad = todo.filter((c) => !/^[A-Za-z]\d{3,}[A-Za-z0-9]*$|^[A-Za-z]{1,3}\d{4,}$/.test(c[2].trim()));
+  if (bad.length) bad.forEach((c) => console.log(`⚠️ ${c[1]}（${c[0]}）的 BSMI「${c[2]}」格式看起來不對，請再確認`));
+  if (!todo.length) { console.log('「BSMI補填.csv」裡沒有要補的（BSMI字號都是空的，或都補過了）。'); openPath(BSMI_FILE); return; }
+  console.log(`要補 BSMI 的蝦皮商品 ${todo.length} 件：`);
+  todo.forEach((c, i) => console.log(`  ${i + 1}. ${c[1]}　序號 ${c[0]}　BSMI ${c[2].trim()}`));
+  const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
+  const page = ctx.pages()[0] || (await ctx.newPage());
+  page.on('dialog', (d) => d.accept().catch(() => {}));
+  await page.goto(SHOPEE.listUrl).catch(() => {});
+  const shopeeIn = await page.getByPlaceholder(/主商品貨號/).first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+  if (!shopeeIn) await ask('👉 請在瀏覽器登入蝦皮賣家中心，看到「我的商品」後，回這裡按 Enter 開始...');
+  const result = new Map();
+  for (const [i, c] of todo.entries()) {
+    const [sn, name] = c, bsmi = c[2].trim();
+    console.log(`\n[${i + 1}/${todo.length}] ${name}　序號 ${sn}`);
+    let p = page;
+    try {
+      p = await openEditBySerial(ctx, page, sn);
+      await p.waitForTimeout(1500);
+      if (!(await setShopeeField(p, 'BSMI', bsmi).catch(() => false))) throw new Error('找不到蝦皮的「BSMI」欄位，請手動填');
+      if (!(await save(p))) throw new Error('BSMI 已填好，但找不到「更新」按鈕，請手動按');
+      console.log(`   ✅ BSMI 已填 ${bsmi} 並儲存（蝦皮會重新審核）`);
+      result.set(sn, '成功 ' + new Date().toLocaleDateString('zh-TW'));
+      rememberBsmi(name, bsmi);
+    } catch (e) {
+      console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
+      result.set(sn, '失敗：' + e.message.split('\n')[0].slice(0, 60));
+      await dumpShopeeFields(p, ['BSMI']).catch(() => {});
+    } finally {
+      if (p !== page) await p.close().catch(() => {});
+    }
+  }
+  await ctx.close();
+  // 結果寫回 BSMI補填.csv
+  const out = readCsv(BSMI_FILE).map((c) => (result.has(c[0]) ? [c[0], c[1], c[2], c[3], result.get(c[0])] : c));
+  fs.writeFileSync(BSMI_FILE, '\uFEFF' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...out.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
+  const ok = [...result.values()].filter((x) => x.startsWith('成功')).length;
+  console.log(`\n完成：成功 ${ok} 件、失敗 ${result.size - ok} 件（結果寫在 BSMI補填.csv 的「結果」欄）`);
 }
 
 const DANGER = [];
@@ -2673,7 +2774,7 @@ async function checkUpdate() {
   } catch (e) {}
 }
 if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
-if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
+if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
