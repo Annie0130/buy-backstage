@@ -1571,8 +1571,14 @@ function renderCardForm() {
     let input = '';
     if (f.type === 'select') {
       const opts = f.options.map(o => `<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
-      const rerender = f.id === 'origin' ? 'renderCardForm();' : '';
+      const rerender = (f.id === 'origin' || f.id === 'mfgw') ? 'renderCardForm();' : '';
       input = `<select onchange="cardData['${f.id}']=this.value;${rerender}renderCardPreview()" style="${baseS}cursor:pointer">${opts}</select>`;
+      // 原廠保固選「在保」：下面出現日期，存成「在保（至2027-03-31）」
+      if (f.id === 'mfgw' && String(val).startsWith('在保')) {
+        const dm = (cardData.mfgwRaw || '').match(/(\d{4}-\d{2}-\d{2})/);
+        input += `<input type="date" value="${dm ? dm[1] : ''}" onchange="cardData.mfgwRaw=this.value?'在保（至'+this.value+'）':'在保';renderCardPreview()" style="${baseS}margin-top:6px" title="原廠保固到期日">
+          <div style="font-size:10px;color:#8a96a5;margin-top:2px">↑ 原廠保固到期日</div>`;
+      }
     } else if (f.type === 'textarea' || f.type === 'textarea-spec') {
       const textarea = `<textarea id="card-field-${f.id}" oninput="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}min-height:52px;resize:vertical" placeholder="${f.placeholder||''}">${val}</textarea>`;
       if (f.type === 'textarea-spec') {
