@@ -728,7 +728,7 @@ function setFeishuStatus(serial, text, id) {
       if (recs.length !== 1) return;
       rid = recs[0].id;
     }
-    const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tableId}/${rid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { 飛鼠狀態: `${text} ${today}` } }) }, 3);
+    const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tableId}/${rid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { 飛鼠狀態: `${text} ${today}`, ...(text.includes('蝦皮已補') ? { 上架飛鼠: false } : {}) } }) }, 3); // 全部完成 → 自動取消上架標記，清單才不會越來越長
     if (res.status === 401 || res.status === 403) {
       if (!AT_WRITE_OFF) console.log('   ℹ️ Airtable 金鑰沒有「寫入」權限，收購後台的狀態不會更新（上架不受影響；要開請看使用說明「收購後台顯示上架狀態」）');
       AT_WRITE_OFF = true;
