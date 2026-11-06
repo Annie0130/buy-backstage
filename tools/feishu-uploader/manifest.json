@@ -1,6 +1,6 @@
 {
- "version": "20261106-2033",
- "note": "存草稿時會直接寫出是哪一格沒填好",
+ "version": "20261106-2035",
+ "note": "平台分類、蝦皮自訂標題沒選到不會再擋上架（只有飛鼠必填欄位才會存草稿）",
  "files": [
   {
    "path": "migrate.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "f0659de01b45ed214412cd24da8ea218d7008a38bf1ce071fbcc7ed620993e1a"
+   "sha256": "bf74d478c2394bad6dcf422628ec94caff4e986dd3bd637578ca96436ca00eb1"
   },
   {
    "path": "使用說明.txt",

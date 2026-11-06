@@ -1540,12 +1540,15 @@ async function main(srcOverride) {
       problems.forEach((p) => console.log('   • ' + p));
 
       // review：每筆都停下來；draft：不停（之後再進草稿補照片、分類）；create：有欄位沒填成功才停
-      const serious = problems.some((x) => /沒填成功|沒選成功|沒設定成功|判斷不出來|被清掉了/.test(x));
+      // 只有飛鼠必填的欄位（名稱、分類、售價、SPU、SKU、描述…）沒填好才算嚴重；
+      // 平台分類、蝦皮自訂標題／價格沒選到不擋上架（飛鼠會用預設，最後的蝦皮價格檢查會再補）
+      const isBad = (x) => /沒填成功|沒選成功|沒設定成功|判斷不出來|被清掉了/.test(x) && !/平台分類|蝦皮自訂|同步/.test(x);
+      const serious = problems.some(isBad);
       const noPhotos = problems.some((x) => x.startsWith('沒有整理好的實拍照') || x.startsWith('商品圖片沒上傳成功'));
       // 直接建立模式：沒有照片、或有欄位沒填好 → 不上架，先存草稿（之後補好再建立）
       const asDraft = CONFIG.mode === 'create' && (serious || noPhotos);
       if (asDraft) {
-        const bad = problems.filter((x) => /沒填成功|沒選成功|沒設定成功|判斷不出來|被清掉了/.test(x)).map((x) => x.replace(/，請.*$/, ''));
+        const bad = problems.filter(isBad).map((x) => x.replace(/，請.*$/, ''));
         console.log(`   ⚠️ ${noPhotos ? '沒有照片' : `有欄位沒填好（${bad.join('；')}）`}，這筆先存草稿、不上架。到飛鼠草稿補好後按「發佈」就好`);
       }
       const needHuman = CONFIG.mode === 'review';
