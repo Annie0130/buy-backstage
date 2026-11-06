@@ -1,4 +1,4 @@
-// 資料夾整理（只會做一次）：最外層只留「★控制台」「★一鍵上架」「照片放這裡」，其他全部搬進「系統」
+// 資料夾整理（只會做一次）：最外層只留「★控制台」「★一鍵上架」「更新程式」「照片放這裡」，其他全部搬進「系統」
 // 舊版的程式放在最外層；新版從 系統 資料夾執行。這支會被 update.js／panel.js／upload.js 自動呼叫。
 const fs = require('fs');
 const path = require('path');
@@ -14,6 +14,8 @@ function needsMigration(dir) {
 const LAUNCHERS = {
   '★控制台.bat': '@echo off\r\nchcp 65001 >nul\r\npushd "%~dp0系統"\r\ntitle 上架控制台（這個視窗不要關）\r\necho ===== 上架控制台 =====\r\necho 瀏覽器會自動打開 http://localhost:3939\r\necho 這個黑色視窗不要關，關掉控制台就停了\r\necho.\r\nnode panel.js\r\npause\r\n',
   '★一鍵上架.bat': '@echo off\r\nchcp 65001 >nul\r\npushd "%~dp0系統"\r\ntitle 一鍵上架\r\necho ===== 一鍵上架（沒照片時：顯示拍照順序／有照片時：上架）=====\r\necho.\r\nnode upload.js all\r\necho.\r\necho ===== 跑完了，可以關掉這個視窗 =====\r\npause\r\n',
+  '更新程式.bat': '@echo off\r\nchcp 65001 >nul\r\npushd "%~dp0系統"\r\ntitle 更新程式\r\necho ===== 更新上架程式到最新版 =====\r\necho （不會動金鑰、紀錄、照片）\r\necho.\r\nnode update.js\r\necho.\r\necho ===== 跑完了，可以關掉這個視窗 =====\r\npause\r\n',
+  '更新程式.command': '#!/bin/bash\n# Mac 用：雙擊執行\ncd "$(dirname "$0")/系統"\necho "===== 更新上架程式到最新版 ====="\necho\nnode update.js\necho\nread -p "跑完了，按 Enter 關閉…"\n',
   '★控制台.command': '#!/bin/bash\n# Mac 用：雙擊執行\ncd "$(dirname "$0")/系統"\necho "===== 上架控制台（這個視窗不要關）====="\necho\nnode panel.js\necho\nread -p "跑完了，按 Enter 關閉…"\n',
 };
 function writeLaunchers(root) {
@@ -26,7 +28,7 @@ function writeLaunchers(root) {
 
 function migrate(root) {
   if (!needsMigration(root)) return false;
-  console.log('\n📁 整理資料夾：最外層只留「★控制台」「★一鍵上架」「照片放這裡」，其他搬進「系統」…');
+  console.log('\n📁 整理資料夾：最外層只留「★控制台」「★一鍵上架」「更新程式」「照片放這裡」，其他搬進「系統」…');
   const sys = path.join(root, SYS);
   const inbox = path.join(root, INBOX);
   fs.mkdirSync(sys, { recursive: true });

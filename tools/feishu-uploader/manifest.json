@@ -1,11 +1,11 @@
 {
- "version": "20261106-1825",
- "note": "錯誤截圖、欄位診斷檔全部收進「系統\\診斷檔」",
+ "version": "20261106-1838",
+ "note": "「更新程式」也放到最外層",
  "files": [
   {
    "path": "migrate.js",
    "url": "f00.js.txt",
-   "sha256": "94fd94f69e5cd866c558def08b678c5b6270e17d3effbef46d21671bf0fb2552"
+   "sha256": "815a5c03757d808718fcd057c0a8d4d6bfd4a0764e07846d94232011e0e09f91"
   },
   {
    "path": "package.json",
@@ -78,23 +78,13 @@
    "sha256": "15eb65ffa3f9502f307ec81e57483d08c332f3a294b52d992cd63021e4f37541"
   },
   {
-   "path": "更新程式.bat",
-   "url": "f15.bat.txt",
-   "sha256": "5efc481e991b2e8b80fc127724ede94342b47cc7f51b05e08b8859f1cbf4316e"
-  },
-  {
-   "path": "更新程式.command",
-   "url": "f16.command.txt",
-   "sha256": "5d1ac060f523772cef09c013f8ccc1220f174fe9c4568ee831bf9834a36f1727"
-  },
-  {
    "path": "蝦皮價格檢查.bat",
-   "url": "f17.bat.txt",
+   "url": "f15.bat.txt",
    "sha256": "3a1004ef1fa63db37aec170043cb3d271de9d2dac93b2758e49d08e4612d5733"
   },
   {
    "path": "補照片.bat",
-   "url": "f18.bat.txt",
+   "url": "f16.bat.txt",
    "sha256": "3839fac564883662db7d66958e146bbfb990daaf3883c17d262d6a1b72c88e0b"
   }
  ],
