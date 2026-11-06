@@ -1704,10 +1704,11 @@ function buildCardHTML(d, accOverride) {
 
   // spec rows
   // 寫清楚是「快門數」，只寫「約 6,000 次」客人看不懂
-  const shutterText = hasShutter ? ` <span style="color:#555;font-weight:600">快門數 ${parseInt(d.shutter)}</span>` : '';
   const originText = d.origin === '水貨' ? '平行輸入' : (d.origin || '—');
   const specs = [
-    {label:'新舊', val:`${d.cond ? `<span class="lcard-cond-tag${condCls}">${condText}</span>` : ''}${shutterText}`, empty: !d.cond && !hasShutter},
+    {label:'新舊', val: d.cond ? `<span class="lcard-cond-tag${condCls}">${condText}</span>` : '', empty: !d.cond},
+    // 快門數自己一行（放在新舊後面），新舊那一行才不會被擠成兩段
+    {label:'快門數', val: hasShutter ? `<span style="color:#333;font-weight:700">${parseInt(d.shutter)}</span>` : '', empty: !hasShutter},
     {label:'原廠保', val: cardWarrantyHTML(d), empty: !d.mfgw},
     {label:'本店保', val: d.shopw||'—'},
     {label:'來源', val: originText, empty: d.origin === '不影響'},
