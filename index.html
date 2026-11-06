@@ -1639,6 +1639,20 @@ const CARD_LOGO_FILES = {
   Fujifilm: 'logos/fujifilm.png', Olympus: 'logos/olympus.png', Tamron: 'logos/tamron.png',
   DJI: 'logos/dji.png', Sigma: 'logos/sigma.png', Hasselblad: 'logos/hasselblad.png',
 };
+// 商品卡上方色條：依品牌換顏色（深色、偏霧的同一色系，白字看得清楚、印出來也好看）
+const CARD_BAR = {
+  Sony: '#0d3b66', Canon: '#8b1c24', Nikon: '#1e5b3a', Fujifilm: '#b4561c',
+  Olympus: '#16646e', 'OM System': '#16646e', Panasonic: '#16646e',          // M43
+  Leica: '#2b2b2b', Hasselblad: '#2b2b2b', DJI: '#2b2b2b',
+  Ricoh: '#4a5560', Pentax: '#4a5560',
+  Sigma: '#5c4a3a', Tamron: '#5c4a3a', Tokina: '#5c4a3a', Zeiss: '#5c4a3a', Viltrox: '#5c4a3a', Samyang: '#5c4a3a', // 副廠鏡頭
+};
+function cardBarColor(d, brand) {
+  if (/^CCD/.test(d.ccd || '')) return '#5a3d8a';   // CCD 相機：紫色（優先於品牌）
+  if (/Y2K/.test(d.ccd || '')) return '#3b3f8c';    // Y2K 復古：靛藍
+  if (/M43/.test(d.category || '')) return '#16646e';
+  return CARD_BAR[brand] || '#0d3b66';
+}
 const CARD_LOGO_HEIGHT = { DJI: 16 };  // 比較方的 LOGO 放大一點，其他預設 12px
 const CARD_LOGO_WIDE = ['Hasselblad'];  // 太寬的 LOGO 自己一行，品類放下一行
 
@@ -1726,7 +1740,7 @@ function buildCardHTML(d, accOverride) {
   ).join('');
 
   return `<div class="lcard">
-  <div class="lcard-header">
+  <div class="lcard-header" style="background:${cardBarColor(d, nm.brand)}">
     <div class="lcard-left">
       <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}</div>
       <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main||'—'}</div>
@@ -1938,6 +1952,7 @@ function recordToCardData(r) {
       desc:    f['商品介紹'] || '',
       category: f['品類'] || '',
       mfgwRaw: mfgwRaw,
+      ccd:     String((f['CCD／Y2K'] && f['CCD／Y2K'].name) || f['CCD／Y2K'] || ''),
     },
     accOverride
   };
