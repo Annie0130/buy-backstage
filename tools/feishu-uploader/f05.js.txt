@@ -730,8 +730,10 @@ function log(r, status, note = '') {
 // ---------- 終端機互動 ----------
 // 整個執行過程只開一個輸入介面（Windows 上反覆開關會讓程式直接結束）
 let RL = null;
-function ask(q) {
+function ask(q, kind = '') {
   if (!RL) RL = readline.createInterface({ input: process.stdin, output: process.stdout });
+  // 從控制台執行時：先送一個「我在問問題」的訊號，控制台就會跳出回覆按鈕
+  if (process.env.PANEL) console.log('__ASK__' + JSON.stringify({ q: q.trim(), kind }));
   return new Promise((res) => RL.question(q, (a) => res(a.trim())));
 }
 function closeAsk() { if (RL) { RL.close(); RL = null; } }
@@ -1794,18 +1796,18 @@ async function photosMain() {
 <style>body{font-family:system-ui,"Microsoft JhengHei",sans-serif;margin:20px;background:#f6f6f4;color:#222}h1{font-size:22px}h2{font-size:17px;margin:22px 0 8px}small{color:#777;font-weight:400}
 .warn{background:#fff3cd;border:1px solid #f0c36d;padding:12px 14px;border-radius:8px;font-weight:700}.g{display:flex;flex-wrap:wrap;gap:8px}
 figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd}figure.main{border:3px solid #d9480f}img{display:block;max-width:220px;max-height:160px}figcaption{font-size:11px;color:#888;margin-top:4px}</style>
-<h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，回黑色視窗輸入 y。</p>
+<h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，${process.env.PANEL ? "按下面的「✅ 分組正確，開始上架」" : "回黑色視窗輸入 y"}。</p>
 ${warn ? `<p class="warn">${warn}</p>` : ''}${sec}${missingRows ? `<h2 style="color:#c00">沒有分到照片的商品</h2><ul>${missingRows}</ul>` : ''}`;
   const preview = path.join(__dirname, '照片分組預覽.html');
   fs.writeFileSync(preview, html, 'utf8');
   console.log(`\n分成 ${groups.length} 組（黑畫面 ${blacks} 張），商品 ${rows.length} 件`);
   if (warn) console.log(warns.join('\n'));
   console.log(`預覽：${preview}`);
-  openPath(preview);
+  if (!process.env.PANEL) openPath(preview); // 控制台會自己在網頁裡顯示預覽
 
   const a = await ask(warn
     ? '\n⚠️ 上面有警告！確定還是要套用嗎？輸入 yes 套用，其他鍵取消：'
-    : '\n預覽正確嗎？輸入 y 套用（照片放進各商品資料夾），其他鍵取消：');
+    : '\n預覽正確嗎？輸入 y 套用（照片放進各商品資料夾），其他鍵取消：', warn ? 'preview-yes' : 'preview-y');
   if (warn ? a.toLowerCase() !== 'yes' : a.toLowerCase() !== 'y') { console.log('已取消，收件匣的照片都沒有動。可以調整後再跑一次。'); return false; }
 
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);

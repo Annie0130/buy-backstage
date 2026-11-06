@@ -64,6 +64,15 @@ details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
 .advlist{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 @media(max-width:700px){.advlist{grid-template-columns:1fr}}
 .acts{display:flex;flex-wrap:wrap;gap:6px;max-width:230px}.acts button{padding:5px 10px;font-size:13px}
+.reply.ask{background:#fff1b8;border-color:#e0a800;box-shadow:0 0 0 3px #ffe58f}
+.pv{display:none;position:fixed;inset:0;background:rgba(15,20,30,.6);z-index:20;padding:20px}
+.pv.show{display:flex;align-items:center;justify-content:center}
+.pvbox{background:#fff;border-radius:16px;width:min(1200px,100%);height:100%;display:flex;flex-direction:column;overflow:hidden}
+.pvhead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:17px}
+.pvwarn{color:var(--bad);font-weight:700;font-size:14px}
+#pvframe{flex:1;border:0;width:100%}
+.pvbtns{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;opacity:0;transition:.2s;pointer-events:none;z-index:9}
 .toast.show{opacity:1}
 </style>
@@ -137,16 +146,15 @@ details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
       <div class="alert" id="alert"></div>
       <div id="log"></div>
       <div class="reply" id="reply">
-        <p id="replyQ">程式在等你回覆：</p>
+        <p id="replyQ">程式在跑。如果它問你問題，會在這裡亮起來，直接按下面的按鈕回答：</p>
         <div class="row">
-          <button class="primary" onclick="send('y')">✅ 正確（y）</button>
-          <button onclick="send('yes')">yes</button>
-          <button onclick="send('')">⏎ Enter 繼續</button>
-          <button onclick="send('s')">跳過（s）</button>
+          <button class="primary" onclick="send('')">⏎ 好了，繼續（Enter）</button>
+          <button onclick="send('y')">✅ 正確（y）</button>
+          <button onclick="send('s')">跳過這件（s）</button>
           <button class="danger" onclick="send('q')">結束（q）</button>
         </div>
         <div class="row" style="margin-top:8px">
-          <input type="text" id="replyText" placeholder="或自己打字回覆" style="flex:1">
+          <input type="text" id="replyText" placeholder="或自己打字回覆，按 Enter 送出" style="flex:1">
           <button onclick="send(document.getElementById('replyText').value)">送出</button>
         </div>
       </div>
@@ -154,6 +162,19 @@ details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
   </div>
 </main>
 <div class="toast" id="toast"></div>
+<div id="pv" class="pv">
+  <div class="pvbox">
+    <div class="pvhead">
+      <b>🖼️ 照片分組預覽：每一組的照片對不對？</b>
+      <span id="pvwarn" class="pvwarn"></span>
+    </div>
+    <iframe id="pvframe" title="照片分組預覽"></iframe>
+    <div class="pvbtns">
+      <button class="primary big2" onclick="answerPreview(true)">✅ 分組正確，開始上架</button>
+      <button class="danger big2" onclick="answerPreview(false)">❌ 不對，取消（照片不會動）</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -162,7 +183,7 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 async function post(url, data) { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) }); return r.json(); }
 
 // ---------- 執行 ----------
-let running = false, tail = '', dangers = [];
+let running = false, dangers = [];
 async function run(cmd, serials) {
   if (running) return toast('還有功能在跑，請等它跑完');
   const r = await post('/api/run', { cmd, serials });
@@ -173,7 +194,30 @@ function runAddPhotos() {
   if (!s.length && !confirm('沒有輸入序號，要自動找「所有有新照片的商品」嗎？')) return;
   run('addphotos', s);
 }
-async function send(text) { await post('/api/input', { text }); $('replyText').value = ''; $('reply').classList.remove('show'); tail = ''; }
+let askKind = '';
+async function send(text) {
+  const r = await post('/api/input', { text });
+  if (!r.ok) return toast(r.msg || '送不出去');
+  $('replyText').value = ''; $('reply').classList.remove('ask'); askKind = '';
+  $('replyQ').textContent = '已回覆，程式繼續跑…（之後如果再問你問題，這裡會再亮起來）';
+}
+let replaying = false, replayAsk = null;
+function onAsk(a) {
+  if (replaying) { replayAsk = a; return; }
+  askKind = a.kind || '';
+  $('replyQ').textContent = '👉 程式在問你：' + a.q;
+  $('reply').classList.add('show', 'ask');
+  $('reply').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (askKind.startsWith('preview')) {
+    $('pvwarn').textContent = askKind === 'preview-yes' ? '⚠️ 有警告（張數不對或組數不對），請仔細看清楚再按' : '';
+    $('pvframe').src = '/preview?t=' + Date.now();
+    $('pv').classList.add('show');
+  }
+}
+function answerPreview(ok) {
+  $('pv').classList.remove('show');
+  send(ok ? (askKind === 'preview-yes' ? 'yes' : 'y') : 'n');
+}
 async function stop() { if (confirm('確定要停止嗎？（跑到一半的那一件可能要到飛鼠手動確認）')) await post('/api/stop'); }
 function openFolder(what) { post('/api/open', { what }); }
 function openPreview() { window.open('/preview?t=' + Date.now(), '_blank'); }
@@ -184,23 +228,24 @@ function lineClass(l) {
   if (/✅|完成|成功/.test(l)) return 'ok';
   return '';
 }
+let pend = '';
 function appendLog(text) {
   const log = $('log');
   const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
-  const parts = text.split('\n');
-  parts.forEach((l, i) => {
+  pend += text;
+  const lines = pend.split('\n');
+  pend = lines.pop();                      // 最後一段還沒換行
+  if (pend && !'__ASK__'.startsWith(pend.slice(0, 7)) ) { lines.push(pend); pend = ''; var partial = true; }
+  lines.forEach((l, i) => {
+    if (l.startsWith('__ASK__')) { try { onAsk(JSON.parse(l.slice(7))); } catch (e) {} return; }
+    // 重播時：問題後面如果還有別的輸出（不是問題本身那行），代表已經回答過了
+    if (replaying && replayAsk && l.trim() && !replayAsk.q.includes(l.trim())) replayAsk = null;
     const cls = lineClass(l);
-    log.insertAdjacentHTML('beforeend', (cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l)) + (i < parts.length - 1 ? '\n' : ''));
+    const nl = (partial && i === lines.length - 1) ? '' : '\n';
+    log.insertAdjacentHTML('beforeend', (cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l)) + nl);
     if (l.includes('🚨') && !dangers.includes(l.trim())) { dangers.push(l.trim()); showAlert(); }
   });
   if (atBottom) log.scrollTop = log.scrollHeight;
-  // 偵測「在等你回覆」：最後一段沒有換行、像是問題
-  tail = (tail + text).slice(-300);
-  const last = tail.split('\n').pop();
-  if (running && last && /[：:?？]\s*$/.test(last)) {
-    $('replyQ').textContent = '程式在等你回覆：' + last.trim();
-    $('reply').classList.add('show');
-  } else if (!last) $('reply').classList.remove('show');
 }
 function showAlert() {
   const a = $('alert');
@@ -218,14 +263,22 @@ function setJob(j) {
     tick(); timer = setInterval(tick, 1000);
     $('pill').className = 'pill run';
     $('jobInfo').textContent = j.label;
+    $('reply').classList.add('show');
   } else {
+    $('pv').classList.remove('show'); askKind = ''; $('reply').classList.remove('ask');
     $('pill').textContent = '閒置中'; $('pill').className = 'pill';
     $('reply').classList.remove('show');
   }
 }
 const es = new EventSource('/api/events');
 es.addEventListener('job', (e) => { const j = JSON.parse(e.data); if (j.running && !running) { $('log').innerHTML = ''; dangers = []; $('alert').classList.remove('show'); } setJob(j); });
-es.addEventListener('history', (e) => { $('log').innerHTML = ''; appendLog(JSON.parse(e.data)); });
+es.addEventListener('history', (e) => {
+  $('log').innerHTML = ''; pend = '';
+  replaying = true; replayAsk = null;
+  appendLog(JSON.parse(e.data));
+  replaying = false;
+  if (replayAsk && running) onAsk(replayAsk); // 重開網頁時，最後一個還沒回答的問題再顯示一次
+});
 es.addEventListener('log', (e) => appendLog(JSON.parse(e.data)));
 es.addEventListener('refresh', () => { loadStatus(); loadRefill(); });
 es.onerror = () => { $('pill').textContent = '⚠️ 控制台沒有在跑（黑色視窗被關掉了？）'; $('pill').className = 'pill run'; };

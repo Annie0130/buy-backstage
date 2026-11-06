@@ -1,6 +1,6 @@
 {
- "version": "20261105-2112",
- "note": "單筆新增的商品，飛鼠備註會寫進貨管道（維修回來、面交…）",
+ "version": "20261106-1329",
+ "note": "控制台：程式問問題時一定會跳出按鈕；分組預覽直接在網頁上按「分組正確，開始上架」",
  "files": [
   {
    "path": "package.json",
@@ -10,12 +10,12 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "87d35b70f3d66a1e52ccceed96ca673ee09f65137c8696fa5f17eb67a01f6b44"
+   "sha256": "ccf8a1c20c6e7383a5544d6686b668d280c1b745b4e6a2a2eaca56883c182b3a"
   },
   {
    "path": "panel.js",
    "url": "f02.js.txt",
-   "sha256": "8abd92bcd11f9b810000f473e80da64a4ebdf03e9dfd568f7ea28d7296dace1d"
+   "sha256": "3bc4ef3d01c7e512dba3d329d61b43c8fa8da2ffc3adbefb33fc515eb1b0d1f2"
   },
   {
    "path": "shopee-minqty.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "381a1834f02cb91f22fecfea6e2977bac59a17acb4319ba4b15bd25cf8a8fb25"
+   "sha256": "02e8b90c42d8f135182adc97e38a8918dadad4272969779c28d1445e9f91fc0b"
   },
   {
    "path": "★一鍵上架.bat",

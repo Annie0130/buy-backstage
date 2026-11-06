@@ -51,7 +51,7 @@ function runJob(key, serials = []) {
   if (!c) return { ok: false, msg: '沒有這個功能' };
   const extra = c.serials ? serials.filter((s) => /^[\w-]{1,30}$/.test(s)) : [];
   logBuf = [];
-  const child = spawn(process.execPath, [...c.args, ...extra], { cwd: DIR, env: { ...process.env, FORCE_COLOR: '0' }, detached: process.platform !== 'win32' });
+  const child = spawn(process.execPath, [...c.args, ...extra], { cwd: DIR, env: { ...process.env, FORCE_COLOR: '0', PANEL: '1' }, detached: process.platform !== 'win32' });
   job = { key, label: c.label + (extra.length ? ' ' + extra.join(' ') : ''), child, start: Date.now() };
   pushLog(`▶ 開始：${job.label}\n\n`);
   broadcast('job', jobInfo());
