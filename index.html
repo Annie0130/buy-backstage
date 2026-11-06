@@ -1647,9 +1647,21 @@ const CARD_BAR = {
   Ricoh: '#4a5560', Pentax: '#4a5560',
   Sigma: '#5c4a3a', Tamron: '#5c4a3a', Tokina: '#5c4a3a', Zeiss: '#5c4a3a', Viltrox: '#5c4a3a', Samyang: '#5c4a3a', // 副廠鏡頭
 };
+const THIRD_PARTY = ['Sigma', 'Tamron', 'Tokina', 'Zeiss', 'Viltrox', 'Samyang'];
+// 副廠鏡頭：看名稱裡的「For Sony／For Fuji…」或接環，跟著適用的品牌換顏色
+function mountBrand(name) {
+  const n = String(name || '');
+  if (/for\s*sony|sony\s*e\b|\bFE\b/i.test(n)) return 'Sony';
+  if (/for\s*canon|\bRF\b|\bEF-?M\b|\bEF\b/i.test(n)) return 'Canon';
+  if (/for\s*nikon|nikon\s*z|\bZ\s*mount/i.test(n)) return 'Nikon';
+  if (/for\s*fuji|\bX\s*mount|fujifilm\s*x/i.test(n)) return 'Fujifilm';
+  if (/m43|m4\/3|micro\s*four|for\s*(olympus|panasonic|lumix)/i.test(n)) return 'Olympus';
+  if (/for\s*l\b|l\s*mount|for\s*leica/i.test(n)) return 'Leica';
+  return '';
+}
 function cardBarColor(d, brand) {
-  if (/^CCD/.test(d.ccd || '')) return '#5a3d8a';   // CCD 相機：紫色（優先於品牌）
-  if (/Y2K/.test(d.ccd || '')) return '#3b3f8c';    // Y2K 復古：靛藍
+  if (/CCD|Y2K/.test(d.ccd || '')) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
+  if (THIRD_PARTY.includes(brand)) { const mb = mountBrand(d.name); if (mb) return CARD_BAR[mb]; }
   if (/M43/.test(d.category || '')) return '#16646e';
   return CARD_BAR[brand] || '#0d3b66';
 }
