@@ -7,7 +7,12 @@ const crypto = require('crypto');
 const dns = require('dns');
 dns.setDefaultResultOrder && dns.setDefaultResultOrder('ipv4first');
 
-const BASE = 'https://precious-otter-3873db.netlify.app/tools/feishu-uploader/';
+// 兩個下載來源：哪邊的版本比較新就用哪邊（網站有時候會卡住沒更新）
+const SOURCES = [
+  'https://raw.githubusercontent.com/Annie0130/buy-backstage/main/tools/feishu-uploader/',
+  'https://precious-otter-3873db.netlify.app/tools/feishu-uploader/',
+];
+let BASE = SOURCES[0];
 const VERSION_FILE = path.join(__dirname, '版本.txt');
 // 這些永遠不會被覆蓋或刪除
 const PROTECTED = /(^|[\\/])(airtable-token\.txt|.*\.csv|補照片清單\.txt|飛鼠新增商品網址\.txt|平台分類選項\.txt|chrome-profile|node_modules|商品照片)([\\/]|$)/i;
@@ -28,7 +33,14 @@ const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
 (async () => {
   console.log('檢查最新版本…');
-  const manifest = JSON.parse((await get(BASE + 'manifest.json')).toString('utf8'));
+  let manifest = null;
+  for (const src of SOURCES) {
+    try {
+      const m = JSON.parse((await get(src + 'manifest.json', 2)).toString('utf8'));
+      if (!manifest || String(m.version) > String(manifest.version)) { manifest = m; BASE = src; }
+    } catch (e) {}
+  }
+  if (!manifest) throw new Error('連不到更新來源，請檢查網路再試一次');
   const local = fs.existsSync(VERSION_FILE) ? fs.readFileSync(VERSION_FILE, 'utf8').trim() : '（未知）';
   console.log(`目前版本：${local}　最新版本：${manifest.version}`);
 

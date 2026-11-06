@@ -1,6 +1,6 @@
 {
- "version": "20261106-1329",
- "note": "控制台：程式問問題時一定會跳出按鈕；分組預覽直接在網頁上按「分組正確，開始上架」",
+ "version": "20261106-1341",
+ "note": "控制台：程式問問題時一定會跳出按鈕；分組預覽直接在網頁上按「分組正確，開始上架」；更新改從 GitHub 下載",
  "files": [
   {
    "path": "package.json",
@@ -25,12 +25,12 @@
   {
    "path": "update.js",
    "url": "f04.js.txt",
-   "sha256": "ae63768bd7e40a105c66dd14882916f34688d7b14b578d019386485157f577f5"
+   "sha256": "df4f5a7dcfb12ef7faeb52c5b7a5d33da6c93ad85f9beb92fa1ac5317558c641"
   },
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "02e8b90c42d8f135182adc97e38a8918dadad4272969779c28d1445e9f91fc0b"
+   "sha256": "172034b92d24d9d60ecd974f5ca25a33ea92544793aee5f1a5bd28a499f1829b"
   },
   {
    "path": "★一鍵上架.bat",

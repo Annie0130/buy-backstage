@@ -2584,9 +2584,11 @@ const READ_ONLY_CMDS = ['status', 'todo'];
 async function checkUpdate() {
   try {
     const local = fs.existsSync(path.join(__dirname, '版本.txt')) ? fs.readFileSync(path.join(__dirname, '版本.txt'), 'utf8').trim() : '';
-    const res = await Promise.race([fetch('https://precious-otter-3873db.netlify.app/tools/feishu-uploader/manifest.json?t=' + Date.now()), new Promise((r) => setTimeout(() => r(null), 3000))]);
-    if (!res || !res.ok) return;
-    const m = await res.json();
+    const one = (u) => Promise.race([fetch(u + '?t=' + Date.now()).then((r) => (r.ok ? r.json() : null)), new Promise((r) => setTimeout(() => r(null), 3000))]).catch(() => null);
+    const ms = (await Promise.all(['https://raw.githubusercontent.com/Annie0130/buy-backstage/main/tools/feishu-uploader/manifest.json',
+      'https://precious-otter-3873db.netlify.app/tools/feishu-uploader/manifest.json'].map(one))).filter(Boolean);
+    if (!ms.length) return;
+    const m = ms.sort((a, b) => String(b.version).localeCompare(String(a.version)))[0];
     if (m.version && m.version !== local) console.log(`\n🔔 上架程式有新版（${m.version}）！跑完後雙擊「更新程式.bat」就會自動更新${m.note ? '：' + m.note : ''}\n`);
   } catch (e) {}
 }
