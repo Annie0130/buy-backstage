@@ -1,6 +1,6 @@
 {
- "version": "20261106-1822",
- "note": "整理資料夾：最外層只留「★控制台」「★一鍵上架」「照片放這裡」，其他收進「系統」",
+ "version": "20261106-1825",
+ "note": "錯誤截圖、欄位診斷檔全部收進「系統\\診斷檔」",
  "files": [
   {
    "path": "migrate.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "87438e09800cc2990cdaeaa71f876a752752f8ede0c63cfa5aa7fc00631a0cfb"
+   "sha256": "7254750354424f9d42a6ab3acaff30b9c0a2ade6d8b343d74a337b7e723a535f"
   },
   {
    "path": "使用說明.txt",

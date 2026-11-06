@@ -16,6 +16,18 @@ const path = require('path');
 const readline = require('readline');
 
 // 開啟 Chrome；同一份登入資料已經有 Chrome 在用時，給中文提示
+// 錯誤截圖、欄位診斷這類檔案集中放在「診斷檔」資料夾，資料夾才不會亂
+const DIAG_RE = /(錯誤截圖.*\.png|欄位診斷\.txt|欄位截圖\.png|圖片欄位.*|平台分類選項\.txt)$/;
+function diagDir() { const d = path.join(__dirname, '診斷檔'); fs.mkdirSync(d, { recursive: true }); return d; }
+function tidyDiagFiles() {
+  for (const dir of [__dirname, path.dirname(__dirname)]) {
+    try {
+      for (const f of fs.readdirSync(dir)) if (DIAG_RE.test(f)) { try { fs.renameSync(path.join(dir, f), path.join(diagDir(), f)); } catch (e) {} }
+    } catch (e) {}
+  }
+}
+if (require.main === module) tidyDiagFiles();
+
 // 舊的資料夾排法（程式都在最外層）→ 先整理資料夾，再從「系統」裡重新執行
 if (require.main === module && fs.existsSync(path.join(__dirname, 'migrate.js'))) {
   const M = require('./migrate.js');
@@ -932,7 +944,7 @@ async function dumpSyncOptions(page) {
       return out.join('\n');
     });
     if (text.trim()) {
-      const f = path.join(__dirname, '平台分類選項.txt');
+      const f = path.join(diagDir(), '平台分類選項.txt');
       fs.writeFileSync(f, text, 'utf8');
       console.log(`   📝 已把平台分類的下拉選項存到：${f}`);
     }
@@ -1125,7 +1137,7 @@ async function dumpFieldHtml(page, labels) {
       }
       return out.join('\n');
     }, labels);
-    const f = path.join(__dirname, '欄位診斷.txt');
+    const f = path.join(diagDir(), '欄位診斷.txt');
     fs.writeFileSync(f, (DIAG_EXTRA ? DIAG_EXTRA + '\n\n' : '') + text, 'utf8');
     DIAG_EXTRA = '';
     console.log(`   🔍 填不進去的欄位已存診斷檔：${f}（用記事本打開，全選複製貼給 Claude）`);
@@ -1292,9 +1304,9 @@ async function dumpImageFields(page) {
     out.push('\n[頁面上有「圖／照片／上傳」的文字]'); out.push(...pics.map((x) => '  ' + x));
     return out.join('\n');
   });
-  fs.writeFileSync(path.join(__dirname, '圖片欄位診斷.txt'), '\uFEFF' + info.replace(/\n/g, '\r\n'), 'utf8');
-  await page.screenshot({ path: path.join(__dirname, '圖片欄位截圖.png'), fullPage: true }).catch(() => {});
-  console.log('   📝 已存「圖片欄位診斷.txt」和「圖片欄位截圖.png」，請把診斷檔內容貼給 Claude');
+  fs.writeFileSync(path.join(diagDir(), '圖片欄位診斷.txt'), '\uFEFF' + info.replace(/\n/g, '\r\n'), 'utf8');
+  await page.screenshot({ path: path.join(diagDir(), '圖片欄位截圖.png'), fullPage: true }).catch(() => {});
+  console.log('   📝 已存「系統\診斷檔\圖片欄位診斷.txt」和截圖，請把診斷檔內容貼給 Claude');
 }
 async function uploadImage(page, file, problems) { return uploadImages(page, file ? [file] : [], problems); }
 
@@ -1562,7 +1574,7 @@ async function main(srcOverride) {
       fail++;
       console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
       log(r, '失敗', e.message.split('\n')[0]);
-      const shot = path.join(__dirname, `錯誤截圖-${i + 1}.png`);
+      const shot = path.join(diagDir(), `錯誤截圖-${i + 1}.png`);
       await page.screenshot({ path: shot, fullPage: true }).then(
         () => console.log(`   📸 已存錯誤截圖：${shot}`),
         () => {}
@@ -1972,7 +1984,7 @@ async function draftsMain(opts = {}) {
     } catch (e) {
       const msg = e.message.split('\n')[0];
       console.log('   ❌ 失敗：' + msg);
-      await p.screenshot({ path: path.join(__dirname, `草稿錯誤截圖-${i + 1}.png`), fullPage: true }).catch(() => {});
+      await p.screenshot({ path: path.join(diagDir(), `草稿錯誤截圖-${i + 1}.png`), fullPage: true }).catch(() => {});
     } finally {
       if (p !== page) await p.close().catch(() => {});
     }
@@ -2058,7 +2070,7 @@ async function addPhotosMain(opts = {}) {
       ok++;
     } catch (e) {
       console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
-      await p.screenshot({ path: path.join(__dirname, `補照片錯誤截圖-${i + 1}.png`), fullPage: true }).catch(() => {});
+      await p.screenshot({ path: path.join(diagDir(), `補照片錯誤截圖-${i + 1}.png`), fullPage: true }).catch(() => {});
     } finally {
       if (p !== page) await p.close().catch(() => {});
     }
@@ -2481,7 +2493,7 @@ async function dumpShopeeFields(p, keywords) {
       }
       return out.join('\n');
     }, keywords);
-    const f = path.join(__dirname, '蝦皮欄位診斷.txt');
+    const f = path.join(diagDir(), '蝦皮欄位診斷.txt');
     fs.writeFileSync(f, text, 'utf8');
     console.log(`   🔍 已存診斷檔：${f}（用記事本打開，全選複製貼給 Claude）`);
   } catch (e) {}
@@ -2778,7 +2790,7 @@ async function shopeeMain() {
       const msg = e.message.split('\n')[0];
       console.log('   ❌ 失敗：' + msg);
       shopeeLog(t.name, t.serial, '失敗', msg);
-      const shot = path.join(__dirname, `蝦皮錯誤截圖-${i + 1}.png`);
+      const shot = path.join(diagDir(), `蝦皮錯誤截圖-${i + 1}.png`);
       await p.screenshot({ path: shot, fullPage: true }).then(() => console.log(`   📸 已存錯誤截圖：${shot}`), () => {});
       if (auto) continue; // 不停模式：失敗的記下來，直接做下一筆
       const a = await ask('   按 Enter 繼續下一筆，輸入 q 結束：');
