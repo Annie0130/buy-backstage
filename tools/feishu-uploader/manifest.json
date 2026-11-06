@@ -1,6 +1,6 @@
 {
- "version": "20261106-1351",
- "note": "一鍵上架建立後自動再按一次發佈，讓商品真的傳到蝦皮；蝦皮價格檢查只處理還沒確認的",
+ "version": "20261106-1356",
+ "note": "上架文案的保固會照每台的「原廠保固」「店保」寫",
  "files": [
   {
    "path": "package.json",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "310a12a027a4747b79a90a539c8cbb9e0f49fc5b1e6d59788e3a6f7e3c31e20c"
+   "sha256": "181afd805307b42f329314245181fe3de788ccccdf939e7ccba6030541f2f1fa"
   },
   {
    "path": "★一鍵上架.bat",

@@ -175,7 +175,7 @@ function openPath(p) {
 // ---------- Airtable 讀取 ----------
 // 只讀商品相關欄位，不讀客戶個資
 const AT_FIELDS = ['器材一', '序號', '收購總金額', '售價', '貨品來源', '盒單', '配件清單',
-  '新舊程度', '原廠保固', '功能備註', '快門數', '商品介紹', '交易日期', '品類', 'CCD／Y2K', '記憶卡類型', '選單語言', '飛鼠狀態', '進貨管道'];
+  '新舊程度', '原廠保固', '功能備註', '快門數', '商品介紹', '交易日期', '品類', 'CCD／Y2K', '記憶卡類型', '選單語言', '飛鼠狀態', '進貨管道', '店保'];
 
 async function readAirtable(formulaOverride) {
   const { baseId, tableId, tokenFile, sinceDate } = CONFIG.airtable;
@@ -329,8 +329,12 @@ function buildListingText(f) {
   const condMap = { 全新: '100%新', 近無使用痕跡: '90%新以上', 些許使用痕跡: '80%新', 使用痕跡多: '75%新' };
   const condPct = condMap[cond] || cond || '—';
 
+  // 原廠在保 → 寫原廠保固；不然看「店保」（空白＝半年）
+  const shopW = f['店保'] || '';
   const warrantyStr = warranty && warranty.startsWith('在保')
     ? `原廠保固${warranty.replace('在保', '').trim()}`
+    : shopW.startsWith('7天') ? '商品售出 7 天保固'
+    : shopW.startsWith('無') ? '本商品無店家保固'
     : '商品售出半年保固';
 
   // 不寫來源的情況：CCD／Y2K 相機、或收購時貨品來源選「不影響」；其他照寫公司貨／水貨

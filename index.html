@@ -1055,8 +1055,12 @@ function showListing(id){
   const condPct = condMap[cond]||cond||'—';
 
   // 保固說明
+  // 原廠在保 → 寫原廠保固；不然看「店保」（空白＝半年）
+  const shopW = f['店保'] || '';
   const warrantyStr = warranty && warranty.startsWith('在保')
     ? `原廠保固${warranty.replace('在保','').trim()}`
+    : shopW.startsWith('7天') ? '商品售出 7 天保固'
+    : shopW.startsWith('無') ? '本商品無店家保固'
     : '商品售出半年保固';
 
   // 配件說明
@@ -1775,6 +1779,7 @@ async function saveCardToAirtable() {
   fields['原廠保固'] = (cardData.mfgw||'').startsWith('在保')
     ? ((cardData.mfgwRaw||'').startsWith('在保') ? cardData.mfgwRaw : '在保')
     : (cardData.mfgw || '');
+  if (cardData.shopw) fields['店保'] = cardData.shopw;
   if (cardData.price) fields['售價'] = parseInt(cardData.price) || 0;
   // 配件清單：合併勾選的 always_acc 與手動填寫的配件
   const checkedAlways = cardAlwaysAcc(cardData).filter(a => cardAccChecked[a]);
@@ -1920,7 +1925,7 @@ function recordToCardData(r) {
       shutter: shutterMatch ? shutterMatch[1] : '',
       origin:  f['貨品來源'] || '公司貨',
       mfgw:    mfgwVal,
-      shopw:   '半年保固(180天)',
+      shopw:   f['店保'] || '半年保固(180天)',
       acc:     accFiltered,
       fn:      fnClean,
       desc:    f['商品介紹'] || '',
@@ -2219,6 +2224,7 @@ const EDIT_FIELDS = [
   {key:'快門數', label:'快門數（純數字，例：5000）', type:'text'},
   {key:'貨品來源', label:'貨品來源', type:'select', options:['公司貨','水貨']},
   {key:'原廠保固', label:'原廠保固狀態', type:'select', options:['已過保','在保','不確定']},
+  {key:'店保', label:'本店保固', type:'select', options:['','半年保固(180天)','7天保固','無保固']},
   {key:'新舊程度', label:'新舊程度', type:'select', options:['全新','近無使用痕跡','些許使用痕跡','使用痕跡多']},
   {key:'盒裝', label:'盒裝', type:'select', options:['有盒子','無盒子']},
   {key:'盒單', label:'盒單', type:'select', options:['無盒無單','有盒無單','有盒有單','無盒有單']},
@@ -2248,7 +2254,9 @@ function openEdit(id){
     if(field.type==='textarea'){
       input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
     } else if(field.type==='select'){
-      const opts = field.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
+      // 原本的值不在選項裡（例如「在保（至2027-03-31）」）就加進去，存檔時才不會被換掉
+      const list = (val && !field.options.includes(val)) ? [val, ...field.options] : field.options;
+      const opts = list.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
       input = `<select id="edit-${field.key}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>`;
     } else {
       input = `<input type="${field.type}" id="edit-${field.key}" value="${val}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
@@ -2354,6 +2362,9 @@ const ADD_FIELDS = [
   {key:'快門數', label:'快門數（純數字，鏡頭不用填）', type:'number'},
   {key:'配件清單', label:'配件清單（例：原廠電池、充電器、背帶）', type:'textarea'},
   {key:'功能備註', label:'功能／外觀備註（例：已維修更換快門組）', type:'textarea'},
+  {key:'原廠保固', label:'原廠保固', type:'select', options:['已過保','在保','不確定']},
+  {key:'保固到期', label:'原廠保固到期日（選「在保」才要填）', type:'date'},
+  {key:'店保', label:'本店保固', type:'select', options:['半年保固(180天)','7天保固','無保固']},
   {key:'CCD／Y2K', label:'CCD／Y2K 相機（不是就不用選）', type:'select', options:['','CCD 相機','Y2K 復古']},
   {key:'經手人員', label:'經手人員', type:'text'},
 ];
@@ -2386,8 +2397,11 @@ async function saveAddItem(){
     if(!val) return;
     if(f.key==='收購總金額' || f.key==='售價') fields[f.key] = Number(val);
     else if(f.key==='快門數') fields[f.key] = '快門：'+parseInt(val)+'次';
+    else if(f.key==='保固到期') return;                     // 合併進「原廠保固」
+    else if(f.key==='原廠保固') fields[f.key] = val==='在保' && v('保固到期') ? `在保（至${v('保固到期')}）` : val;
     else fields[f.key] = val;
   });
+  if(fields['原廠保固']==='在保' && !confirm('原廠保固選了「在保」但沒填到期日，確定嗎？')) return;
   if(mark) fields['上架飛鼠'] = true;
   const btn = document.getElementById('add-save-btn');
   btn.disabled = true; btn.textContent = '存檔中…';

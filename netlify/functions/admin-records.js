@@ -59,7 +59,7 @@ export default async (req) => {
     if (!String(f['器材一'] || '').trim()) return Response.json({ error: '請填器材名稱' }, { status: 400 });
     // 單筆新增只收商品相關欄位（不收客人個資）
     const ALLOWED = ['器材一', '序號', '交易日期', '收購總金額', '售價', '貨品來源', '新舊程度', '盒單', '配件清單', '快門數',
-      '功能備註', '原廠保固', 'CCD／Y2K', '品類', '商品介紹', '上架飛鼠', '進貨管道', '經手人員'];
+      '功能備註', '原廠保固', '店保', 'CCD／Y2K', '品類', '商品介紹', '上架飛鼠', '進貨管道', '經手人員'];
     const fields = Object.fromEntries(Object.entries(f).filter(([k, v]) => ALLOWED.includes(k) && v !== '' && v !== null && v !== undefined));
     const res = await fetch(AIRTABLE_URL, {
       method: 'POST',
