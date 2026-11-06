@@ -1702,12 +1702,21 @@ async function photoOrderRows() {
   refill.forEach((r) => (r._refill = true));
   const rows = await readAirtable();
   const st = lastFeishuStatus();
-  return refill.concat(rows.filter((r) => !list.includes(r['條碼'])).filter((r) => {
-    if (!r['條碼']) return false;
+  const cand = rows.filter((r) => !list.includes(r['條碼'])).filter((r) => {
+    if (!r['條碼'] || productPhotos(r['條碼']).length) return false;  // 已經有分好的照片就不用再拍
+    if (/已上架/.test(r._fsStatus || '')) return false;               // 收購後台顯示已上架
     const s = st.get(keyOf(r)) || '';
-    if (!s.startsWith('成功')) return !productPhotos(r['條碼']).length; // 還沒上架、也還沒有分好的照片
-    return s.includes('草稿') && !productPhotos(r['條碼']).length;   // 存成草稿、還沒照片
-  }).map((r) => Object.assign(r, { _isDraft: (st.get(keyOf(r)) || '').includes('草稿') })));
+    return !s.startsWith('成功') || s.includes('草稿');                // 還沒上架、或是草稿
+  });
+  // 再到官網確認：已經上架的（例如在飛鼠手動按了發佈）就不列，並補記紀錄
+  const out = [];
+  for (const r of cand) {
+    if (await isOnStorefront(r['條碼'])) { log(r, '成功（已建立）', '官網已有，補記紀錄'); setFeishuStatus(r['條碼'], '飛鼠已上架', r._id); continue; }
+    r._isDraft = (st.get(keyOf(r)) || '').includes('草稿') || /草稿/.test(r._fsStatus || '');
+    out.push(r);
+  }
+  await flushAirtable();
+  return refill.concat(out);
 }
 async function photosOrderMain() {
   fs.mkdirSync(INBOX_DIR, { recursive: true });

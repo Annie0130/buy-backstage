@@ -1,6 +1,6 @@
 {
- "version": "20261106-1838",
- "note": "「更新程式」也放到最外層",
+ "version": "20261106-1911",
+ "note": "拍照順序不會再列出已經上架的商品",
  "files": [
   {
    "path": "migrate.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "7254750354424f9d42a6ab3acaff30b9c0a2ade6d8b343d74a337b7e723a535f"
+   "sha256": "7983036e9b5a02be3c592ff6240672129689621e4f04386afba4fd7baaa057f2"
   },
   {
    "path": "使用說明.txt",
