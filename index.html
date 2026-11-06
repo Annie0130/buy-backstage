@@ -1382,9 +1382,9 @@ function renderStats(){
 </div>
 
 <div id="card-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:400;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px 0 40px">
-  <div style="background:#fff;border-radius:16px;width:100%;max-width:720px;margin:0 auto;overflow:hidden">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:720px;margin:0 auto;overflow:clip">
     <!-- Modal Header -->
-    <div style="background:#0d3b66;padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+    <div style="background:#0d3b66;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2">
       <div style="color:#fff;font-size:16px;font-weight:700">🖨️ 商品卡編輯 &amp; 列印</div>
       <button onclick="document.getElementById('card-modal').style.display='none'" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit">✕ 關閉</button>
     </div>
@@ -2425,6 +2425,28 @@ async function saveAddItem(){
   } catch(e){ alert('網路錯誤：'+e.message); }
   finally { btn.disabled = false; btn.textContent = '存檔'; }
 }
+</script>
+<button id="modal-x" onclick="closeTopModal()" aria-label="關閉" style="display:none;position:fixed;top:max(12px, env(safe-area-inset-top));right:12px;z-index:1000;width:46px;height:46px;border-radius:50%;border:none;background:rgba(0,0,0,.65);color:#fff;font-size:22px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)">✕</button>
+<script>
+// 彈出視窗：右上角固定的大 ✕、點黑色背景、按 Esc 都可以關（iPad 上捲動後標題列的 ✕ 會看不到）
+const MODALS = ['card-modal', 'add-modal', 'edit-modal'];
+function openModals(){ return MODALS.filter(id => { const el = document.getElementById(id); return el && el.style.display && el.style.display !== 'none'; }); }
+function closeTopModal(){
+  const id = openModals()[0];
+  if (!id) return;
+  if (id === 'edit-modal' && typeof closeEdit === 'function') closeEdit();
+  else if (id === 'add-modal' && typeof closeAddItem === 'function') closeAddItem();
+  else document.getElementById(id).style.display = 'none';
+  syncModalX();
+}
+function syncModalX(){ document.getElementById('modal-x').style.display = openModals().length ? 'block' : 'none'; }
+MODALS.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', e => { if (e.target === el) closeTopModal(); }); // 點到黑色背景
+  new MutationObserver(syncModalX).observe(el, { attributes: true, attributeFilter: ['style'] });
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTopModal(); });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>
