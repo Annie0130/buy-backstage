@@ -297,10 +297,11 @@ const NO_RADIO_TEXT = '本商品無 Wi-Fi／藍牙等無線傳輸功能，非電
 const isNoRadio = (e) => !!e && /^(無|無無線功能|免)$/.test((e.ncc || '').trim());
 
 // 文案的 BSMI／NCC 兩行：有字號才寫，查不到就整行不寫（不讓客人看到「請自行填入」）
-function certLines(name) {
+function certLines(name, ccd = false) {
   const e = lookupNcc(name) || {};
   const lines = [];
   if (e.bsmi) lines.push(`【BSMI商檢字號】${e.bsmi}`);
+  if (ccd) return lines.length ? lines.join('\n') + '\n' : ''; // CCD 相機只寫 BSMI，不寫 NCC
   if (isNoRadio(e)) lines.push(`NCC：${NO_RADIO_TEXT}`);
   else if (e.ncc) lines.push(`NCC：${e.ncc}`);
   return lines.length ? lines.join('\n') + '\n' : '';
@@ -362,7 +363,7 @@ ${CONFIG.introTo === 'description' && (f['商品介紹'] || '').trim() ? `【型
 【新舊程度】${condPct}
 【保固狀態】${warrantyStr}
 【配件說明】${accDesc}
-${(f['記憶卡類型'] || '').trim() ? `【記憶卡】${f['記憶卡類型'].trim()}\n` : ''}${(f['選單語言'] || '').trim() ? `【選單語言】${f['選單語言'].trim()}\n` : ''}${certLines(name)}--------------------------------------
+${(f['記憶卡類型'] || '').trim() ? `【記憶卡】${f['記憶卡類型'].trim()}\n` : ''}${(f['選單語言'] || '').trim() ? `【選單語言】${f['選單語言'].trim()}\n` : ''}${certLines(name, /CCD/.test(String((f['CCD／Y2K'] && f['CCD／Y2K'].name) || f['CCD／Y2K'] || '')))}--------------------------------------
 【商品狀態分級說明】
 ● 100%新 = 全新未拆封新品
 ●   90%新 = 機況近全新、使用痕跡不明顯
@@ -965,6 +966,7 @@ function platformCategory(platform, r) {
       || '相機和光學元件 > 相機 > 數位相機';
   }
   if (platform === '蝦皮') {
+    if (/CCD/.test(r['Y2K'] || '')) return '相機&空拍機 > 相機 > 全自動數位相機'; // CCD 一律放數位相機（傻瓜相機）
     return { lens: '相機&空拍機 > 鏡頭', mirrorless: '相機&空拍機 > 相機 > 無反光鏡可換鏡頭相機', dslr: '相機&空拍機 > 相機 > 數位單眼相機',
       compact: '相機&空拍機 > 相機 > 全自動數位相機', adapter: '相機&空拍機 > 鏡頭周邊配件 > 轉接環' }[t] || '';
   }
@@ -2317,7 +2319,7 @@ function loadFeishuDone() {
 async function findTargets() {
   const args = process.argv.slice(3).filter((a) => !a.startsWith('--'));
   const rows = await readAirtable();
-  const mk = (r) => ({ name: r['商品名稱'], serial: r['條碼'], price: Number(r['銷售價']) || 0 });
+  const mk = (r) => ({ name: r['商品名稱'], serial: r['條碼'], price: Number(r['銷售價']) || 0, ccd: /CCD/.test(r['Y2K'] || '') });
   if (args.length) {
     // 指定序號：盡量從 Airtable 補上名稱、售價
     return args.map((sn) => { const r = rows.find((x) => x['條碼'] === sn); return r ? mk(r) : { name: '', serial: sn, price: 0 }; });
@@ -2491,6 +2493,14 @@ async function setShopeeCondition(p) {
 }
 
 // NCC 字號 → 從 NCC字號.csv 對照表帶入
+async function setShopeeField(p, label, value) {
+  const box = await shopeeFieldBox(p, label);
+  if (!box) return false;
+  const input = box.locator(`xpath=.//${TEXT_INPUT}`).first();
+  if (!(await input.count())) return false;
+  await input.fill(value, { timeout: 4000 });
+  return true;
+}
 async function setShopeeNcc(p, ncc) {
   const box = await shopeeFieldBox(p, 'NCC');
   if (!box) return false;
@@ -2541,9 +2551,15 @@ async function shopeeMain() {
       // 1) 保存狀況
       if (await setShopeeCondition(p).catch(() => false)) console.log(`   ✏️ 保存狀況：${SHOPEE.condition}`);
       else { failed.push('保存狀況'); notes.push(`保存狀況沒選成功，請手動選「${SHOPEE.condition}」`); }
-      // 2) NCC
+      // 2) NCC／BSMI
       const nccRow = t.name ? lookupNcc(t.name) : null;
-      if (isNoRadio(nccRow)) {
+      if (t.ccd) {
+        // CCD 相機：只填 BSMI，不填 NCC
+        if (nccRow && nccRow.bsmi) {
+          if (await setShopeeField(p, 'BSMI', nccRow.bsmi).catch(() => false)) console.log(`   ✏️ BSMI：${nccRow.bsmi}（CCD 不填 NCC）`);
+          else { failed.push('BSMI'); notes.push(`BSMI 沒填成功，請手動填：${nccRow.bsmi}`); }
+        } else notes.push(`CCD 相機：NCC字號.csv 沒有「${t.name || t.serial}」的 BSMI，BSMI 請手動填（NCC 不用填）`);
+      } else if (isNoRadio(nccRow)) {
         notes.push('對照表標示「無無線功能」，蝦皮 NCC 欄位不填（文案已寫明）');
       } else if (nccRow && nccRow.ncc) {
         if (await setShopeeNcc(p, nccRow.ncc).catch(() => false)) console.log(`   ✏️ NCC：${nccRow.ncc}`);
@@ -2563,7 +2579,7 @@ async function shopeeMain() {
       else if (pr.changed) console.log(`   💰 蝦皮價格不對：${pr.cur} → 改成 ${pr.want}`);
       else console.log(`   💰 蝦皮價格正確：${pr.want}`);
       notes.forEach((x) => console.log('   • ' + x));
-      if (failed.length) await dumpShopeeFields(p, failed.map((x) => (x === '保存狀況' ? '保存狀況' : 'NCC')));
+      if (failed.length) await dumpShopeeFields(p, failed.filter((x) => ['保存狀況', 'NCC', 'BSMI'].includes(x)));
       const danger = failed.some((x) => x === '價格' || x === '最低購買數量');
       if (auto && failed.length && !danger) {
         console.log('   ⏭️ 有欄位沒填成功，這筆先不儲存，之後再手動補（已記在紀錄檔）');

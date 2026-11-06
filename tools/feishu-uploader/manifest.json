@@ -1,6 +1,6 @@
 {
- "version": "20261106-1400",
- "note": "蝦皮規則改成：15000 以上原價＋最低購買數量 3；15000 以下才 ×1.18",
+ "version": "20261106-1438",
+ "note": "CCD 相機：蝦皮只填 BSMI 不填 NCC、分類放數位相機（傻瓜相機）；文案也只寫 BSMI",
  "files": [
   {
    "path": "package.json",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "4f967263ae8ee01e6e9af2391ef64880ca87bb916b6e758a6ad32ed1fa9b7d4d"
+   "sha256": "05b9928f74aaf99faa28668f31e6ecaba54da4fa9f2c3a580487a52829c6aa90"
   },
   {
    "path": "★一鍵上架.bat",
