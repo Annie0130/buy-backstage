@@ -1,6 +1,6 @@
 {
- "version": "20261106-1440",
- "note": "新增「🧾 批次補 BSMI」：蝦皮違規商品照真實標籤一次補好；NCC／BSMI 欄位找得更準",
+ "version": "20261106-1444",
+ "note": "新增「🗂️ 批次改蝦皮分類」；BSMI補填.csv 會提示 Canon／Panasonic 常見號碼",
  "files": [
   {
    "path": "package.json",
@@ -10,12 +10,12 @@
   {
    "path": "panel.html",
    "url": "f01.html.txt",
-   "sha256": "61372469dde9239b17ba49e119154052f2888a51291ac2f88f291b08867d2346"
+   "sha256": "296788ca24290e0f9d47e12b8932f665e7bc91231d491d5a6499565b9e2fafab"
   },
   {
    "path": "panel.js",
    "url": "f02.js.txt",
-   "sha256": "348f99648725c543623a0942400d5968c94c25572c91aa21e6b9dd2cad9f4c41"
+   "sha256": "fcaac1f79a37962a35de18e2e84385e360f617a656bdcf6094fd276c6889fbf5"
   },
   {
    "path": "shopee-minqty.js",
@@ -30,7 +30,7 @@
   {
    "path": "upload.js",
    "url": "f05.js.txt",
-   "sha256": "f905abc7942bde036b402673932f5963dd49c96d0e89a67ee7c320eb7f9247b6"
+   "sha256": "cc7086095536f81a2bb00b9301691cea6170770b7b9b29d5a4311e201a4dd41d"
   },
   {
    "path": "★一鍵上架.bat",

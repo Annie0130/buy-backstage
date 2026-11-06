@@ -2537,7 +2537,8 @@ function ensureBsmiFile() {
   if (fs.existsSync(BSMI_FILE)) return false;
   const rows = BSMI_SEED.map(([sn, name]) => {
     const e = lookupNcc(name);
-    return [sn, name, e && e.bsmi ? e.bsmi : '', e && e.bsmi ? '官網同型號有填過，請對照機身標籤確認' : '請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼）', ''];
+    const hint = /^canon/i.test(name) ? 'Canon 常見是 D31219，請對照機身標籤確認' : /lumix|panasonic/i.test(name) ? 'Panasonic 常見是 D31221，請對照機身標籤確認' : '請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼）；沒有標籤就留空白、不要上蝦皮';
+    return [sn, name, e && e.bsmi ? e.bsmi : '', e && e.bsmi ? '官網同型號有填過，請對照機身標籤確認' : hint, ''];
   });
   fs.writeFileSync(BSMI_FILE, '﻿' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...rows.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
   return true;
@@ -2609,6 +2610,49 @@ async function bsmiFixMain() {
   fs.writeFileSync(BSMI_FILE, '\uFEFF' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...out.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
   const ok = [...result.values()].filter((x) => x.startsWith('成功')).length;
   console.log(`\n完成：成功 ${ok} 件、失敗 ${result.size - ok} 件（結果寫在 BSMI補填.csv 的「結果」欄）`);
+}
+
+// =================== 批次改蝦皮分類（node upload.js catfix [序號…]）===================
+// 在飛鼠打開商品 → 同步資訊的蝦皮那列分類改成「數位相機（傻瓜相機）」→ 發佈，讓飛鼠推到蝦皮
+const SHOPEE_COMPACT_CAT = '相機&空拍機 > 相機 > 全自動數位相機';
+async function catFixMain() {
+  let serials = process.argv.slice(3).filter((a) => !a.startsWith('--'));
+  if (!serials.length) { ensureBsmiFile(); serials = readCsv(BSMI_FILE).map((c) => c[0]).filter(Boolean); }
+  if (!serials.length) { console.log('沒有要改分類的商品（BSMI補填.csv 是空的）。'); return; }
+  console.log(`要把蝦皮分類改成「${SHOPEE_COMPACT_CAT}」的商品 ${serials.length} 件：${serials.join('、')}`);
+  const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
+  const page = ctx.pages()[0] || (await ctx.newPage());
+  page.on('dialog', (d) => d.accept().catch(() => {}));
+  const url = fs.existsSync(NEW_URL_FILE) ? fs.readFileSync(NEW_URL_FILE, 'utf8').trim() : CONFIG.startUrl;
+  let loggedIn = false;
+  if (url) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    loggedIn = await page.getByText('商品管理', { exact: true }).first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+  }
+  if (!loggedIn) await ask('👉 請在瀏覽器登入飛鼠後台，看到左側選單後，回這裡按 Enter 開始...');
+  let ok = 0;
+  for (const [i, sn] of serials.entries()) {
+    console.log(`\n[${i + 1}/${serials.length}] 序號 ${sn}`);
+    let p = page;
+    try {
+      p = await openDraftEditor(page, sn, { useSearch: true });
+      const row = await findSyncRow(p, '蝦皮');
+      if (!row) throw new Error('找不到同步資訊的「蝦皮」那一列');
+      await pickRowSelect(row, 0, '常用分類');
+      await p.waitForTimeout(300);
+      if (!(await pickRowSelect(row, 1, SHOPEE_COMPACT_CAT))) throw new Error(`蝦皮分類裡找不到「${SHOPEE_COMPACT_CAT}」，請手動選`);
+      const w = await clickPublish(p);
+      if (!w) throw new Error('分類改好了，但找不到「發佈」按鈕，請手動按');
+      console.log(`   ✅ 蝦皮分類已改，按了「${w}」`);
+      ok++;
+    } catch (e) {
+      console.log('   ❌ 失敗：' + e.message.split('\n')[0]);
+    } finally {
+      if (p !== page) await p.close().catch(() => {});
+    }
+  }
+  await ctx.close();
+  console.log(`\n改分類：成功 ${ok} 件、失敗 ${serials.length - ok} 件。等 5 分鐘讓飛鼠推到蝦皮，再按「🧾 批次補 BSMI」`);
 }
 
 const DANGER = [];
@@ -2774,7 +2818,7 @@ async function checkUpdate() {
   } catch (e) {}
 }
 if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
-if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
+if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'catfix' ? catFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
