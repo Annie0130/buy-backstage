@@ -1242,6 +1242,25 @@ async function existingImageCount(page) {
     return [...document.querySelectorAll('img')].filter((im) => inRange(im) && (im.naturalWidth || im.width) >= 40).length;
   }).catch(() => null);
 }
+// 等商品圖片全部處理完（上傳、AI 去背）：沒有「處理中」的縮圖、畫面上沒有「去背中／處理中／上傳中」，而且連續幾秒沒有變化
+async function waitImagesSettled(page, maxSec = 150) {
+  let stable = 0, last = '';
+  for (let t = 0; t < maxSec; t++) {
+    const st = await page.evaluate(() => {
+      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const busy = [...document.querySelectorAll('.dz-preview.dz-processing:not(.dz-complete), [class*=loading], [class*=spinner], .progress-bar')].filter(vis).length;
+      const txt = [...document.querySelectorAll('body *')].filter((e) => e.children.length === 0 && vis(e) && /去背中|處理中|上傳中|processing|uploading/i.test(e.textContent || '')).length;
+      const imgs = [...document.querySelectorAll('.dz-preview img, .dz-image img')].map((i) => i.src.slice(-40)).join('|');
+      return { busy: busy + txt, imgs };
+    }).catch(() => ({ busy: 0, imgs: '' }));
+    if (!st.busy && st.imgs === last) { if (++stable >= 4) return true; } else stable = 0;
+    last = st.imgs;
+    if (t === 15) console.log('   ⏳ 等飛鼠處理照片（AI 去背）…');
+    await page.waitForTimeout(1000);
+  }
+  console.log('   ⚠️ 照片處理等了很久還沒好，先繼續');
+  return false;
+}
 async function uploadImages(page, files, problems) {
   files = (files || []).filter(Boolean);
   if (!files.length) return;
@@ -1316,6 +1335,19 @@ async function fillProduct(page, r) {
   FILLED = [];
   const price = r['銷售價'];
 
+  // 圖片「最先」上傳，並等 AI 去背跑完：飛鼠處理完圖片會重整表單，先傳圖再填欄位，填好的才不會被清掉
+  // 有整理好的實拍照（商品照片\序號）就傳實拍照，沒有才用佔位圖（佔位圖目前關閉）
+  const photos = productPhotos(barcode);
+  if (photos.length) {
+    const before = problems.length;
+    await uploadImages(page, photos, problems);
+    if (problems.length === before) PENDING_PHOTO_RECORD = barcode; // 存檔成功後才記錄
+    await waitImagesSettled(page);
+  } else {
+    await uploadImage(page, CONFIG.placeholderImage, problems);
+    problems.push('沒有整理好的實拍照，商品圖片請手動上傳');
+  }
+
   await fill(page, 'SPU 編號', barcode, problems);
   await fill(page, '商品名稱', r['標題'] || r['商品名稱'], problems);
   await fill(page, '品牌', r['品牌'], problems);
@@ -1347,18 +1379,8 @@ async function fillProduct(page, r) {
     await fill(page, '備註', `供貨商：${r['供貨商']}`, problems, { tag: 'textarea', prefix: true });
   }
   await fillShopeeRow(page, r, problems);
-  // 圖片最後才上傳（上傳完飛鼠可能會重整部分表單），然後確認前面填的都還在
-  // 有整理好的實拍照（商品照片\序號）就傳實拍照，沒有才用佔位圖（佔位圖目前關閉）
-  const photos = productPhotos(barcode);
-  if (photos.length) {
-    const before = problems.length;
-    await uploadImages(page, photos, problems);
-    if (problems.length === before) PENDING_PHOTO_RECORD = barcode; // 存檔成功後才記錄
-  }
-  else {
-    await uploadImage(page, CONFIG.placeholderImage, problems);
-    problems.push('沒有整理好的實拍照，商品圖片請手動上傳');
-  }
+  // 填完再等一次圖片處理（AI 去背跑完飛鼠會重整表單），然後確認前面填的都還在
+  await waitImagesSettled(page);
   await page.waitForTimeout(1500);
   await verifyFilled(page, problems);
   const failed = problems.map((x) => (x.match(/^「(.+?)」(沒(填|選)成功|填完後被清掉了)/) || [])[1]).filter(Boolean);
@@ -1400,7 +1422,7 @@ async function visibleMessages(page) {
 async function confirmSaved(page, btn, before = [], stillOnForm = isNewProductPage) {
   const startUrl = page.url();
   const seen = new Set(before);
-  for (let t = 0; t < 40; t++) { // 最多等 10 秒
+  for (let t = 0; t < 120; t++) { // 最多等 30 秒（有照片、AI 去背時存檔比較慢）
     await page.waitForTimeout(250);
     const fresh = (await visibleMessages(page)).filter((m) => !seen.has(m));
     const err = fresh.find((m) => SAVE_ERR_RE.test(m) && !SAVE_OK_RE.test(m));
@@ -1409,7 +1431,8 @@ async function confirmSaved(page, btn, before = [], stillOnForm = isNewProductPa
     if (page.url() !== startUrl) return;
     if (!(await stillOnForm(page))) return;
   }
-  throw new Error(`按了「${btn}」10 秒後頁面沒有變化，不確定有沒有存成功，請到飛鼠確認這筆`);
+  const msgs = (await visibleMessages(page)).filter((m) => !seen.has(m)).slice(0, 3);
+  throw new Error(`按了「${btn}」30 秒後頁面沒有變化，不確定有沒有存成功，請到飛鼠確認這筆${msgs.length ? `（畫面上的訊息：${msgs.join('／')}）` : ''}`);
 }
 
 async function openNewProductPage(page) {
