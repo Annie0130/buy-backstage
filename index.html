@@ -413,6 +413,7 @@ function updateListingBtn(){
 }
 function filterRecords() {
   updateListingBtn();
+  setTimeout(() => { if (selectModeOn) updateExportCount(); }, 0); // 列表重畫後更新「已選幾筆」
   const query = document.getElementById('search').value.trim().toLowerCase();
   const sort = document.getElementById('sort').value;
   const dateFrom = document.getElementById('date-from').value;
@@ -512,9 +513,9 @@ function renderRecords(records) {
     
     return `<div class="record-card" id="card-${i}">
       <div class="record-head" style="cursor:default">
-        <input type="checkbox" class="record-checkbox" data-id="${r.id}"
-          style="display:none;width:18px;height:18px;accent-color:#1565c0;flex-shrink:0;cursor:pointer;margin-right:4px"
-          onchange="updateExportCount()">
+        <input type="checkbox" class="record-checkbox" data-id="${r.id}" ${SELECTED.has(r.id)?'checked':''}
+          style="display:${selectModeOn?'block':'none'};width:18px;height:18px;accent-color:#1565c0;flex-shrink:0;cursor:pointer;margin-right:4px"
+          onchange="this.checked?SELECTED.add(this.dataset.id):SELECTED.delete(this.dataset.id);updateExportCount()">
         <div class="record-avatar">${initial}</div>
         <div class="record-info">
           <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
@@ -581,27 +582,34 @@ function renderRecords(records) {
 
 let selectModeOn = false;
 
+// 勾選的紀錄另外記住：搜尋、切換月份、重新整理列表都不會不見
+const SELECTED = new Set();
 function toggleSelectMode(on){
   selectModeOn = on;
+  if (!on) SELECTED.clear();
   document.querySelectorAll('.record-checkbox').forEach(cb=>{
     cb.style.display = on ? 'block' : 'none';
-    cb.checked = false;
+    cb.checked = SELECTED.has(cb.dataset.id);
   });
   document.getElementById('export-bar').style.display = on ? 'flex' : 'none';
   updateExportCount();
 }
 
 function updateExportCount(){
-  const count = document.querySelectorAll('.record-checkbox:checked').length;
-  document.getElementById('export-count').textContent = `已選 ${count} 筆`;
+  const shown = [...document.querySelectorAll('.record-checkbox:checked')].length;
+  const hidden = SELECTED.size - shown;
+  document.getElementById('export-count').textContent = `已選 ${SELECTED.size} 筆` + (hidden > 0 ? `（其中 ${hidden} 筆在目前畫面外）` : '');
 }
+function selectedIds(){ return [...SELECTED]; }
 
 function selectAll(){
-  document.querySelectorAll('.record-checkbox').forEach(cb=>cb.checked=true);
+  // 全選「目前畫面上看得到的」，之前勾的保留
+  document.querySelectorAll('.record-checkbox').forEach(cb=>{ cb.checked=true; SELECTED.add(cb.dataset.id); });
   updateExportCount();
 }
 
 function clearSelect(){
+  SELECTED.clear();
   document.querySelectorAll('.record-checkbox').forEach(cb=>cb.checked=false);
   updateExportCount();
 }
@@ -657,7 +665,7 @@ async function setFeishuState(id, fields){
 }
 // 標記要上架飛鼠：上架腳本只會抓有這個標記、且售價有填的商品（送修的不要標記就不會上架）
 async function markForListing(on){
-  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb=>cb.dataset.id);
+  const checkedIds = selectedIds();
   if(!checkedIds.length){ alert('請先勾選商品'); return; }
   const noPrice = on ? allRecords.filter(r=>checkedIds.includes(r.id) && !(r.fields['售價']>0)).length : 0;
   document.getElementById('export-count').textContent = on ? '標記中…' : '取消中…';
@@ -682,7 +690,7 @@ async function markForListing(on){
 }
 
 async function exportSelected(){
-  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb=>cb.dataset.id);
+  const checkedIds = selectedIds();
   if(!checkedIds.length){ alert('請先勾選要匯入的紀錄'); return; }
 
   const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx-afMzrAEbPKTpP7Kc4F0EWCUYXH87sfPGUUYXCAGipSW_TVJ7xZFZ_3hLW-l0sd0G/exec';
@@ -2238,7 +2246,7 @@ function printStockCards() {
 }
 
 function printSelectedCards() {
-  const checkedIds = [...document.querySelectorAll('.record-checkbox:checked')].map(cb => cb.dataset.id);
+  const checkedIds = selectedIds();
   if (!checkedIds.length) { alert('請先勾選要印卡的紀錄'); return; }
 
   const allCards = checkedIds.map(id => {
