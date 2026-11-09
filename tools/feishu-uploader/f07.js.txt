@@ -2994,10 +2994,27 @@ async function bsmiFixMain() {
 // =================== 批次改蝦皮分類（node upload.js catfix [序號…]）===================
 // 在飛鼠打開商品 → 同步資訊的蝦皮那列分類改成「數位相機（傻瓜相機）」→ 發佈，讓飛鼠推到蝦皮
 const SHOPEE_COMPACT_CAT = '相機&空拍機 > 相機 > 全自動數位相機';
+// 只留收購紀錄「CCD／Y2K」是 CCD 相機的（非 CCD 的不改分類）
+async function ccdOnly(serials) {
+  const rows = await rowsBySerials(serials);
+  const keep = [];
+  rows.forEach((r, i) => {
+    const sn = serials[i];
+    if (r._missing) console.log(`  ⏭️ 序號 ${sn}：收購紀錄找不到，不改分類`);
+    else if (/CCD/.test(r['Y2K'] || '')) keep.push(sn);
+    else console.log(`  ⏭️ ${r['商品名稱']}（${sn}）：不是 CCD 相機，分類不動`);
+  });
+  return keep;
+}
 async function catFixMain() {
   let serials = process.argv.slice(3).filter((a) => !a.startsWith('--'));
-  if (!serials.length) { ensureBsmiFile(); serials = readCsv(BSMI_FILE).map((c) => c[0]).filter(Boolean); }
-  if (!serials.length) { console.log('沒有要改分類的商品（BSMI補填.csv 是空的）。'); return; }
+  if (!serials.length) {
+    ensureBsmiFile();
+    const all = readCsv(BSMI_FILE).map((c) => c[0]).filter(Boolean);
+    if (!all.length) { console.log('沒有要改分類的商品（BSMI補填.csv 是空的）。'); return; }
+    serials = await ccdOnly(all);
+  }
+  if (!serials.length) { console.log('BSMI補填.csv 裡沒有 CCD 相機，不用改分類。'); return; }
   console.log(`要把蝦皮分類改成「${SHOPEE_COMPACT_CAT}」的商品 ${serials.length} 件：${serials.join('、')}`);
   const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
   const page = ctx.pages()[0] || (await ctx.newPage());
@@ -3215,4 +3232,4 @@ if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() :
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
-module.exports = { autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
+module.exports = { ccdOnly, autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };

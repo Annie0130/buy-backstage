@@ -1,6 +1,6 @@
 {
- "version": "20261109-1533",
- "note": "批次補 BSMI：找不到欄位就寫進蝦皮商品描述",
+ "version": "20261109-1536",
+ "note": "批次改蝦皮分類：只改 CCD 相機",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "b9aae79004c0ba74f22c63e28623e41333e1fefd30047f776b6b9f0f916d6f2c"
+   "sha256": "9a13ae08d3522096eb6de862c2a5f12098f77904d5345d5df17422f00634949d"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "f33ecd1ae472d74a5163f4fd2a34d139bbe9a30d830fc5dbc0a64c64f6dce408"
+   "sha256": "52d96a398ee8a5f3c922616af8f2ce0fd415fb9d4774647cc601bab18abf315e"
   },
   {
    "path": "使用說明.txt",
