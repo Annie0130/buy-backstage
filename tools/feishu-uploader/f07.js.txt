@@ -2689,6 +2689,23 @@ async function saveShopeeVerified(p) {
   }
   return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
 }
+// 沒看到成功訊息時：重新打開商品編輯頁，把價格、最低購買數量讀回來，跟要改的一樣就算成功
+async function verifyShopeeByReload(p, editUrl, price) {
+  try {
+    await p.goto(editUrl, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(4000);
+    const tab = p.getByText('銷售資訊', { exact: true }).first();
+    if (await tab.isVisible().catch(() => false)) { await tab.click().catch(() => {}); await p.waitForTimeout(800); }
+    const num = async (label) => { const b = await visibleFieldAfter(p, label).catch(() => null); return b ? String(await b.inputValue().catch(() => '')).replace(/[^\d]/g, '') : ''; };
+    const gotPrice = await num('價格'), gotQty = await num('最低購買數量');
+    const wantPrice = String(expectedShopeePrice(price) || ''), wantQty = Number(price) >= CONFIG.shopee.highPrice ? String(SHOPEE.minQty) : '1';
+    const okPrice = !wantPrice || gotPrice === wantPrice, okQty = !price || gotQty === wantQty;
+    if (okPrice && okQty) return { ok: true, msg: `重新打開確認：價格 ${gotPrice}、最低購買數量 ${gotQty}` };
+    return { ok: false, msg: `重新打開後：價格 ${gotPrice || '?'}（應該 ${wantPrice}）、最低購買數量 ${gotQty || '?'}（應該 ${wantQty}），沒有存成功` };
+  } catch (e) {
+    return { ok: null, msg: '按了「更新」沒看到成功訊息，重新打開也讀不到，請到蝦皮確認這筆' };
+  }
+}
 async function save(p) {
   const btns = p.locator('button').filter({ hasText: /^\s*(更新|儲存並上架|儲存)\s*$/ });
   for (let k = 0, n = await btns.count(); k < n; k++) {
@@ -3007,7 +3024,9 @@ async function shopeeMain() {
       const danger = failed.some((x) => x === '價格' || x === '最低購買數量');
       if (auto && failed.length && !danger) {
         // 保存狀況／NCC／BSMI 有沒填到的：其他改好的（價格、最低購買數量…）照樣存，沒填到的記下來請你手動補
-        const sv = await saveShopeeVerified(p);
+        const editUrl = p.url();
+        let sv = await saveShopeeVerified(p);
+        if (sv.ok === null) sv = await verifyShopeeByReload(p, editUrl, t.price);
         const miss = failed.filter((x) => ['保存狀況', 'NCC', 'BSMI'].includes(x)).join('、');
         if (sv.ok === false) throw new Error(sv.msg);
         console.log(`   ⚠️ 其他欄位已存好，但「${miss}」沒填進去，請到蝦皮手動補（已記在紀錄檔）`);
@@ -3024,7 +3043,9 @@ async function shopeeMain() {
         }
       }
       if (auto) {
-        const sv = await saveShopeeVerified(p);
+        const editUrl = p.url();
+        let sv = await saveShopeeVerified(p);
+        if (sv.ok === null) { sv = await verifyShopeeByReload(p, editUrl, t.price); if (sv.ok) console.log('   🔎 ' + sv.msg); }
         if (sv.ok === false) throw new Error(sv.msg);
         if (sv.ok === null) { console.log('   ⚠️ ' + sv.msg); shopeeLog(t.name, t.serial, '需確認', sv.msg); continue; }
         console.log('   ✅ 已儲存（蝦皮確認成功）');
