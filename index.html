@@ -1793,11 +1793,16 @@ function splitCardName(raw) {
   }
   // 名稱太長時，光圈後面的規格放到第二行；光圈一律跟在 mm 後面留在第一行
   let main = name, spec = '';
-  const m = name.match(/^(.+?\d+(?:-\d+)?mm)\s+(.+)$/i);
-  const mf = name.match(/^(.+?\d+(?:-\d+)?mm\s+F\/?[\d.]+(?:-[\d.]+)?L?)\s+(.+)$/i);
+  const m = name.match(/^(.+?\d+(?:-\d+)?mm+)\s+(.+)$/i);
+  const mf = name.match(/^(.+?\d+(?:-\d+)?mm+\s+F\/?[\d.]+(?:-[\d.]+)?L?)\s+(.+)$/i);
   if (m && name.length > 14) {
     [main, spec] = mf ? [mf[1], mf[2]] : (/^F\/?[\d.]/i.test(m[2]) ? [name, ''] : [m[1], m[2]]);
   }
+  // 「For ○○」（副廠鏡頭的接環）一律放第二行，不管名稱長短
+  const fm = main.match(/^(.+?)\s+(for\s+.+)$/i);
+  if (fm) { main = fm[1]; spec = fm[2] + (spec ? ' ' + spec : ''); }
+  spec = spec.replace(/\bfor\s+([a-z])/gi, (x, c) => 'For ' + c.toUpperCase());
+  main = main.replace(/(\d)mmm+\b/gi, '$1mm');   // 「23mmm」這種多打的 m
   // 兩行（有第二行規格）的名稱一律同一個字級，列印前太長的才自動縮到放得下
   const size = spec ? 21 : main.length <= 6 ? 29 : main.length <= 10 ? 23 : main.length <= 14 ? 19 : main.length <= 18 ? 17 : 15;
   return {brand, main, spec, size};
