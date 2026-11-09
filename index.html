@@ -1838,11 +1838,12 @@ function buildCardHTML(d, accOverride) {
   const condCls = (d.cond === '全新' || d.cond === '近無使用痕跡') ? '' : d.cond === '些許使用痕跡' ? ' mid' : ' low';
   const condText = d.cond || '—';
 
-  // 配件 checklist
+  // 配件 checklist（隨身機、CCD／Y2K 配的是手繩，不是背帶）
+  const isPocketCam = /隨身相機/.test(d.category || '') || /CCD|Y2K/.test(d.ccd || '');
   const checkedAcc = accOverride || cardAccChecked;
   const allAccItems = [
     ...cardAlwaysAcc(d).map(a => ({name: a, on: checkedAcc[a]})),
-    ...(d.acc ? [...new Set(d.acc.split(/[、,，\n]/).map(s=>s.trim().replace(/^(相機)?背帶\s*[（(]?含扣環[)）]?$/, '背帶').replace(/^相機背帶$/, '背帶')))].filter(s=>s&&!ALWAYS_ACC.some(a=>s.includes(a))).map(a=>({name:a,on:true})) : [])
+    ...(d.acc ? [...new Set(d.acc.split(/[、,，\n]/).map(s=>s.trim().replace(/^(相機)?背帶\s*[（(]?含扣環[)）]?$/, '背帶').replace(/^相機背帶$/, '背帶')).map(s=>isPocketCam && s === '背帶' ? '手繩' : s))].filter(s=>s&&!ALWAYS_ACC.some(a=>s.includes(a))).map(a=>({name:a,on:true})) : [])
   ];
   const clItems = allAccItems.map(it =>
     `<div class="lcard-cl-item">
