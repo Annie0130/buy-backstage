@@ -1,6 +1,6 @@
 {
- "version": "20261109-1459",
- "note": "蝦皮存檔後重新打開商品確認價格、數量（不再出現「需確認」）",
+ "version": "20261109-1505",
+ "note": "看拍照順序後，缺 NCC／BSMI 的相機會自動跳出來讓你填，填過會記住",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "4cc56333ed5d26f96129239c8c144ebab5ebf6ff479694d4ffbea7a369f682c2"
+   "sha256": "4c6509635d19440dce1d0a499e92e3053c30dbdd2c2af543c8039b48f4ef3c55"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "ab4d00fb5fae1ad80538c1ed9c53198479c7a453a9b221cf3530dc30383731b7"
+   "sha256": "10a427d7c624329313213174f47d5d690ae8d7b11775874ca1d580e3ef9526bb"
   },
   {
    "path": "使用說明.txt",

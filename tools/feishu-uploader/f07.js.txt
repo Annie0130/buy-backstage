@@ -2428,7 +2428,10 @@ async function statusMain() {
     // NCC／BSMI 對照表裡沒有的相機（鏡頭、配件不用）：CCD 只要 BSMI，其他相機要 NCC
     const gt = gearType(r), isCam = ['mirrorless', 'dslr', 'compact'].includes(gt);
     const ce = lookupNcc(r['商品名稱']), isCcd = /CCD/.test(r['Y2K'] || '');
-    const certMissing = !isCam ? '' : isCcd ? (bsmiFor(r['商品名稱'], r['公/水']) ? '' : 'BSMI') : (ce && (ce.ncc || isNoRadio(ce)) ? '' : 'NCC');
+    // 缺哪些字號（相機才要；CCD 只要 BSMI）
+    const needNcc = isCam && !isCcd && !(ce && (ce.ncc || isNoRadio(ce)));
+    const needBsmi = isCam && !bsmiFor(r['商品名稱'], r['公/水']);
+    const certMissing = [needNcc ? 'NCC' : '', needBsmi ? 'BSMI' : ''].filter(Boolean).join('、');
     if (!String(r['商品介紹'] || '').trim() && stage !== 'done') hint += '　⚠️ 缺商品介紹（到收購後台按「印卡」讓 AI 補）';
     out.push({ certMissing, model: String(r['商品名稱'] || '').split('+')[0].trim(), name: r['商品名稱'], serial: sn, price: r['銷售價'], type: gearType(r) === 'lens' ? '鏡頭' : '相機',
       photos: sn ? productPhotos(sn).length : 0, pending: sn ? photosPending(sn) : false, stage, hint, refill: refill.includes(sn), date: r['交易日期'] || '' });

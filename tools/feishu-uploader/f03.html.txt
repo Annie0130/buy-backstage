@@ -73,6 +73,7 @@ details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
 #pvframe{flex:1;border:0;width:100%}
 .pvbtns{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
 button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
+.nccpop{position:fixed!important;left:50%;top:6%;transform:translateX(-50%);width:min(860px,94vw);max-height:86vh;overflow:auto;z-index:26;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;opacity:0;transition:.2s;pointer-events:none;z-index:9}
 .toast.show{opacity:1}
 </style>
@@ -130,8 +131,9 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
       </div>
     </details>
 
+    <div id="nccBack" onclick="closeNccPop()" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.5);z-index:25"></div>
     <section class="card" id="nccCard" style="display:none;border-color:#f5c26b;background:#fffaf0">
-      <h2>📡 這些相機還沒有 NCC／BSMI 字號 <small>填好按儲存，以後同型號會自動帶入</small></h2>
+      <h2>📡 這些相機還沒有 NCC／BSMI 字號 <small>填好按儲存，系統會記住，以後同型號自動帶入</small><span class="spacer"></span><button id="nccClose" onclick="closeNccPop()" style="display:none">✕ 先不填</button></h2>
       <div id="nccList"></div>
       <div class="why" style="margin-top:6px">NCC 看機身底部或盒子上「CCAx…」開頭的號碼；BSMI 是 ⊕ 旁邊 D 或 R 開頭的號碼。確定沒有 Wi-Fi／藍牙的相機，NCC 填「無」。CCD 相機只要填 BSMI。</div>
     </section>
@@ -264,6 +266,7 @@ function showAlert() {
 }
 let timer = null;
 function setJob(j) {
+  if (j.running) lastJobKey = j.key;
   running = j.running;
   $('stopBtn').disabled = !j.running;
   document.querySelectorAll('main button:not(#stopBtn):not(.reply button)').forEach((b) => { if (!b.closest('.reply') && !b.closest('.filters') && !b.closest('.chips')) b.disabled = j.running && !/重新整理|看分組預覽|打開/.test(b.textContent); });
@@ -275,6 +278,7 @@ function setJob(j) {
     $('jobInfo').textContent = j.label;
     $('reply').classList.add('show');
   } else {
+    if (lastJobKey === 'order') popNccAfterLoad = true;  // 拍照順序跑完 → 重新整理狀態時，有缺字號就跳出來
     $('pv').classList.remove('show'); askKind = ''; $('reply').classList.remove('ask');
     $('pill').textContent = '閒置中'; $('pill').className = 'pill';
     $('reply').classList.remove('show');
@@ -350,14 +354,20 @@ function markShopee(sn, name) {
   if (!confirm(`確定「${name}」（序號 ${sn}）在蝦皮已經都改好了嗎？\n\n請先到蝦皮確認這 4 件事：\n1. 保存狀況：二手\n2. NCC 字號\n3. 價格正確（15000 以下 ×1.18、15000 以上原價）\n4. 15000 以上：最低購買數量 3\n\n按「確定」會記成完成，之後不會再檢查。`)) return;
   run('markshopee', [sn]);
 }
+let popNccAfterLoad = false, lastJobKey = '';
+function openNccPop(){ $('nccCard').classList.add('nccpop'); $('nccBack').style.display=''; $('nccClose').style.display=''; }
+function closeNccPop(){ $('nccCard').classList.remove('nccpop'); $('nccBack').style.display='none'; $('nccClose').style.display='none'; }
 function drawNcc() {
   const seen = new Set();
   const miss = items.filter((x) => x.certMissing && !seen.has(x.model) && seen.add(x.model));
   $('nccCard').style.display = miss.length ? '' : 'none';
+  if (!miss.length) closeNccPop();
+  else if (popNccAfterLoad) openNccPop();   // 看完拍照順序，發現有缺 → 自動跳出來
+  popNccAfterLoad = false;
   $('nccList').innerHTML = miss.map((x, i) => `<div class="row" style="margin-bottom:8px;align-items:flex-end">
     <div style="flex:1.4;min-width:150px"><div class="sub">型號（${esc(x.name)}，序號 ${esc(x.serial)}）</div><input type="text" id="ncm${i}" value="${esc(x.model)}" style="width:100%"></div>
-    ${x.certMissing === 'NCC' ? `<div style="flex:1;min-width:130px"><div class="sub">NCC 字號</div><input type="text" id="ncn${i}" placeholder="CCAx…  或  無" style="width:100%"></div>` : '<input type="hidden" id="ncn' + i + '" value="">'}
-    <div style="flex:1;min-width:110px"><div class="sub">BSMI 字號${x.certMissing === 'BSMI' ? '（CCD 必填）' : '（選填）'}</div><input type="text" id="ncb${i}" placeholder="D3xxxx / Rxxxxx" style="width:100%"></div>
+    ${/NCC/.test(x.certMissing) ? `<div style="flex:1;min-width:130px"><div class="sub">NCC 字號（缺）</div><input type="text" id="ncn${i}" placeholder="CCAx…  或  無" style="width:100%"></div>` : '<input type="hidden" id="ncn' + i + '" value="">'}
+    ${/BSMI/.test(x.certMissing) ? `<div style="flex:1;min-width:110px"><div class="sub">BSMI 字號（缺）</div><input type="text" id="ncb${i}" placeholder="D3xxxx / Rxxxxx" style="width:100%"></div>` : '<input type="hidden" id="ncb' + i + '" value="">'}
     <button class="primary" onclick="saveNcc(${i})">儲存</button></div>`).join('');
 }
 async function saveNcc(i) {
