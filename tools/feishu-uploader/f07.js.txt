@@ -1555,6 +1555,7 @@ async function main(srcOverride) {
     const guessed = autoFill(r);
     if (src === 'airtable') { r['標題'] = buildTitle(r); r['蝦皮標題'] = buildShopeeTitle(r); }
     if (guessed.length) console.log(`🤖 ${where(r)}「${r['商品名稱']}」自動判斷：${guessed.join('、')}（請在填表時確認）`);
+    if (src === 'airtable' && !String(r['商品介紹'] || '').trim()) console.log(`⚠️ 「${r['商品名稱']}」收購紀錄沒有「商品介紹」，文案會少【型號介紹】。到收購後台打開這件的「🖨️ 印卡」，AI 會自動補上，再上架`);
     // review 模式下分類空白不略過，填表時讓你在瀏覽器手動選
     const missing = validate(r).filter((x) => !(x === '分類' && CONFIG.mode === 'review'));
     if (missing.length) {
@@ -2353,6 +2354,7 @@ async function statusMain() {
     const gt = gearType(r), isCam = ['mirrorless', 'dslr', 'compact'].includes(gt);
     const ce = lookupNcc(r['商品名稱']), isCcd = /CCD/.test(r['Y2K'] || '');
     const certMissing = !isCam ? '' : isCcd ? (bsmiFor(r['商品名稱'], r['公/水']) ? '' : 'BSMI') : (ce && (ce.ncc || isNoRadio(ce)) ? '' : 'NCC');
+    if (!String(r['商品介紹'] || '').trim() && stage !== 'done') hint += '　⚠️ 缺商品介紹（到收購後台按「印卡」讓 AI 補）';
     out.push({ certMissing, model: String(r['商品名稱'] || '').split('+')[0].trim(), name: r['商品名稱'], serial: sn, price: r['銷售價'], type: gearType(r) === 'lens' ? '鏡頭' : '相機',
       photos: sn ? productPhotos(sn).length : 0, pending: sn ? photosPending(sn) : false, stage, hint, refill: refill.includes(sn), date: r['交易日期'] || '' });
   }));
