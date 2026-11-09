@@ -140,6 +140,7 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
 
   <!-- 勾選模式開關 -->
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <button id="listing-btn" onclick="toggleListingOnly()" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#d9480f;cursor:pointer;background:#fff4e6;border:1px solid #f5b38a;border-radius:var(--radius-sm);padding:6px 12px;font-family:inherit">🛒 上架飛鼠清單</button>
     <button onclick="openAddItem()" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;background:#2b8a3e;border:none;border-radius:var(--radius-sm);padding:6px 12px;font-family:inherit">➕ 單筆新增商品</button>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-600);cursor:pointer;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:6px 12px">
       <input type="checkbox" id="select-mode-toggle" onchange="toggleSelectMode(this.checked)">
@@ -396,7 +397,22 @@ function clearDateFilter(){
   filterRecords();
 }
 
+let listingOnly = false;
+function toggleListingOnly(on){
+  listingOnly = (on === undefined) ? !listingOnly : on;
+  if (listingOnly) { activeMonth = 'all'; buildMonthTabs(); } // 看清單時不限月份
+  filterRecords();
+  window.scrollTo({top: document.getElementById('listing-btn').getBoundingClientRect().top + window.scrollY - 80, behavior:'smooth'});
+}
+function updateListingBtn(){
+  const b = document.getElementById('listing-btn'); if(!b) return;
+  const n = allRecords.filter(r=>r.fields['上架飛鼠']).length;
+  b.innerHTML = listingOnly ? `✕ 回到全部紀錄（目前只看上架飛鼠 ${n} 筆）` : `🛒 上架飛鼠清單（${n}）`;
+  b.style.background = listingOnly ? '#d9480f' : '#fff4e6';
+  b.style.color = listingOnly ? '#fff' : '#d9480f';
+}
 function filterRecords() {
+  updateListingBtn();
   const query = document.getElementById('search').value.trim().toLowerCase();
   const sort = document.getElementById('sort').value;
   const dateFrom = document.getElementById('date-from').value;
@@ -411,6 +427,8 @@ function filterRecords() {
   }
   
   let filtered = allRecords.filter(r => {
+    // 「🛒 上架飛鼠清單」：只看有勾上架飛鼠的
+    if (listingOnly && !r.fields['上架飛鼠']) return false;
     const recDate = r.fields['交易日期'] || r.fields['建立時間']?.slice(0,10) || '';
     // 月份篩選
     if (activeMonth !== 'all') {
@@ -607,6 +625,7 @@ function openFeishuMenu(ev, id){
   const f = rec.fields, st = String(f['飛鼠狀態']||'');
   const today = new Date().toLocaleDateString('zh-TW');
   const items = [];
+  items.push([listingOnly ? '📋 回到全部紀錄' : '📋 列出所有上架飛鼠的商品', 'LIST']);
   if (f['上架飛鼠']) items.push(['❌ 取消上架標記', {'上架飛鼠': false}]);
   if (!st.includes('已上架')) items.push(['🛍️ 標記為「飛鼠已上架」', {'飛鼠狀態': '飛鼠已上架 '+today}]);
   if (!st.includes('蝦皮已補')) items.push(['✅ 標記為「已上架＋蝦皮已補」（全部完成）', {'飛鼠狀態': '飛鼠已上架＋蝦皮已補 '+today, '上架飛鼠': false}]);
@@ -618,7 +637,7 @@ function openFeishuMenu(ev, id){
     items.map((it,i)=>`<button data-i="${i}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer;font:inherit">${it[0]}</button>`).join('');
   m.querySelectorAll('button').forEach(b=>{
     b.onmouseenter=()=>b.style.background='#f3f4f6'; b.onmouseleave=()=>b.style.background='none';
-    b.onclick=async(e)=>{ e.stopPropagation(); closeFeishuMenu(); await setFeishuState(id, items[+b.dataset.i][1]); };
+    b.onclick=async(e)=>{ e.stopPropagation(); closeFeishuMenu(); const act = items[+b.dataset.i][1]; if (act === 'LIST') return toggleListingOnly(); await setFeishuState(id, act); };
   });
   document.body.appendChild(m);
   const r = ev.target.getBoundingClientRect();
