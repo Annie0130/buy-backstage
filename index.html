@@ -2441,6 +2441,10 @@ ${styles}
   .print-wrap .lcard:nth-last-child(-n+2){margin-bottom:0;}
   .print-wrap .lcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:0;margin-bottom:1mm;}
   .print-wrap .lcard-footer{align-items:flex-start;}
+  /* 每張至少是一般相機卡的大小（鏡頭卡內容少也不會變小張）；比較長的只有自己那一排會變長 */
+  .print-wrap .lcard-header{min-height:76px;}
+  .print-wrap .lcard-body{min-height:145px;}
+  .print-wrap .lcard-footer{min-height:86px;}
 }
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
 html,body{background:#fff!important;}
@@ -2492,7 +2496,7 @@ function sameSize(){
     els.forEach(function(e){ e.style.minHeight = max + 'px'; e.style.boxSizing = 'border-box'; });
   });
 }
-function fitAll(){ fitNames(); fitDesc(); sameSize(); }
+function fitAll(){ fitNames(); fitDesc(); }
 fitAll();
 window.onload=function(){ fitAll(); setTimeout(function(){ fitAll(); window.print(); },400); };
 <\/script>
