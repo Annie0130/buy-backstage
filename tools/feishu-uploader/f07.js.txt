@@ -810,18 +810,45 @@ function fieldAfter(page, label, tag = TEXT_INPUT, opts) {
 let FILLED = [];
 // 填完補送 change、再離開欄位，有些網頁要這樣才會真的記住值
 const commitInput = (el) => el.evaluate((e) => { e.dispatchEvent(new Event('change', { bubbles: true })); e.blur && e.blur(); }).catch(() => {});
+// 找「定價」自己的輸入框：從「定價」標題往上找最小的區塊，裡面只能有這一個輸入框、而且不能包含「售價」
+async function listPriceInput(page) {
+  const ok = await page.evaluate(() => {
+    document.querySelectorAll('[data-list-price]').forEach((x) => x.removeAttribute('data-list-price'));
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const heads = [...document.querySelectorAll('label, span, div, th, td, p')].filter((el) => {
+      const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').replace(/\s/g, '');
+      return /^定價\*?/.test(own) && vis(el);
+    });
+    for (const h of heads) {
+      let box = h.parentElement;
+      for (let up = 0; up < 5 && box; up++, box = box.parentElement) {
+        const inputs = [...box.querySelectorAll('input')].filter((i) => vis(i) && !i.readOnly && !/hidden|checkbox|radio|file/.test(i.type));
+        if (!inputs.length) continue;
+        if (inputs.length > 1 || /售價|成本/.test(box.textContent)) break; // 太大了，包到別的欄位
+        inputs[0].setAttribute('data-list-price', '1');
+        return true;
+      }
+    }
+    return false;
+  }).catch(() => false);
+  return ok ? page.locator('[data-list-price="1"]').first() : null;
+}
 async function ensureListPrice(page, price, problems) {
   if (!price) return;
   try {
-    const el = await visibleFieldAfter(page, '定價', TEXT_INPUT, { prefix: true });
+    const el = await listPriceInput(page);
     if (!el) throw new Error('not found');
     const cur = String(await el.inputValue().catch(() => '')).replace(/[^\d]/g, '');
-    if (cur === String(price).replace(/[^\d]/g, '')) return;
+    if (cur === String(price).replace(/[^\d]/g, '')) { console.log(`   💲 定價：${price}`); return; }
+    await el.click({ timeout: 3000 }).catch(() => {});
     await el.fill(String(price), { timeout: 4000 });
     await commitInput(el);
+    const after = String(await el.inputValue().catch(() => '')).replace(/[^\d]/g, '');
+    if (after !== String(price).replace(/[^\d]/g, '')) throw new Error('not kept');
     console.log(`   💲 定價補填：${price}（跟售價一樣）`);
   } catch (e) {
     problems.push(`「定價」沒填成功，請手動填：${price}`);
+    await dumpFieldHtml(page, ['定價']).catch(() => {});
   }
 }
 async function fill(page, label, value, problems, opts = {}) {
@@ -1391,7 +1418,7 @@ async function fillProduct(page, r) {
   await addAttributes(page, attrs, problems);
 
   // 商品規格（單一規格）
-  await fill(page, '定價', price, problems, { prefix: true }); // 標題可能變成「定價 *(請輸入定價)」
+  await ensureListPrice(page, price, problems); // 定價＝售價（用自己的找法，避免填到售價那格）
   await fill(page, '售價', price, problems);
   await fill(page, '成本', r['進貨價'], problems);
   await fill(page, 'SKU 貨號', barcode, problems);
