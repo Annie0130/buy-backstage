@@ -2302,7 +2302,7 @@ async function republishMain(serials) {
       if (!w) throw new Error('找不到「發佈」按鈕，請手動點進去按發佈');
       // 確認真的上架了（官網查得到）；還是草稿的話通常是有必填欄位沒填，飛鼠不讓發佈
       let live = false;
-      for (let t = 0; t < 4 && !live; t++) { await page.waitForTimeout(5000); live = !!(await isOnStorefront(sn)); }
+      for (let t = 0; t < 4 && !live; t++) { await new Promise((r) => setTimeout(r, 5000)); live = !!(await isOnStorefront(sn)); }
       if (!live) throw new Error(`按了「${w}」，但官網還看不到，可能還是草稿（有必填欄位沒填？）。請點進去看飛鼠的紅字提示，補好再按發佈`);
       console.log(`   ✅ 已重新按「${w}」，官網已上架，2～5 分鐘內會推到蝦皮`);
       ok++;
@@ -2408,7 +2408,7 @@ async function statusMain() {
     const miss = validate(r);
     if (!sn) { stage = 'error'; hint = '沒有序號'; }
     else if (live) {
-      if (sp && sp.status.startsWith('成功')) { stage = 'done'; hint = '全部完成'; }
+      if (/蝦皮已補/.test(r._fsStatus || '')) { stage = 'done'; hint = '全部完成'; }
       else if (sp && sp.status.includes('🚨')) { stage = 'danger'; hint = sp.note.slice(0, 80); }
       else { stage = 'shopee'; hint = sp ? `蝦皮上次${sp.status}：${sp.note.slice(0, 50)}` : '蝦皮資料還沒確認（保存狀況、NCC、價格、最低購買數量）→ 按「💰 蝦皮價格檢查」'; }
     } else if (f && f.status.startsWith('成功') || /草稿/.test(r._fsStatus || '')) { stage = 'draft'; hint = '飛鼠草稿（官網還看不到）'; }
@@ -2416,8 +2416,8 @@ async function statusMain() {
     else { stage = 'new'; hint = f ? `上次${f.status}：${f.note.slice(0, 50)}` : '還沒上架'; }
     // 收購後台狀態沒跟上的，順便補寫回去
     if (live && sn) {
-      const want = stage === 'done' ? '飛鼠已上架＋蝦皮已補' : '飛鼠已上架';
-      if (!String(r._fsStatus || '').startsWith(want) || (want === '飛鼠已上架' && /蝦皮/.test(r._fsStatus || ''))) setFeishuStatus(sn, want, r._id);
+      // 只補寫「飛鼠已上架」；「蝦皮已補」只有蝦皮真的存成功時才會寫
+      if (!/已上架/.test(r._fsStatus || '')) setFeishuStatus(sn, '飛鼠已上架', r._id);
     }
     // NCC／BSMI 對照表裡沒有的相機（鏡頭、配件不用）：CCD 只要 BSMI，其他相機要 NCC
     const gt = gearType(r), isCam = ['mirrorless', 'dslr', 'compact'].includes(gt);
@@ -2537,7 +2537,7 @@ function loadFeishuDone() {
 async function findTargets() {
   const args = process.argv.slice(3).filter((a) => !a.startsWith('--'));
   const rows = await readAirtable();
-  const mk = (r) => ({ name: r['商品名稱'], serial: r['條碼'], price: Number(r['銷售價']) || 0, ccd: /CCD/.test(r['Y2K'] || ''), origin: r['公/水'] || '', cam: ['mirrorless', 'dslr', 'compact'].includes(gearType(r)) });
+  const mk = (r) => ({ name: r['商品名稱'], serial: r['條碼'], price: Number(r['銷售價']) || 0, ccd: /CCD/.test(r['Y2K'] || ''), origin: r['公/水'] || '', cam: ['mirrorless', 'dslr', 'compact'].includes(gearType(r)), fsStatus: r._fsStatus || '' });
   if (args.length) {
     // 指定序號：盡量從 Airtable 補上名稱、售價
     return args.map((sn) => { const r = rows.find((x) => x['條碼'] === sn); return r ? mk(r) : { name: '', serial: sn, price: 0 }; });
@@ -2631,6 +2631,25 @@ async function checkShopeePrice(p, price) {
   const now = Number(String(await box.inputValue().catch(() => '')).replace(/[^\d.]/g, '')) || 0;
   if (now !== want) return { ok: false, msg: `蝦皮價格是 ${cur}，應該是 ${want}，改不過去，請馬上手動改！` };
   return { ok: true, cur, want, changed: true };
+}
+// 蝦皮按「更新」後確認真的存好了：出現成功訊息、或頁面跳回商品列表 → ok；欄位錯誤 → 回傳錯誤；都沒有 → 不確定
+async function saveShopeeVerified(p) {
+  const startUrl = p.url();
+  if (!(await save(p))) return { ok: false, msg: '找不到「更新」按鈕' };
+  for (let t = 0; t < 40; t++) {
+    const st = await p.evaluate(() => {
+      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const errs = [...document.querySelectorAll('[class*="error-msg"], [class*="error-message"], [class*="form-item__error"], [class*="--error"] [class*="message"], .text-danger')]
+        .filter(vis).map((e) => (e.innerText || '').trim()).filter(Boolean);
+      const body = document.body ? document.body.innerText : '';
+      return { errs: errs.slice(0, 3), ok: /更新成功|儲存成功|已成功更新|商品已更新|已更新商品|成功更新/.test(body) };
+    }).catch(() => ({ errs: [], ok: false }));
+    if (st.ok) return { ok: true };
+    if (p.url() !== startUrl && !/\/portal\/product\/\d+/.test(p.url())) return { ok: true }; // 跳回商品列表
+    if (st.errs.length && t >= 2) return { ok: false, msg: '蝦皮說：' + st.errs.join('／') };
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
 }
 async function save(p) {
   const btns = p.locator('button').filter({ hasText: /^\s*(更新|儲存並上架|儲存)\s*$/ });
@@ -2810,7 +2829,7 @@ async function bsmiFixMain() {
       p = await openEditBySerial(ctx, page, sn);
       await p.waitForTimeout(1500);
       if (!(await setShopeeField(p, 'BSMI', bsmi).catch(() => false))) throw new Error('找不到蝦皮的「BSMI」欄位，請手動填');
-      if (!(await save(p))) throw new Error('BSMI 已填好，但找不到「更新」按鈕，請手動按');
+      { const sv = await saveShopeeVerified(p); if (sv.ok !== true) throw new Error(sv.msg); }
       console.log(`   ✅ BSMI 已填 ${bsmi} 並儲存（蝦皮會重新審核）`);
       result.set(sn, '成功 ' + new Date().toLocaleDateString('zh-TW'));
       rememberBsmi(name, bsmi);
@@ -2878,7 +2897,8 @@ async function shopeeMain() {
   const auto = process.argv.includes('--auto');
   const recheck = process.argv.includes('--check'); // 全部重新檢查（補過的也再看一次價格）
   const done = loadDoneSerials();
-  let targets = (await findTargets()).filter((t) => recheck || !done.has(t.serial));
+  // 補過的才略過：電腦裡的紀錄寫成功、而且收購後台也是「蝦皮已補」（舊紀錄可能誤記成功）
+  let targets = (await findTargets()).filter((t) => recheck || !(done.has(t.serial) && /蝦皮已補/.test(t.fsStatus || '')));
 
   if (!targets.length) {
     console.log('沒有需要補蝦皮資料的商品。');
@@ -2960,8 +2980,10 @@ async function shopeeMain() {
         }
       }
       if (auto) {
-        if (!(await save(p))) throw new Error('找不到「更新」按鈕，已填好，請手動按儲存');
-        console.log('   ✅ 已儲存');
+        const sv = await saveShopeeVerified(p);
+        if (sv.ok === false) throw new Error(sv.msg);
+        if (sv.ok === null) { console.log('   ⚠️ ' + sv.msg); shopeeLog(t.name, t.serial, '需確認', sv.msg); continue; }
+        console.log('   ✅ 已儲存（蝦皮確認成功）');
         shopeeLog(t.name, t.serial, '成功（自動儲存）');
       } else {
         const a = await ask('   請確認後在蝦皮按「更新」儲存。完成按 Enter，跳過輸入 s，結束輸入 q：');
