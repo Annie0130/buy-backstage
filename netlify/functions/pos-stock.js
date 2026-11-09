@@ -11,7 +11,7 @@ const AIRTABLE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}`;
 
 const ALLOWED = ['名稱', '條碼', '狀態', 'POS分類', '品牌', '售價', '庫存量', '貨品來源', '盒單', '原廠盒', '保卡', 'POS備註',
   '新舊程度', '狀況說明', '選單語言', '配件', '快門數', '店保', '原廠保固', '原廠保固到期', '原廠保固備註', '商品介紹', '品類',
-  'CCD／Y2K', '最後匯入'];
+  'CCD／Y2K', '最後匯入', '印卡日期'];
 const clean = (f) => Object.fromEntries(Object.entries(f || {}).filter(([k]) => ALLOWED.includes(k))
   .map(([k, v]) => [k, v === '' ? null : v]));
 const isId = (id) => /^rec[A-Za-z0-9]{14}$/.test(id || '');
