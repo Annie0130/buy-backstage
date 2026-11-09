@@ -2344,9 +2344,9 @@ async function printStockCards() {
   if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
   const notDone = picked.filter(it => it.status !== 'done').length;
   // 先開列印視窗（避免被瀏覽器擋掉），沒有商品介紹的自動先跑 AI，跑完再印
-  const win = window.open('', '_blank', 'width=500,height=700');
+  const win = openWaitWindow();
   if (notDone) {
-    if (win) win.document.write(`<p style="font:16px sans-serif;padding:20px">AI 正在補 ${notDone} 筆的商品介紹，跑完會自動跳出列印…</p>`);
+    if (win) try { win.document.body.innerHTML = `<p>AI 正在補 ${notDone} 筆的商品介紹，跑完會自動跳出列印…</p>`; } catch (e) {}
     await runStockAI(picked);
   }
   const failed = picked.filter(it => it.status === 'error').length;
@@ -2361,7 +2361,7 @@ async function fillMissingIntros(recs, win) {
   if (!todo.length) return 0;
   let done = 0, failed = 0;
   const show = () => { try { win && win.document.body && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${done + failed} / ${todo.length}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch(e) {} };
-  if (win) { win.document.write('<body></body>'); show(); }
+  if (win) show();
   const queue = [...todo];
   const worker = async () => {
     while (queue.length) {
@@ -2385,7 +2385,7 @@ async function fillMissingIntros(recs, win) {
 async function printSelectedCards() {
   const checkedIds = selectedIds();
   if (!checkedIds.length) { alert('請先勾選要印卡的紀錄'); return; }
-  const win = window.open('', '_blank', 'width=500,height=700');
+  const win = openWaitWindow();
   const failed = await fillMissingIntros(checkedIds.map(id => allRecords.find(rec => rec.id === id)).filter(Boolean), win);
   if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
   const noSn = checkedIds.map(id => allRecords.find(rec => rec.id === id)).filter(r => r && !String(r.fields['序號'] || '').trim());
@@ -2401,6 +2401,16 @@ async function printSelectedCards() {
   openPrintWindow(allCards, `批次印卡 ${checkedIds.length} 張`, win);
   markPrinted(checkedIds.map(id => allRecords.find(rec => rec.id === id)));
   try { filterRecords(); } catch (e) {}
+}
+
+// 先開列印視窗並顯示「準備中」（等 AI 補介紹時視窗不會空白轉圈）
+function openWaitWindow() {
+  const win = window.open('', '_blank', 'width=500,height=700');
+  if (!win) return null;
+  win.document.open();
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>準備印卡…</title></head><body style="font:16px sans-serif;padding:20px;color:#333"><p>準備商品卡中…</p></body></html>');
+  win.document.close();
+  return win;
 }
 
 function openPrintWindow(cardsHtml, title, win) {
@@ -2994,10 +3004,9 @@ async function posPrint() {
   const picked = posVisible().filter(r => posChecked.has(r.id));
   if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
   posBusy = true;
-  const win = window.open('', '_blank', 'width=500,height=700');
+  const win = openWaitWindow();
   try {
     // 沒有商品介紹的先請 AI 寫，寫好存回專區
-    if (win && picked.some(r => !String(r.fields['商品介紹'] || '').trim())) win.document.write('<body></body>');
     const {failed} = await posFillIntros(picked, (n, t) => {
       try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${n} / ${t}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {}
       posProg(`AI 補介紹 ${n} / ${t}`);
