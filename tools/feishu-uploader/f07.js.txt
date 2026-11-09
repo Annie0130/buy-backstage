@@ -112,6 +112,7 @@ const CONFIG = {
     markup: 1.18,          // 蝦皮抽成：售價 × 1.18
     roundTo: 100,          // 無條件進位到百位（7,080 → 7,100）
     highPrice: 15000,      // 售價 ≥ 這個金額：自訂價格留空（用原價），並提醒到蝦皮把最低購買數量改 3
+    autoAfterListing: false, // 上架後要不要自動跑蝦皮補資料（false＝不跑，等你確認蝦皮都出現後自己按）
   },
 
   // 供貨商要寫進「備註 (管理人員使用)」嗎？（備註不會公開給買家）
@@ -2187,7 +2188,7 @@ async function addPhotosMain(opts = {}) {
   }
   console.log(`\n補照片：成功 ${ok} 件、失敗 ${targets.length - ok} 件`);
   await ctx.close();
-  if (!opts.keepQuiet && published) await waitThenShopee();
+  if (!opts.keepQuiet && published) { if (CONFIG.shopee.autoAfterListing) await waitThenShopee(); else shopeeLaterNote(); }
   return published;
 }
 
@@ -2253,6 +2254,11 @@ async function republishMain(serials) {
   console.log(`\n重新發佈：成功 ${ok} 件、失敗 ${serials.length - ok} 件`);
   return ok;
 }
+function shopeeLaterNote() {
+  console.log('\n===== 飛鼠上架完成 =====');
+  console.log('蝦皮這次不會自動跑。請等 5～10 分鐘，到飛鼠／蝦皮確認商品都已經推到蝦皮了，');
+  console.log('再到控制台按「🦐 蝦皮補資料＋價格檢查」（或雙擊「蝦皮價格檢查.bat」）。');
+}
 // 等飛鼠同步到蝦皮，再自動補蝦皮資料（終端機不要關）
 async function waitThenShopee() {
   const wait = 150;
@@ -2306,6 +2312,7 @@ async function allMain() {
   console.log('\n===== ③ 重新發佈一次，讓飛鼠真的推到蝦皮 =====');
   await new Promise((r) => setTimeout(r, 20000)); // 先等飛鼠存好
   await republishMain(created);
+  if (!CONFIG.shopee.autoAfterListing) { shopeeLaterNote(); return; }
   await waitThenShopee();
   console.log('\n===== 全部完成 =====');
   console.log('存成草稿的商品（沒照片或有欄位要補），雙擊「待辦清單.bat」可以看到。');

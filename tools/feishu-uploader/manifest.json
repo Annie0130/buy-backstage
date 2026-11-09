@@ -1,6 +1,6 @@
 {
- "version": "20261109-1144",
- "note": "沒有商品介紹的商品會先提醒（控制台和一鍵上架都會顯示）",
+ "version": "20261109-1148",
+ "note": "一鍵上架不再自動跑蝦皮；確認飛鼠推到蝦皮後，再按「🦐 蝦皮補資料＋價格檢查」",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "c755fe6f58972ac2977ea4a1c8cadd32dd08aa50588b374d1683f0e7c7a3d667"
+   "sha256": "09e332f6f5d06e8e487644c66b540fdecbd9a964fdce486e8ebc86ca44803083"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "b2a8fe213cfe7b420f88c7dd5a70983674c8a711c3768e5343b9f979f2024080"
+   "sha256": "6f64f23d08179f28df30ea7e8ba75f43cb4ef8c129f2911566acfc28a3aa5e01"
   },
   {
    "path": "使用說明.txt",
