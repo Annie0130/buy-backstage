@@ -2447,6 +2447,9 @@ ${styles}
   /* 每張至少是一般相機卡的大小（鏡頭卡內容少也不會變小張）；比較長的只有自己那一排會變長 */
   .print-wrap .lcard-header{min-height:76px;}
   .print-wrap .lcard-body{min-height:145px;}
+  /* 規格比較少的卡（例如鏡頭），多出來的高度平均分給每一行，不要全部堆在「功能」下面 */
+  .print-wrap .lcard-spec-col{justify-content:space-between;}
+  .print-wrap .lcard-spec-row{flex:0 0 auto;}
   .print-wrap .lcard-footer{min-height:86px;}
 }
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
