@@ -1,90 +1,95 @@
 {
- "version": "20261109-1122",
- "note": "拍照順序會列出「已經有照片、不用拍」的商品",
+ "version": "20261109-1129",
+ "note": "定價自動跟售價一樣；加入 69 款官方 NCC／BSMI 對照資料",
  "files": [
   {
+   "path": "NCC官方資料.txt",
+   "url": "f00.txt.txt",
+   "sha256": "1fd20c9265a5d33580e45cf0566a057fb025ef5ce21fd1d940cbe2ef819d4b0e"
+  },
+  {
    "path": "migrate.js",
-   "url": "f00.js.txt",
+   "url": "f01.js.txt",
    "sha256": "815a5c03757d808718fcd057c0a8d4d6bfd4a0764e07846d94232011e0e09f91"
   },
   {
    "path": "package.json",
-   "url": "f01.json.txt",
+   "url": "f02.json.txt",
    "sha256": "dd611abb9a95323bb6fe5ac4923f05570040a1d62f6b8b64263f1062d7ba2cb4"
   },
   {
    "path": "panel.html",
-   "url": "f02.html.txt",
+   "url": "f03.html.txt",
    "sha256": "c755fe6f58972ac2977ea4a1c8cadd32dd08aa50588b374d1683f0e7c7a3d667"
   },
   {
    "path": "panel.js",
-   "url": "f03.js.txt",
+   "url": "f04.js.txt",
    "sha256": "1378797af029e4ca4536a395d5592108ff94f1f8b2e77e6ea2cf9b5fc9ad645f"
   },
   {
    "path": "shopee-minqty.js",
-   "url": "f04.js.txt",
+   "url": "f05.js.txt",
    "sha256": "e1487fd319267ad3b41ddb2a96c601d7c23119d084ede782286b8647bc0c647d"
   },
   {
    "path": "update.js",
-   "url": "f05.js.txt",
+   "url": "f06.js.txt",
    "sha256": "ca63db461539f28148e5413e48fe09b285aea9d104de22280d58a05aeb584ad4"
   },
   {
    "path": "upload.js",
-   "url": "f06.js.txt",
-   "sha256": "31dabd9a67ad78312ee36893fac15d0c0caa86f99bb513b0b9926c640aa2a9f7"
+   "url": "f07.js.txt",
+   "sha256": "0c60d82920312df7a715d61ea20016308ad05472d71a48283ef0c6762760ee37"
   },
   {
    "path": "使用說明.txt",
-   "url": "f07.txt.txt",
+   "url": "f08.txt.txt",
    "sha256": "33b32255245bec3f36b02a051accb92971e7121804b04db77fb04d49bb96fdc3"
   },
   {
    "path": "其他功能/0_拍照順序.bat",
-   "url": "f08.bat.txt",
+   "url": "f09.bat.txt",
    "sha256": "e5c8b6e50ad043e29d9341ff43b9a8ca6939636f2aca30db5ea762fbdf3d4f10"
   },
   {
    "path": "其他功能/0_照片分組.bat",
-   "url": "f09.bat.txt",
+   "url": "f10.bat.txt",
    "sha256": "6d7694e1b3fb93c6f19fb244a54b1557ee5f13acfe0d4c76d1dab3079f381ddb"
   },
   {
    "path": "其他功能/1_飛鼠上架（存草稿）.bat",
-   "url": "f10.bat.txt",
+   "url": "f11.bat.txt",
    "sha256": "01158c3568e5470dcedf7edf26ea8511063cfbaf8b21c2e05a127564ef6fd08b"
   },
   {
    "path": "其他功能/2_蝦皮補資料.bat",
-   "url": "f11.bat.txt",
+   "url": "f12.bat.txt",
    "sha256": "77913a72f2335ed14603c8e8b7217b785b63aaf6ff75291ca642a1ffc13e6065"
   },
   {
    "path": "其他功能/4_草稿補照片並發佈.bat",
-   "url": "f12.bat.txt",
+   "url": "f13.bat.txt",
    "sha256": "c897a85d7f852969e5f9129043c8f897771419797235a43fd0aeb8d8dc793804"
   },
   {
    "path": "待辦清單.bat",
-   "url": "f13.bat.txt",
+   "url": "f14.bat.txt",
    "sha256": "5c556c42199e6b213d68a56e7debb641b9c31be09e0fa8bb74e4418c0a3424a3"
   },
   {
    "path": "拍攝中.jpg",
-   "url": "f14.jpg",
+   "url": "f15.jpg",
    "sha256": "15eb65ffa3f9502f307ec81e57483d08c332f3a294b52d992cd63021e4f37541"
   },
   {
    "path": "蝦皮價格檢查.bat",
-   "url": "f15.bat.txt",
+   "url": "f16.bat.txt",
    "sha256": "3a1004ef1fa63db37aec170043cb3d271de9d2dac93b2758e49d08e4612d5733"
   },
   {
    "path": "補照片.bat",
-   "url": "f16.bat.txt",
+   "url": "f17.bat.txt",
    "sha256": "3839fac564883662db7d66958e146bbfb990daaf3883c17d262d6a1b72c88e0b"
   }
  ],
