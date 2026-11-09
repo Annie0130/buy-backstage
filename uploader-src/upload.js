@@ -2849,7 +2849,7 @@ function ensureBsmiFile() {
   if (fs.existsSync(BSMI_FILE)) return false;
   const rows = BSMI_SEED.map(([sn, name]) => {
     const e = lookupNcc(name);
-    const hint = /^canon/i.test(name) ? 'Canon 常見是 D31219，請對照機身標籤確認' : /lumix|panasonic/i.test(name) ? 'Panasonic 常見是 D31221，請對照機身標籤確認' : '請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼）；沒有標籤就留空白、不要上蝦皮';
+    const hint = '請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼）；沒有標籤就留空白、不要上蝦皮';
     return [sn, name, e && e.bsmi ? e.bsmi : '', e && e.bsmi ? '官網同型號有填過，請對照機身標籤確認' : hint, ''];
   });
   fs.writeFileSync(BSMI_FILE, '﻿' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...rows.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
@@ -2873,15 +2873,36 @@ function rememberBsmi(model, bsmi) {
     NCC_TABLE = null;
   } catch (e) {}
 }
+// BSMI 空白的：查收購紀錄，公司貨就照品牌填代理商碼（或你填過的／官方相符的）；水貨、品牌不在名單的留空白
+async function autoFillBsmi() {
+  const rows = readCsv(BSMI_FILE).filter((c) => c[0]);
+  const blank = rows.filter((c) => !(c[2] || '').trim() && !/^成功/.test(c[4] || ''));
+  if (!blank.length) return;
+  const recs = await rowsBySerials(blank.map((c) => c[0]));
+  const filled = [], skipped = [];
+  const note = new Map();
+  recs.forEach((r, i) => {
+    const c = blank[i];
+    if (r._missing) { skipped.push(`${c[1]}（${c[0]}）：收購紀錄找不到這個序號`); note.set(c[0], ['', '收購紀錄找不到序號，請看機身標籤']); return; }
+    const name = r['商品名稱'] || c[1], origin = (r['公/水'] || '').trim();
+    const code = bsmiFor(name, origin);
+    if (code) {
+      const why = lookupNcc(name) && lookupNcc(name).bsmi ? '你填過的／官方資料相符' : `公司貨，${guessBrand(name) || '品牌'}代理商碼（自動）`;
+      filled.push(`${c[1]}（${c[0]}）→ ${code}　${why}`); note.set(c[0], [code, why]);
+    } else {
+      const why = origin !== '公司貨' ? `貨品來源是「${origin || '空白'}」，不是公司貨，不套代理商碼，請看機身標籤` : '品牌不在代理商名單，請看機身標籤';
+      skipped.push(`${c[1]}（${c[0]}）：${why}`); note.set(c[0], ['', why]);
+    }
+  });
+  const out = readCsv(BSMI_FILE).map((c) => (note.has(c[0]) && !(c[2] || '').trim() ? [c[0], c[1], note.get(c[0])[0], note.get(c[0])[1], c[4] || ''] : c));
+  fs.writeFileSync(BSMI_FILE, '\uFEFF' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...out.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
+  if (filled.length) { console.log(`依品牌自動填好 BSMI ${filled.length} 件：`); filled.forEach((x) => console.log('  ✅ ' + x)); }
+  if (skipped.length) { console.log(`沒辦法自動填、會略過的 ${skipped.length} 件（請看機身標籤自己填進 BSMI補填.csv）：`); skipped.forEach((x) => console.log('  ⚠️ ' + x)); }
+  console.log('');
+}
 async function bsmiFixMain() {
-  if (ensureBsmiFile()) {
-    console.log('已建立「BSMI補填.csv」（用 Excel 或記事本打開）：');
-    console.log('  1. 照每台相機底部或盒子上的標籤，把真的 BSMI 字號填進「BSMI字號」那一欄');
-    console.log('  2. 查不到標籤的就留空白（會略過，那台建議不要上蝦皮）');
-    console.log('  3. 存檔後再按一次「批次補 BSMI」');
-    openPath(BSMI_FILE);
-    return;
-  }
+  if (ensureBsmiFile()) console.log('已建立「BSMI補填.csv」。');
+  await autoFillBsmi();
   const rows = readCsv(BSMI_FILE).filter((c) => c[0]);
   const todo = rows.filter((c) => (c[2] || '').trim() && !/^成功/.test(c[4] || ''));
   const bad = todo.filter((c) => !/^[A-Za-z]\d{3,}[A-Za-z0-9]*$|^[A-Za-z]{1,3}\d{4,}$/.test(c[2].trim()));
@@ -3148,4 +3169,4 @@ if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() :
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
-module.exports = { addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
+module.exports = { autoFillBsmi, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };

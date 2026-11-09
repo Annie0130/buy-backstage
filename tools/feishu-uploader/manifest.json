@@ -1,6 +1,6 @@
 {
- "version": "20261109-1521",
- "note": "（交接：改從 uploader-src 發佈）",
+ "version": "20261109-1530",
+ "note": "批次補 BSMI：公司貨自動照品牌填代理商碼",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "4c6509635d19440dce1d0a499e92e3053c30dbdd2c2af543c8039b48f4ef3c55"
+   "sha256": "0c4623f62ab1992c6227c95f3bce34a83089266e2a60ccb0a1efb4ced95d9371"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "c5b8f74b117f6b47d1f29cf4aff76cf91cee7079fabe70d004ebc1d96dcfa375"
+   "sha256": "c3eb4424542778f60e0b19f22f152059d9197b5c248ca3a2ab72696a4b9a6575"
   },
   {
    "path": "使用說明.txt",
