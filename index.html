@@ -1855,10 +1855,13 @@ function buildCardHTML(d, accOverride) {
     d = Object.assign({}, d, {acc: [accNow, ...add].filter(Boolean).join('、')});
   }
   const checkedAcc = accOverride || cardAccChecked;
-  const allAccItems = [
+  let allAccItems = [
     ...cardAlwaysAcc(d).map(a => ({name: a, on: checkedAcc[a]})),
     ...(d.acc ? [...new Set(d.acc.split(/[、,，\n]/).map(s=>s.trim().replace(/^(相機)?背帶\s*[（(]?含扣環[)）]?$/, '背帶').replace(/^相機背帶$/, '背帶')).map(s=>isPocketCam && s === '背帶' ? '手繩' : s))].filter(s=>s&&!ALWAYS_ACC.some(a=>s.includes(a))).map(a=>({name:a,on:true})) : [])
   ];
+  // 配件超過 6 行會把卡片撐長：先拿掉「原廠盒」那一行
+  const ACC_MAX = 6;
+  if (allAccItems.length > ACC_MAX) allAccItems = allAccItems.filter(it => it.name !== '原廠盒');
   const clItems = allAccItems.map(it =>
     `<div class="lcard-cl-item">
       <div class="lcard-cl-box ${it.on?'on':''}">${it.on?'✓':''}</div>
@@ -2497,8 +2500,29 @@ function sameSize(){
   });
 }
 function fitAll(){ fitNames(); fitDesc(); }
+// 拿掉原廠盒之後配件還是超過 6 行（卡片會變長）的，列出來讓老闆決定要拿掉哪些
+function longCards(){
+  var out = [];
+  document.querySelectorAll('.lcard').forEach(function(c){
+    var items = c.querySelectorAll('.lcard-cl-item');
+    if (items.length > 6) {
+      var nm = (c.querySelector('.lcard-prod-name') || {}).textContent || '';
+      var sn = ((c.querySelector('.lcard-sn') || {}).textContent || '').replace('S/N', '').trim();
+      out.push('・' + nm + (sn ? '（S/N ' + sn + '）' : '') + '：' + [].map.call(items, function(x){ return x.textContent.replace(/[✓\\s]/g, ''); }).join('、'));
+    }
+  });
+  return out;
+}
 fitAll();
-window.onload=function(){ fitAll(); setTimeout(function(){ fitAll(); window.print(); },400); };
+var started = false;
+function go(){ if (started) return; started = true; fitAll(); setTimeout(function(){
+  fitAll();
+  var L = longCards();
+  if (L.length && !confirm('下面 ' + L.length + ' 張的配件太多（超過 6 項），卡片會比較長：\\n\\n' + L.join('\\n') + '\\n\\n要拿掉哪些配件請跟我們說，或先到「編輯」改配件。\\n仍要直接列印嗎？')) return;
+  window.print();
+},400); }
+window.onload = go;
+setTimeout(go, 1500);  // 有些瀏覽器的載入事件不會觸發，備用
 <\/script>
 </body></html>`);
   win.document.close();
