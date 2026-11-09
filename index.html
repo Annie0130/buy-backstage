@@ -92,7 +92,7 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
     <div class="header-sub">收購紀錄管理後台</div>
   </div>
   <div class="header-right">
-    <button class="sync-btn" onclick="openStockImport()">📦 匯入庫存印卡</button>
+    <button class="sync-btn" onclick="switchTab('pos')">📦 POS 庫存</button>
     <button class="sync-btn" onclick="loadRecords()">↻ 重新整理</button>
   </div>
 </div>
@@ -124,6 +124,10 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
   <button id="tab-stats" onclick="switchTab('stats')"
     style="flex:1;padding:12px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;font-family:inherit">
     📊 統計分析
+  </button>
+  <button id="tab-pos" onclick="switchTab('pos')"
+    style="flex:1;padding:12px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;font-family:inherit;white-space:nowrap">
+    📦 POS 庫存
   </button>
   <button onclick="showDailyReport()"
     style="padding:12px 14px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:#c0392b;cursor:pointer;font-family:inherit;white-space:nowrap">
@@ -254,6 +258,42 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
     </div>
   </div>
 
+  <!-- POS 庫存專區（跟收購紀錄分開的 Airtable「POS庫存」表） -->
+  <style>#pos-list th,#pos-list td{padding:6px 6px;vertical-align:top}</style>
+  <div id="view-pos" style="display:none;padding-bottom:40px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px">
+      <input type="text" id="pos-q" placeholder="搜尋名稱或條碼（例：Sony）" oninput="renderPos()" style="flex:1;min-width:160px;padding:9px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit">
+      <select id="pos-status" onchange="renderPos()" style="padding:8px;border:1px solid var(--gray-200);border-radius:8px;font-family:inherit">
+        <option value="在庫">在庫</option><option value="已售出">已售出</option><option value="">全部</option>
+      </select>
+      <label style="font-size:12px;color:var(--gray-600);display:flex;align-items:center;gap:4px"><input type="checkbox" id="pos-acc" onchange="renderPos()">含配件類</label>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <label style="padding:7px 12px;background:#2b8a3e;color:#fff;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📥 匯入 POS 檔<input type="file" accept=".xlsx,.xls,.csv" onchange="posImportFile(this.files[0]);this.value=''" style="display:none"></label>
+      <button onclick="posSelectAll(true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選畫面上的</button>
+      <button onclick="posSelectAll(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消全選</button>
+      <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡</button>
+      <button onclick="loadPos()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
+      <span id="pos-progress" style="font-size:12px;color:#6b6b63"></span>
+    </div>
+    <div id="pos-list" style="font-size:12px">載入中…</div>
+  </div>
+
+</div>
+
+<!-- POS 庫存：編輯一筆 -->
+<div id="pos-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:320;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:18px 18px 40px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700">✏️ 編輯 POS 庫存</div>
+      <button onclick="document.getElementById('pos-edit').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gray-400)">×</button>
+    </div>
+    <div id="pos-edit-fields"></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="posSaveEdit()" style="flex:1;padding:13px;background:#1565c0;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+      <button onclick="posPreviewOne()" style="padding:13px 16px;background:#0d3b66;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">🖨️ 印這張</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1220,16 +1260,16 @@ loadRecords();
 <script>
 // ── Tab 切換 ──
 function switchTab(tab){
-  const isRecords = tab === 'records';
-  document.getElementById('view-records').style.display = isRecords ? 'block' : 'none';
-  document.getElementById('view-stats').style.display = isRecords ? 'none' : 'block';
-  document.getElementById('tab-records').style.borderBottomColor = isRecords ? 'var(--black)' : 'transparent';
-  document.getElementById('tab-records').style.color = isRecords ? 'var(--black)' : 'var(--gray-400)';
-  document.getElementById('tab-records').style.fontWeight = isRecords ? '700' : '600';
-  document.getElementById('tab-stats').style.borderBottomColor = isRecords ? 'transparent' : 'var(--black)';
-  document.getElementById('tab-stats').style.color = isRecords ? 'var(--gray-400)' : 'var(--black)';
-  document.getElementById('tab-stats').style.fontWeight = isRecords ? '600' : '700';
-  if(!isRecords) renderStats();
+  ['records', 'stats', 'pos'].forEach(t => {
+    const on = t === tab;
+    document.getElementById('view-' + t).style.display = on ? 'block' : 'none';
+    const b = document.getElementById('tab-' + t);
+    b.style.borderBottomColor = on ? 'var(--black)' : 'transparent';
+    b.style.color = on ? 'var(--black)' : 'var(--gray-400)';
+    b.style.fontWeight = on ? '700' : '600';
+  });
+  if (tab === 'stats') renderStats();
+  if (tab === 'pos' && !posLoaded) loadPos();
 }
 
 const PIE_COLORS = ['#1565c0','#2196d3','#52b788','#c9a84c','#c0392b','#8e44ad','#e67e22','#1abc9c','#e91e63','#607d8b'];
@@ -2636,5 +2676,316 @@ MODALS.forEach(id => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTopModal(); });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ─── POS 庫存：把 POS「快門數」欄的備註拆成 配件／快門數／保固／狀況 ───
+const POS_HEAVY = /使用痕跡多|裂痕|裂開|斷|掉落|側蓋掉|環掉|磕傷|受傷|撞傷|無電池蓋|凹/;
+const POS_LIGHT = /入塵|霧化|發霉|刮傷|刮痕|外觀痕跡|使用痕跡|脫膜|溢膠|暗角|老化|有傷|小傷|受損|痕跡|有毛|掉漆|磨損/;
+const POS_LANG = /英日機|日文機|英文機|無中文|簡體機|簡體中文/;
+const POS_ACC = [
+  [/^(原廠電池|原池)$/, '原廠電池'], [/^(\d+顆)?電池$/, null], [/背帶/, null], [/^充電器$/, '充電器'], [/^充電線$/, '充電線'],
+  [/^(有)?遮光罩$/, '遮光罩'], [/^副(廠)?遮光罩$/, '副廠遮光罩'], [/^手繩$/, '手繩'], [/^鏡頭前蓋$/, '鏡頭前蓋'], [/^鏡頭後蓋$/, '鏡頭後蓋'],
+  [/^前後蓋$/, '鏡頭前蓋、鏡頭後蓋'], [/^副廠(前蓋|鏡頭蓋)$/, null], [/^(防風罩|熱靴|底座|手把|手柄|閃燈|閃光燈|收納盒|濾鏡)$/, null],
+  [/^(有)?(小袋子|鏡頭袋|皮套)$/, (s) => s.replace(/^有/, '')], [/^另有/, (s) => s.replace(/^另有/, '')],
+];
+const POS_SKIP = /^(降售|\||無遮光罩|內|次|\d{1,4})$/;
+function posYear(y) { y = parseInt(y, 10); return y >= 100 && y < 200 ? y + 1911 : y < 100 ? 2000 + y : y; }
+function parsePosNote(raw, name, today = new Date()) {
+  let s = String(raw || '').replace(/\s+/g, ' ').trim();
+  const out = { cond: '', issues: [], acc: [], shutter: '', shopw: '半年保固(180天)', mfgw: '', mfgwUntil: '', lang: '' };
+  // 原廠保固到期日（機身／鏡頭）
+  const until = [];
+  s = s.replace(/(機|鏡)?(?:在保|保固|保)?(?:至)?\s*(\d{2,4})[\/.](\d{1,2})(?:[\/.](\d{1,2}))?/g, (m, who, y, mo, d) => {
+    if (!/保|機|鏡/.test(m)) return m;
+    const Y = posYear(y), M = +mo, D = d ? +d : new Date(Y, M, 0).getDate();
+    const iso = `${Y}-${String(M).padStart(2, '0')}-${String(D).padStart(2, '0')}`;
+    until.push({ who: who === '鏡' ? '鏡頭' : who === '機' ? '機身' : '', iso });
+    return '、';
+  });
+  if (until.length) {
+    const live = until.filter((u) => new Date(u.iso + 'T23:59:59') >= today);
+    out.mfgwUntil = (live[0] || until[0]).iso;
+    out.mfgw = live.length ? '在保' : '已過保';
+    if (until.length > 1) out.mfgwNote = until.map((u) => `${u.who}至${u.iso.replace(/-/g, '/')}`).join('、');
+  }
+  // 店保
+  const shop = [[/(不保固|無保固)/, '無保固'], [/(7天|七天)/, '7天保固'], [/(一個月|1個月)/, '1個月保固'], [/(2周|2週|兩週|兩周)/, '2週保固'], [/(2個月|兩個月)/, '2個月保固'], [/(3個月|三個月)/, '3個月保固']];
+  s = s.replace(/(售出|降售|店保)?(保固|保)?\s*(不保固|無保固|7天|七天|一個月|1個月|2周|2週|兩週|兩周|2個月|兩個月|3個月|三個月)\s*(保固)?/g, (m) => {
+    if (!/保/.test(m)) return m;
+    for (const [re, v] of shop) if (re.test(m)) { out.shopw = v; break; }
+    return '、';
+  });
+  // 快門數
+  s = s.replace(/(快門數|快門|快)?\s*(\d+)(萬)?(\d)?\s*(內|次)/g, (m, p, a, wan, b) => {
+    if (!p && !wan && a.length < 3) return m;
+    out.shutter = String(wan ? (+a) * 10000 + (b ? (+b) * 1000 : 0) : +a);
+    return '、';
+  });
+  s = s.replace(/快門數?\s*(\d{3,})/g, (m, a) => { out.shutter = a; return '、'; });
+  // 選單語言
+  const lm = (s + ' ' + (name || '')).match(POS_LANG);
+  if (lm) { out.lang = lm[0]; s = s.replace(POS_LANG, '、'); }
+  // 其他片語：配件 or 狀況
+  for (let p of s.split(/[、,，;；\/ ]+/)) {
+    p = p.replace(/[（()）]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^不影響/.test(p) && out.issues.length) { out.issues[out.issues.length - 1] += p; continue; }
+    if (!p || POS_SKIP.test(p)) continue;
+    const a = POS_ACC.find(([re]) => re.test(p));
+    if (a && !/壞|鬆|斷|掉|異常|失效/.test(p)) { const v = typeof a[1] === 'function' ? a[1](p) : a[1] || p; out.acc.push(...v.split('、')); continue; }
+    out.issues.push(p);
+  }
+  out.acc = [...new Set(out.acc)];
+  const issueText = out.issues.join('、') + ' ' + (name || '');
+  out.cond = /全新/.test(name || '') ? '全新' : POS_HEAVY.test(issueText) ? '使用痕跡多' : POS_LIGHT.test(issueText) ? '些許使用痕跡' : '近無使用痕跡';
+  return out;
+}
+// 盒單 → 原廠盒／保卡
+function parsePosBox(v) {
+  v = String(v || '').trim();
+  return { box: /^有盒/.test(v), card: /有單|^有盒單$/.test(v) };
+}
+
+// ─── POS 庫存專區：讀寫、匯入、印卡 ───
+const POS_API = '/.netlify/functions/pos-stock';
+let posRecs = [], posLoaded = false, posBusy = false, posEditId = null;
+const posChecked = new Set();
+const posEsc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const posProg = t => { document.getElementById('pos-progress').textContent = t || ''; };
+
+async function loadPos() {
+  posLoaded = true;
+  const list = document.getElementById('pos-list');
+  list.textContent = '載入中…';
+  try {
+    let all = [], offset = '';
+    do {
+      const res = await adminFetch(offset ? '?offset=' + encodeURIComponent(offset) : '', {}, POS_API);
+      const data = await res.json();
+      if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('讀取失敗 ' + res.status));
+      all = all.concat(data.records || []);
+      offset = data.offset || '';
+    } while (offset);
+    posRecs = all;
+    renderPos();
+  } catch (e) {
+    posLoaded = false;
+    list.textContent = '❌ ' + e.message;
+  }
+}
+
+function posVisible() {
+  const q = document.getElementById('pos-q').value.trim().toLowerCase();
+  const st = document.getElementById('pos-status').value;
+  const acc = document.getElementById('pos-acc').checked;
+  return posRecs.filter(r => {
+    const f = r.fields;
+    if (st && (f['狀態'] || '在庫') !== st) return false;
+    if (!acc && /配件/.test(f['POS分類'] || '')) return false;
+    return !q || String(f['名稱'] || '').toLowerCase().includes(q) || String(f['條碼'] || '').toLowerCase().includes(q);
+  }).sort((a, b) => String(a.fields['名稱'] || '').localeCompare(String(b.fields['名稱'] || '')));
+}
+
+function renderPos() {
+  const vis = posVisible();
+  const condColor = {'全新': '#276030', '近無使用痕跡': '#276030', '些許使用痕跡': '#b45309', '使用痕跡多': '#c62828'};
+  const nChecked = vis.filter(r => posChecked.has(r.id)).length;
+  document.getElementById('pos-list').innerHTML = !posRecs.length
+    ? '專區還沒有資料，請按「📥 匯入 POS 檔」選 POS 匯出的商品資料。'
+    : `<div style="margin:0 0 6px;color:#6b6b63">共 ${vis.length} 筆，已勾選 ${nChecked} 筆（有商品介紹 ${vis.filter(r => r.fields['商品介紹']).length} 筆）</div>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:640px">
+    <tr style="text-align:left;color:#8a96a5;font-size:11px"><th></th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>新舊</th><th>狀況說明</th><th>店保</th><th>介紹</th><th></th></tr>
+    ${vis.map(r => { const f = r.fields; return `<tr style="border-top:1px solid #f0f0ec;${f['狀態'] === '已售出' ? 'color:#aaa' : ''}">
+      <td style="padding:6px 4px"><input type="checkbox" ${posChecked.has(r.id) ? 'checked' : ''} onchange="posToggle('${r.id}',this.checked)"></td>
+      <td>${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
+      <td style="font-family:monospace;color:#6b6b63">${posEsc(f['條碼'])}</td>
+      <td style="text-align:right">${f['售價'] ? Number(f['售價']).toLocaleString() : '—'}</td>
+      <td style="color:${condColor[f['新舊程度']] || '#888'};white-space:nowrap">${posEsc(f['新舊程度'] || '—')}</td>
+      <td style="color:#6b6b63;max-width:220px">${posEsc(f['狀況說明'] || '')}</td>
+      <td style="white-space:nowrap">${posEsc(f['店保'] || '')}</td>
+      <td>${f['商品介紹'] ? '✅' : '—'}</td>
+      <td><button onclick="posOpenEdit('${r.id}')" style="padding:3px 8px;border:1px solid var(--gray-200);background:#fff;border-radius:5px;cursor:pointer;font-size:11px">編輯</button></td>
+    </tr>`; }).join('')}
+  </table></div>`;
+}
+
+function posToggle(id, on) { on ? posChecked.add(id) : posChecked.delete(id); renderPos(); }
+function posSelectAll(on) { posVisible().forEach(r => on ? posChecked.add(r.id) : posChecked.delete(r.id)); renderPos(); }
+
+// ── 編輯 ──
+const POS_EDIT = [
+  ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
+  ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
+  ['店保', ['半年保固(180天)', '7天保固', '2週保固', '1個月保固', '2個月保固', '3個月保固', '無保固']],
+  ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],
+  ['原廠盒', 'checkbox'], ['保卡', 'checkbox'], ['品類', ['', ...CARD_CATEGORIES]], ['CCD／Y2K', ['', 'CCD 相機', 'Y2K 復古']],
+  ['商品介紹', 'textarea'], ['狀態', ['在庫', '已售出']], ['POS備註', 'readonly'],
+];
+function posOpenEdit(id) {
+  const r = posRecs.find(x => x.id === id); if (!r) return;
+  posEditId = id;
+  const f = r.fields, st = 'width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box';
+  document.getElementById('pos-edit-fields').innerHTML = POS_EDIT.map(([k, t], i) => {
+    const v = f[k] ?? '', id2 = 'pos-f-' + i;
+    let input;
+    if (t === 'textarea') input = `<textarea id="${id2}" style="${st};min-height:70px">${posEsc(v)}</textarea>`;
+    else if (t === 'readonly') input = `<div style="font-size:12px;color:#6b6b63;background:#f6f6f2;border-radius:8px;padding:8px 10px">${posEsc(v) || '—'}</div>`;
+    else if (t === 'checkbox') input = `<input id="${id2}" type="checkbox" ${v ? 'checked' : ''} style="width:20px;height:20px">`;
+    else if (Array.isArray(t)) input = `<select id="${id2}" style="${st}">${[...new Set([...t, v].filter(x => x !== undefined))].map(o => `<option ${o === v ? 'selected' : ''}>${posEsc(o)}</option>`).join('')}</select>`;
+    else input = `<input id="${id2}" type="${t}" value="${posEsc(v)}" style="${st}">`;
+    return `<div style="margin-bottom:10px"><div style="font-size:12px;color:#8a96a5;margin-bottom:3px">${k}${k === 'POS備註' ? '（POS 原文，重新匯入時會更新）' : ''}</div>${input}</div>`;
+  }).join('');
+  document.getElementById('pos-edit').style.display = 'flex';
+}
+function posReadEdit() {
+  const fields = {};
+  POS_EDIT.forEach(([k, t], i) => {
+    if (t === 'readonly') return;
+    const el = document.getElementById('pos-f-' + i);
+    fields[k] = t === 'checkbox' ? el.checked : t === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value.trim();
+  });
+  return fields;
+}
+async function posSaveEdit() {
+  const fields = posReadEdit();
+  const res = await adminFetch('?id=' + posEditId, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, POS_API);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { alert('儲存失敗：' + ((data.error && (data.error.message || data.error)) || res.status)); return; }
+  const r = posRecs.find(x => x.id === posEditId); if (r) r.fields = data.fields || Object.assign(r.fields, fields);
+  document.getElementById('pos-edit').style.display = 'none';
+  showToast('✅ 已儲存');
+  renderPos();
+}
+function posPreviewOne() {
+  const r = posRecs.find(x => x.id === posEditId); if (!r) return;
+  const tmp = {id: r.id, fields: Object.assign({}, r.fields, posReadEdit())};
+  const {data, accOverride} = posToCardData(tmp);
+  openPrintWindow(buildCardHTML(data, accOverride), '商品卡 ' + (tmp.fields['名稱'] || ''));
+}
+
+// ── 商品卡 ──
+function posToCardData(r) {
+  const f = r.fields;
+  const origin = f['貨品來源'] === '水貨' ? '水貨' : f['貨品來源'] === '公司貨' ? '公司貨' : '';
+  const until = f['原廠保固'] === '在保' && f['原廠保固到期'] ? f['原廠保固到期'] : '';
+  const fn = [f['選單語言'], f['狀況說明']].filter(Boolean).join('、');
+  return {
+    data: {
+      name: f['名稱'] || '', price: f['售價'] != null ? String(f['售價']) : '', cond: f['新舊程度'] || '', sn: f['條碼'] || '',
+      shutter: f['快門數'] != null ? String(f['快門數']) : '', origin,
+      mfgw: f['原廠保固'] || '', mfgwRaw: until ? `在保（至${until}）` : (f['原廠保固'] || ''),
+      shopw: f['店保'] || '半年保固(180天)', acc: f['配件'] || '', fn: fn || '全數正常',
+      desc: f['商品介紹'] || '', category: f['品類'] || '', ccd: f['CCD／Y2K'] || '',
+    },
+    accOverride: {'原廠盒': !!f['原廠盒'], '保卡': !!f['保卡']},
+  };
+}
+async function posPrint() {
+  if (posBusy) { alert('還在處理中，請稍等'); return; }
+  const picked = posVisible().filter(r => posChecked.has(r.id));
+  if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
+  posBusy = true;
+  const win = window.open('', '_blank', 'width=500,height=700');
+  try {
+    // 沒有商品介紹的先請 AI 寫，寫好存回專區
+    const todo = picked.filter(r => !String(r.fields['商品介紹'] || '').trim());
+    let done = 0, failed = 0;
+    const show = () => { try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${done + failed} / ${todo.length}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {} };
+    if (todo.length && win) { win.document.write('<body></body>'); show(); }
+    const queue = [...todo];
+    await Promise.all([0, 1, 2].map(async () => {
+      while (queue.length) {
+        const r = queue.shift();
+        let res = await fetchSpecText(r.fields['名稱']);
+        if (!res.ok && /429|速率|稍後/.test(res.text)) { await new Promise(x => setTimeout(x, 15000)); res = await fetchSpecText(r.fields['名稱']); }
+        if (res.ok) {
+          const fields = {'商品介紹': res.text};
+          if (res.category && !r.fields['品類']) fields['品類'] = res.category;
+          Object.assign(r.fields, fields);
+          adminFetch('?id=' + r.id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, POS_API).catch(() => {});
+          done++;
+        } else failed++;
+        show(); posProg(`AI 補介紹 ${done + failed} / ${todo.length}`);
+      }
+    }));
+    posProg(''); renderPos();
+    if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
+    const cards = picked.map(r => { const {data, accOverride} = posToCardData(r); return buildCardHTML(data, accOverride); }).join('\n');
+    openPrintWindow(cards, `POS 庫存印卡 ${picked.length} 張`, win);
+  } finally { posBusy = false; }
+}
+
+// ── 匯入 POS 檔：照條碼更新、新的加入、新檔沒有的標成已售出 ──
+function posRowFields(get, today) {
+  const name = get('name').replace(/\s+/g, ' ').trim();
+  const note = get('notes');
+  const p = parsePosNote(note, name, new Date());
+  const b = parsePosBox(get('box'));
+  const qty = parseFloat(get('qty')) || 0;
+  return {
+    base: {
+      '名稱': name, '條碼': get('sn'), '狀態': '在庫', 'POS分類': get('category'), '品牌': get('brand'),
+      '售價': Math.round(parseFloat(get('price')) || 0) || null, '庫存量': qty, '貨品來源': get('origin'),
+      '盒單': get('box'), '原廠盒': b.box, '保卡': b.card, 'POS備註': note, '最後匯入': today,
+    },
+    parsed: {
+      '新舊程度': p.cond, '狀況說明': p.issues.join('、'), '選單語言': p.lang, '配件': p.acc.join('、'),
+      '快門數': p.shutter ? Number(p.shutter) : null, '店保': p.shopw, '原廠保固': p.mfgw,
+      '原廠保固到期': p.mfgwUntil || null, '原廠保固備註': p.mfgwNote || '',
+    },
+  };
+}
+async function posImportFile(file) {
+  if (!file || posBusy) return;
+  if (!posLoaded) await loadPos();
+  posProg('讀取檔案中…');
+  try {
+    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'});
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval: ''});
+    if (!rows.length) throw new Error('檔案裡沒有資料');
+    const headers = Object.keys(rows[0]);
+    const COLS = Object.assign({}, STOCK_COLS, {brand: ['品牌']});
+    const col = {};
+    for (const [k, names] of Object.entries(COLS)) col[k] = headers.find(h => names.includes(h.replace(/[（(]必填[)）]/g, '').trim()));
+    if (!col.name || !col.sn) throw new Error('找不到「名稱」或「條碼」欄位，請確認是 POS 匯出的商品資料');
+    const today = new Date().toISOString().slice(0, 10);
+    const items = rows.map(r => (k) => col[k] ? String(r[col[k]] ?? '').trim() : '')
+      .filter(get => get('name') && get('sn') && (!col.qty || parseFloat(get('qty')) > 0))
+      .map(get => posRowFields(get, today));
+    const bySn = new Map(posRecs.map(r => [String(r.fields['條碼'] || '').trim(), r]));
+    const inFile = new Set(items.map(it => it.base['條碼']));
+    const ops = [];
+    let nNew = 0, nUpd = 0, nSold = 0;
+    for (const it of items) {
+      const old = bySn.get(it.base['條碼']);
+      if (!old) { ops.push({fields: Object.assign({}, it.base, it.parsed)}); nNew++; continue; }
+      // 已經在專區的：POS 備註有變（或之前沒拆過）才重新拆；你手動改過的其他欄位不動
+      const reparse = (old.fields['POS備註'] || '') !== it.base['POS備註'] || !old.fields['新舊程度'];
+      ops.push({id: old.id, fields: Object.assign({}, it.base, reparse ? it.parsed : {})}); nUpd++;
+    }
+    for (const r of posRecs) {
+      if ((r.fields['狀態'] || '在庫') === '在庫' && !inFile.has(String(r.fields['條碼'] || '').trim())) { ops.push({id: r.id, fields: {'狀態': '已售出'}}); nSold++; }
+    }
+    posProg('');
+    if (!confirm(`POS 檔有庫存的 ${items.length} 件：\n・新增 ${nNew} 件\n・更新 ${nUpd} 件（售價、備註等）\n・專區裡有、但這份檔案沒有的 ${nSold} 件會標成「已售出」\n\n要開始匯入嗎？`)) return;
+    posBusy = true;
+    let ok = 0;
+    for (let i = 0; i < ops.length; i += 10) {
+      const batch = ops.slice(i, i + 10);
+      const res = await adminFetch('', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({records: batch})}, POS_API);
+      if (res.status === 429) { await new Promise(x => setTimeout(x, 3000)); i -= 10; continue; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(`第 ${i + 1} 筆附近失敗：` + ((data.error && (data.error.message || data.error)) || res.status));
+      ok += batch.length;
+      posProg(`匯入中 ${ok} / ${ops.length}`);
+      await new Promise(x => setTimeout(x, 250));
+    }
+    posProg(`✅ 匯入完成：新增 ${nNew}、更新 ${nUpd}、標已售出 ${nSold}`);
+    await loadPos();
+  } catch (e) {
+    posProg('');
+    alert('匯入失敗：' + e.message + '\n已經寫進去的不會重複，修正後再匯入一次即可。');
+  } finally { posBusy = false; }
+}
+</script>
 </body>
 </html>
