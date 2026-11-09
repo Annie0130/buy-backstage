@@ -1562,6 +1562,7 @@ const CARD_FIELDS = [
   {id:'origin', label:'貨品來源', type:'select',   full:false, options:['公司貨','水貨']},
   {id:'mfgw',   label:'原廠保固', type:'select',   full:false, options:['已過保','在保（請填日期）','不確定']},
   {id:'shopw',  label:'店保',     type:'select',   full:false, options:['半年保固(180天)','7天保固','無保固']},
+  {id:'ccd',    label:'CCD／Y2K（選了色條變紫色）', type:'select', full:false, options:['','CCD 相機','Y2K 復古']},
   {id:'acc',    label:'配件清單', type:'textarea', full:true,  placeholder:'例：原廠充電器、充電線…（原廠盒/保卡另有勾選）'},
   {id:'fn',     label:'功能狀態', type:'textarea', full:true,  placeholder:'例：全數正常'},
   {id:'desc',   label:'商品介紹', type:'textarea-spec', full:true, placeholder:'例：2024年推出，3300萬畫素，全片幅，6K影片'},
@@ -1700,7 +1701,7 @@ const CARD_LOGO_FILES = {
 // 商品卡上方色條：依品牌換顏色（深色、偏霧的同一色系，白字看得清楚、印出來也好看）
 const CARD_BAR = {
   Sony: '#0d3b66', Canon: '#8b1c24', Nikon: '#1e5b3a', Fujifilm: '#b4561c',
-  Olympus: '#16646e', 'OM System': '#16646e', Panasonic: '#16646e',          // M43
+  Olympus: '#525C2D', 'OM System': '#525C2D', Panasonic: '#525C2D',          // M43
   Leica: '#2b2b2b', Hasselblad: '#2b2b2b', DJI: '#2b2b2b',
   Ricoh: '#4a5560', Pentax: '#4a5560',
   Sigma: '#5c4a3a', Tamron: '#5c4a3a', Tokina: '#5c4a3a', Zeiss: '#5c4a3a', Viltrox: '#5c4a3a', Samyang: '#5c4a3a', // 副廠鏡頭
@@ -1720,7 +1721,7 @@ function mountBrand(name) {
 function cardBarColor(d, brand) {
   if (/CCD|Y2K/.test(d.ccd || '')) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
   if (THIRD_PARTY.includes(brand)) { const mb = mountBrand(d.name); if (mb) return CARD_BAR[mb]; }
-  if (/M43/.test(d.category || '')) return '#16646e';
+  if (/M43/.test(d.category || '')) return '#525C2D';
   return CARD_BAR[brand] || '#0d3b66';
 }
 const CARD_LOGO_HEIGHT = { DJI: 16 };  // 比較方的 LOGO 放大一點，其他預設 12px
@@ -1871,6 +1872,7 @@ async function saveCardToAirtable() {
     ? ((cardData.mfgwRaw||'').startsWith('在保') ? cardData.mfgwRaw : '在保')
     : (cardData.mfgw || '');
   if (cardData.shopw) fields['店保'] = cardData.shopw;
+  fields['CCD／Y2K'] = cardData.ccd || null;
   if (cardData.price) fields['售價'] = parseInt(cardData.price) || 0;
   // 配件清單：合併勾選的 always_acc 與手動填寫的配件
   const checkedAlways = cardAlwaysAcc(cardData).filter(a => cardAccChecked[a]);
@@ -2137,7 +2139,7 @@ function renderStockList() {
   const checked = vis.filter(it => it.checked).length;
   list.innerHTML = `<div style="margin:6px 0 8px">共 ${vis.length} 筆，已勾選 ${checked} 筆，AI 已處理 ${done} 筆</div>
   <table style="width:100%;border-collapse:collapse">
-    <tr style="text-align:left;color:#8a96a5;font-size:11px"><th style="padding:4px"></th><th>狀態</th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>品類（AI）</th></tr>
+    <tr style="text-align:left;color:#8a96a5;font-size:11px"><th style="padding:4px"></th><th>狀態</th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>品類（AI）</th><th>CCD／Y2K</th></tr>
     ${vis.map(it => `<tr style="border-top:1px solid #f0f0ec;color:#141413">
       <td style="padding:5px 4px"><input type="checkbox" ${it.checked ? 'checked' : ''} onchange="stockToggle(${stockItems.indexOf(it)}, this.checked)"></td>
       <td title="${esc(it.error || '')}">${icon[it.status]}</td>
@@ -2145,6 +2147,7 @@ function renderStockList() {
       <td style="font-family:monospace;color:#6b6b63">${esc(it.sn)}</td>
       <td style="text-align:right">${it.price ? parseInt(it.price).toLocaleString() : '—'}</td>
       <td style="color:#6b6b63">${esc(it.ai?.category || '')}</td>
+      <td><select onchange="stockItems[${stockItems.indexOf(it)}].ccd=this.value" style="font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px">${['','CCD 相機','Y2K 復古'].map(o=>`<option value="${o}" ${(it.ccd||'')===o?'selected':''}>${o||'—'}</option>`).join('')}</select></td>
     </tr>`).join('')}
   </table>`;
 }
@@ -2219,7 +2222,7 @@ function stockToCardData(it) {
       mfgw: ai.warranty_until ? '在保' : '', mfgwRaw: ai.warranty_until ? `在保（至${ai.warranty_until}）` : '',
       shopw: '半年保固(180天)',
       acc: (ai.accessories || []).join('、'), fn: ai.remarks || '',
-      desc: ai.intro || '', category: ai.category || '',
+      desc: ai.intro || '', category: ai.category || '', ccd: it.ccd || '',
     },
     accOverride: {'原廠盒': /^有盒/.test(box), '保卡': /有單|^有盒單$/.test(box)},
   };
