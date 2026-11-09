@@ -1165,7 +1165,10 @@ async function fillShopeeRow(page, r, problems) {
         await fillShopee(0, '蝦皮自訂價格', sp);
         console.log(`   💰 蝦皮自訂價格：${r['銷售價']} × ${CONFIG.shopee.markup} → ${sp}`);
       } else if (Number(r['銷售價']) >= CONFIG.shopee.highPrice) {
-        problems.push(`售價 ${r['銷售價']} ≥ ${CONFIG.shopee.highPrice}：蝦皮用原價，同步後記得到蝦皮把「最低購買數量」改成 3`);
+        // 15000 以上：蝦皮用原價 → 自訂價格要「清空」（以前門檻 20000 時可能被填過 ×1.18）
+        const el = await shopeeBox(0);
+        if (el && String(await el.inputValue().catch(() => '')).trim()) { await el.fill('', { timeout: 3000 }); await commitInput(el); }
+        console.log(`   💰 蝦皮自訂價格：清空（售價 ${r['銷售價']} ≥ ${CONFIG.shopee.highPrice}，蝦皮用原價，最低購買數量之後改 3）`);
       }
     } catch (e) {
       problems.push(`「蝦皮自訂價格」沒填成功，請手動填：${sp}`);
@@ -2282,6 +2285,7 @@ async function republishMain(serials) {
   serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).filter(Boolean);
   if (!serials.length) { console.log('沒有要重新發佈的商品。'); return 0; }
   console.log(`要重新發佈（推到蝦皮）的商品 ${serials.length} 件：${serials.join('、')}`);
+  const priceOf = Object.fromEntries((await rowsBySerials(serials).catch(() => [])).map((r) => [r['條碼'], { price: r['銷售價'] }]));
   const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
   const page = ctx.pages()[0] || (await ctx.newPage());
   page.on('dialog', (d) => d.accept().catch(() => {}));
@@ -2298,6 +2302,8 @@ async function republishMain(serials) {
     let p = page;
     try {
       p = await openDraftEditor(page, sn, { useSearch: true });
+      const fixMsg = await fixFeishuShopeePrice(p, (priceOf[sn] || {}).price).catch(() => '');
+      if (fixMsg) console.log('   💰 ' + fixMsg);
       const w = await clickPublish(p);
       if (!w) throw new Error('找不到「發佈」按鈕，請手動點進去按發佈');
       // 確認真的上架了（官網查得到）；還是草稿的話通常是有必填欄位沒填，飛鼠不讓發佈
@@ -2598,15 +2604,47 @@ async function openEditBySerial(ctx, page, serial) {
   return p;
 }
 
-async function setMinQty(p) {
+// 飛鼠編輯頁：把同步資訊「蝦皮」那列的自訂價格改成符合規則（15000 以下 ×1.18；以上清空＝用原價）
+async function fixFeishuShopeePrice(page, price) {
+  const n = Number(price);
+  if (!n) return '';
+  const want = shopeePrice(n); // 15000 以上是 ''
+  const row = await findSyncRow(page, '蝦皮');
+  if (!row) return '';
+  const el = row.locator(`xpath=.//${TEXT_INPUT}`).nth(0);
+  if (!(await el.count())) return '';
+  const cur = String(await el.inputValue().catch(() => '')).replace(/[^\d]/g, '');
+  if (cur === want) return '';
+  await el.fill(want, { timeout: 3000 });
+  await commitInput(el);
+  return `蝦皮自訂價格 ${cur || '空白'} → ${want || '清空（用原價）'}`;
+}
+// 蝦皮：最低購買數量改成 want（15000 以上 3、以下 1），改完再讀一次確認
+async function setMinQty(p, want = SHOPEE.minQty) {
   const tab = p.getByText('銷售資訊', { exact: true }).first();
-  await tab.waitFor({ timeout: 20000 });
-  await tab.click();
-  await p.waitForTimeout(800);
-  const box = await visibleFieldAfter(p, '最低購買數量');
+  if (await tab.isVisible().catch(() => false)) { await tab.click().catch(() => {}); await p.waitForTimeout(800); }
+  let box = null;
+  const labs = p.locator(`xpath=//*[not(self::script) and not(self::style)][starts-with(normalize-space(text()),'最低購買數量')]`);
+  for (let k = 0, n = await labs.count(); k < n && !box; k++) {
+    const lab = labs.nth(k);
+    if (!(await lab.isVisible().catch(() => false))) continue;
+    for (let up = 1; up <= 5 && !box; up++) {
+      const b = lab.locator(`xpath=ancestor::*[${up}]`);
+      const inp = b.locator('input:not([type=hidden]):not([type=checkbox]):not([type=radio])');
+      if ((await inp.count()) === 1) box = inp.first();
+    }
+  }
+  if (!box) box = await visibleFieldAfter(p, '最低購買數量');
   if (!box) throw new Error('找不到「最低購買數量」欄位');
-  const before = await box.inputValue().catch(() => '');
-  await box.fill(SHOPEE.minQty, { timeout: 5000 });
+  const before = String(await box.inputValue().catch(() => '')).trim();
+  if (before === String(want)) return before;
+  await box.click({ timeout: 3000 }).catch(() => {});
+  await box.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A').catch(() => {});
+  await box.type(String(want), { delay: 40 });
+  await box.press('Tab').catch(() => {});
+  await p.waitForTimeout(400);
+  const after = String(await box.inputValue().catch(() => '')).trim();
+  if (after !== String(want)) throw new Error(`最低購買數量填了 ${want} 但欄位顯示 ${after}`);
   return before;
 }
 
@@ -2952,11 +2990,13 @@ async function shopeeMain() {
         notes.push(`NCC字號.csv 沒有「${t.name || t.serial}」，NCC 請手動填`);
       }
       // 3) 15000 以上：最低購買數量 3（改不成功一定要提醒，不然會被用錯的方式下標）
-      if (!t.price || t.price >= CONFIG.shopee.highPrice) {
-        const before = await setMinQty(p).catch(() => null);
-        if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${SHOPEE.minQty}，請馬上到蝦皮手動改！`); }
-        else console.log(`   ✏️ 最低購買數量：${before || '?'} → ${SHOPEE.minQty}`);
-      }
+      if (t.price) {
+        const wantQty = t.price >= CONFIG.shopee.highPrice ? String(SHOPEE.minQty) : '1';
+        const before = await setMinQty(p, wantQty).catch((e) => { notes.push('🚨 ' + e.message); return null; });
+        if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${wantQty}，請馬上到蝦皮手動改！`); }
+        else if (before === wantQty) console.log(`   ✏️ 最低購買數量：${wantQty}（本來就對）`);
+        else console.log(`   ✏️ 最低購買數量：${before || '?'} → ${wantQty}`);
+      } else notes.push('收購紀錄沒有售價，最低購買數量和價格沒有檢查');
       // 4) 價格檢查：不對就改成正確價格
       const pr = await checkShopeePrice(p, t.price).catch((e) => ({ ok: false, msg: '價格檢查失敗：' + e.message }));
       if (!pr.ok) { failed.push('價格'); notes.push('🚨 ' + pr.msg); }
