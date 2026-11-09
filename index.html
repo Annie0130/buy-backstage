@@ -501,7 +501,7 @@ function renderRecords(records) {
         <div class="record-info">
           <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
           <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
-          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${feishuBadge(r.fields)}${r.fields['進貨管道']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#ebfbee;color:#2b8a3e;font-weight:700">📦 ${r.fields['進貨管道']}</span>`:''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${feishuBadge(r.fields, r.id)}${r.fields['進貨管道']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#ebfbee;color:#2b8a3e;font-weight:700">📦 ${r.fields['進貨管道']}</span>`:''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
         </div>
         <div class="record-right" style="display:flex;align-items:center;gap:10px">
           <div>
@@ -589,13 +589,52 @@ function clearSelect(){
 }
 
 // 上架狀態徽章：上架腳本會回寫「飛鼠狀態」（飛鼠草稿／飛鼠已上架／飛鼠已上架＋蝦皮已補 + 日期）
-function feishuBadge(f){
-  const pill=(bg,fg,t)=>` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:${bg};color:${fg};font-weight:700">${t}</span>`;
+function feishuBadge(f, id){
+  // 點標籤會跳出選單（取消標記、改狀態）
+  const pill=(bg,fg,t)=>` <span onclick="openFeishuMenu(event,'${id}')" title="點一下可以改狀態" style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:${bg};color:${fg};font-weight:700;cursor:pointer;border:1px solid ${fg}33">${t} ▾</span>`;
   const st=String(f['飛鼠狀態']||'');
   if(st.includes('蝦皮已補')) return pill('#e6fcf5','#087f5b','✅ 已上架＋蝦皮');
   if(st.includes('已上架')) return pill('#e7f5ff','#1971c2','🛍️ 飛鼠已上架');
   if(st.includes('草稿')) return pill('#fff9db','#e67700','📝 飛鼠草稿');
   return f['上架飛鼠'] ? pill('#fff4e6','#d9480f','🛒 待上架飛鼠') : '';
+}
+// 上架狀態小選單
+function closeFeishuMenu(){ const m=document.getElementById('feishu-menu'); if(m) m.remove(); }
+function openFeishuMenu(ev, id){
+  ev.stopPropagation(); ev.preventDefault();
+  closeFeishuMenu();
+  const rec = allRecords.find(r=>r.id===id); if(!rec) return;
+  const f = rec.fields, st = String(f['飛鼠狀態']||'');
+  const today = new Date().toLocaleDateString('zh-TW');
+  const items = [];
+  if (f['上架飛鼠']) items.push(['❌ 取消上架標記', {'上架飛鼠': false}]);
+  if (!st.includes('已上架')) items.push(['🛍️ 標記為「飛鼠已上架」', {'飛鼠狀態': '飛鼠已上架 '+today}]);
+  if (!st.includes('蝦皮已補')) items.push(['✅ 標記為「已上架＋蝦皮已補」（全部完成）', {'飛鼠狀態': '飛鼠已上架＋蝦皮已補 '+today, '上架飛鼠': false}]);
+  if (st || !f['上架飛鼠']) items.push(['🔁 改回「待上架飛鼠」', {'飛鼠狀態': '', '上架飛鼠': true}]);
+  const m = document.createElement('div');
+  m.id = 'feishu-menu';
+  m.style.cssText = 'position:fixed;z-index:900;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:230px;font-size:14px';
+  m.innerHTML = `<div style="padding:6px 10px;font-size:12px;color:#888">${(f['器材一']||'').replace(/</g,'&lt;')}　序號 ${f['序號']||''}</div>` +
+    items.map((it,i)=>`<button data-i="${i}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer;font:inherit">${it[0]}</button>`).join('');
+  m.querySelectorAll('button').forEach(b=>{
+    b.onmouseenter=()=>b.style.background='#f3f4f6'; b.onmouseleave=()=>b.style.background='none';
+    b.onclick=async(e)=>{ e.stopPropagation(); closeFeishuMenu(); await setFeishuState(id, items[+b.dataset.i][1]); };
+  });
+  document.body.appendChild(m);
+  const r = ev.target.getBoundingClientRect();
+  const left = Math.min(r.left, window.innerWidth - m.offsetWidth - 8), top = r.bottom + 6 + m.offsetHeight > window.innerHeight ? r.top - m.offsetHeight - 6 : r.bottom + 6;
+  m.style.left = Math.max(8, left) + 'px'; m.style.top = Math.max(8, top) + 'px';
+}
+document.addEventListener('click', closeFeishuMenu);
+async function setFeishuState(id, fields){
+  try{
+    const res = await adminFetch(`?id=${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fields})});
+    if(!res.ok) throw new Error(res.status);
+    const rec = allRecords.find(r=>r.id===id);
+    if(rec) Object.assign(rec.fields, fields);
+    filterRecords();
+    showToast('✅ 已更新');
+  }catch(e){ alert('更新失敗：'+e.message); }
 }
 // 標記要上架飛鼠：上架腳本只會抓有這個標記、且售價有填的商品（送修的不要標記就不會上架）
 async function markForListing(on){
