@@ -2420,15 +2420,17 @@ ${styles}
 /* 同一排的卡：標題、規格、商品描述三段高度對齊（描述列一樣高，空白放在規格區下面） */
 @supports (grid-template-rows:subgrid){
   .print-wrap{display:grid;grid-template-columns:repeat(auto-fill,306px);column-gap:1mm;row-gap:0;}
+  .print-wrap .lcard:nth-last-child(-n+2){margin-bottom:0;}
   .print-wrap .lcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:0;margin-bottom:1mm;}
   .print-wrap .lcard-footer{align-items:flex-start;}
 }
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
 html,body{background:#fff!important;}
 @media print{
-  body{padding:12mm 5mm 4mm;}  /* 上面多留一點，避免印表機切到卡片上緣 */
+  body{padding:0;}
   .print-wrap{gap:1mm;}
-  @page{size:A4 portrait;margin:0;}
+  /* 每一頁上方都多留一點（加在頁邊，不是只有第一頁），避免印表機切到卡片上緣 */
+  @page{size:A4 portrait;margin:10mm 5mm 2mm;}
 }
 </style>
 </head><body>
