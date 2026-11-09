@@ -272,6 +272,7 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
       <label style="padding:7px 12px;background:#2b8a3e;color:#fff;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📥 匯入 POS 檔<input type="file" accept=".xlsx,.xls,.csv" onchange="posImportFile(this.files[0]);this.value=''" style="display:none"></label>
       <button onclick="posSelectAll(true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選畫面上的</button>
       <button onclick="posSelectAll(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消全選</button>
+      <button onclick="posAiButton()" style="padding:7px 12px;background:#7b4fc9;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✨ AI 補勾選的商品介紹</button>
       <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡</button>
       <button onclick="loadPos()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
       <span id="pos-progress" style="font-size:12px;color:#6b6b63"></span>
@@ -2914,6 +2915,44 @@ function posToCardData(r) {
     accOverride: {'原廠盒': !!f['原廠盒'], '保卡': !!f['保卡']},
   };
 }
+// 沒有商品介紹的請 AI 寫，寫好存回專區；onStep(已完成, 總數) 回報進度
+async function posFillIntros(list, onStep) {
+  const todo = list.filter(r => !String(r.fields['商品介紹'] || '').trim() && String(r.fields['名稱'] || '').trim());
+  let done = 0, failed = 0;
+  const queue = [...todo];
+  await Promise.all([0, 1, 2].map(async () => {
+    while (queue.length) {
+      const r = queue.shift();
+      let res = await fetchSpecText(r.fields['名稱']);
+      if (!res.ok && /429|速率|稍後/.test(res.text)) { await new Promise(x => setTimeout(x, 15000)); res = await fetchSpecText(r.fields['名稱']); }
+      if (res.ok) {
+        const fields = {'商品介紹': res.text};
+        if (res.category && !r.fields['品類']) fields['品類'] = res.category;
+        Object.assign(r.fields, fields);
+        await adminFetch('?id=' + r.id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, POS_API).catch(() => {});
+        done++;
+      } else failed++;
+      onStep && onStep(done + failed, todo.length);
+      if ((done + failed) % 10 === 0) renderPos();
+    }
+  }));
+  renderPos();
+  return {total: todo.length, done, failed};
+}
+async function posAiButton() {
+  if (posBusy) { alert('還在處理中，請稍等'); return; }
+  const picked = posVisible().filter(r => posChecked.has(r.id));
+  if (!picked.length) { alert('請先勾選商品（可以先按「全選畫面上的」）'); return; }
+  const need = picked.filter(r => !String(r.fields['商品介紹'] || '').trim()).length;
+  if (!need) { alert('勾選的商品都已經有商品介紹了'); return; }
+  if (!confirm(`勾選的 ${picked.length} 件裡，有 ${need} 件沒有商品介紹，要請 AI 寫嗎？\n大約每 3 件 10 秒（${Math.ceil(need / 3 * 10 / 60)} 分鐘左右），跑的時候請不要關掉或重新整理這個頁面。`)) return;
+  posBusy = true;
+  try {
+    const res = await posFillIntros(picked, (n, t) => posProg(`✨ AI 寫商品介紹 ${n} / ${t}…（請不要關掉頁面）`));
+    posProg(`✅ AI 補完：成功 ${res.done} 件${res.failed ? `、失敗 ${res.failed} 件（可以再按一次重試）` : ''}`);
+  } finally { posBusy = false; }
+}
+
 async function posPrint() {
   if (posBusy) { alert('還在處理中，請稍等'); return; }
   const picked = posVisible().filter(r => posChecked.has(r.id));
@@ -2922,27 +2961,12 @@ async function posPrint() {
   const win = window.open('', '_blank', 'width=500,height=700');
   try {
     // 沒有商品介紹的先請 AI 寫，寫好存回專區
-    const todo = picked.filter(r => !String(r.fields['商品介紹'] || '').trim());
-    let done = 0, failed = 0;
-    const show = () => { try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${done + failed} / ${todo.length}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {} };
-    if (todo.length && win) { win.document.write('<body></body>'); show(); }
-    const queue = [...todo];
-    await Promise.all([0, 1, 2].map(async () => {
-      while (queue.length) {
-        const r = queue.shift();
-        let res = await fetchSpecText(r.fields['名稱']);
-        if (!res.ok && /429|速率|稍後/.test(res.text)) { await new Promise(x => setTimeout(x, 15000)); res = await fetchSpecText(r.fields['名稱']); }
-        if (res.ok) {
-          const fields = {'商品介紹': res.text};
-          if (res.category && !r.fields['品類']) fields['品類'] = res.category;
-          Object.assign(r.fields, fields);
-          adminFetch('?id=' + r.id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, POS_API).catch(() => {});
-          done++;
-        } else failed++;
-        show(); posProg(`AI 補介紹 ${done + failed} / ${todo.length}`);
-      }
-    }));
-    posProg(''); renderPos();
+    if (win && picked.some(r => !String(r.fields['商品介紹'] || '').trim())) win.document.write('<body></body>');
+    const {failed} = await posFillIntros(picked, (n, t) => {
+      try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${n} / ${t}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {}
+      posProg(`AI 補介紹 ${n} / ${t}`);
+    });
+    posProg('');
     if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
     const cards = picked.map(r => { const {data, accOverride} = posToCardData(r); return buildCardHTML(data, accOverride); }).join('\n');
     openPrintWindow(cards, `POS 庫存印卡 ${picked.length} 張`, win);
