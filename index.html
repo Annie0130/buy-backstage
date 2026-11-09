@@ -2465,8 +2465,18 @@ function fitNames(){
     while (over() && size > 12) { size -= 0.5; el.style.fontSize = size + 'px'; }
   });
 }
-fitNames();
-window.onload=function(){ fitNames(); fitDesc(); setTimeout(function(){ fitNames(); fitDesc(); window.print(); },400); };
+// 同一次印的卡片全部一樣大：標題、規格、介紹三段各自撐到最高那張的高度（鏡頭卡內容少也不會變小張）
+function sameSize(){
+  ['.lcard-header', '.lcard-body', '.lcard-footer'].forEach(function(sel){
+    var els = document.querySelectorAll(sel), max = 0;
+    els.forEach(function(e){ e.style.minHeight = ''; });
+    els.forEach(function(e){ max = Math.max(max, e.getBoundingClientRect().height); });
+    els.forEach(function(e){ e.style.minHeight = max + 'px'; e.style.boxSizing = 'border-box'; });
+  });
+}
+function fitAll(){ fitNames(); fitDesc(); sameSize(); }
+fitAll();
+window.onload=function(){ fitAll(); setTimeout(function(){ fitAll(); window.print(); },400); };
 <\/script>
 </body></html>`);
   win.document.close();
