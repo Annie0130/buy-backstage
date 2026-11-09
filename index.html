@@ -2426,7 +2426,7 @@ ${styles}
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
 html,body{background:#fff!important;}
 @media print{
-  body{padding:5mm;}
+  body{padding:12mm 5mm 4mm;}  /* 上面多留一點，避免印表機切到卡片上緣 */
   .print-wrap{gap:1mm;}
   @page{size:A4 portrait;margin:0;}
 }
