@@ -1,0 +1,10 @@
+@echo off
+chcp 65001 >nul
+pushd "%~dp0.."
+title 蝦皮補資料：二手、NCC、最低購買數量
+echo ===== 蝦皮補資料：二手、NCC、最低購買數量 =====
+echo.
+node upload.js shopee --auto
+echo.
+echo ===== 跑完了，可以關掉這個視窗 =====
+pause

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>上架控制台</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--mute:#6b7383;--line:#e4e7ec;--brand:#1f6feb;--ok:#1a7f37;--warn:#b35900;--bad:#cf222e;--soft:#eef4ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:19px;margin:0;font-weight:800}
+.pill{padding:4px 12px;border-radius:99px;font-size:13px;font-weight:700;background:#eef0f3;color:var(--mute)}
+.pill.run{background:#fff4d6;color:#8a5a00}
+.spacer{flex:1}
+main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px 20px 40px;max-width:1500px;margin:0 auto}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.card h2{font-size:16px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h2 small{font-weight:400;color:var(--mute);font-size:13px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;font-weight:700;color:var(--ink)}
+button:hover{border-color:#b9c0cc;background:#fafbfc}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+button.primary:hover{background:#1a5fd0}
+button.danger{color:var(--bad);border-color:#f3c4c7}
+button.big{padding:14px 18px;font-size:17px;border-radius:12px;text-align:left;display:flex;flex-direction:column;gap:2px}
+button.big span{font-weight:400;font-size:13px;opacity:.85}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:900px){.steps{grid-template-columns:1fr 1fr}}@media(max-width:560px){.steps{grid-template-columns:1fr}}
+.stepnum{font-size:12px;font-weight:800;color:var(--brand);letter-spacing:.05em}
+button.primary .stepnum{color:#cfe0ff}
+.tools{display:flex;flex-wrap:wrap;gap:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=text]{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;min-width:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--mute);font-weight:600;font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.name{font-weight:700}
+.sub{color:var(--mute);font-size:12px}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:800;white-space:nowrap}
+.b-new{background:#fff4e6;color:#c2410c}.b-draft{background:#fff9db;color:#9a6700}.b-shopee{background:#e7f0ff;color:#1f5fbf}
+.b-done{background:#e6f6ea;color:var(--ok)}.b-danger{background:#ffe3e5;color:var(--bad)}.b-error{background:#f1f2f4;color:var(--mute)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filters button{padding:4px 10px;font-size:13px;font-weight:600;border-radius:99px}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:34px;align-items:center}
+.chip{background:var(--soft);border:1px solid #cfe0ff;border-radius:99px;padding:3px 6px 3px 12px;font-weight:700;display:flex;align-items:center;gap:4px}
+.chip button{border:none;background:none;padding:0 6px;color:var(--mute)}
+#log{background:#10141b;color:#d6dde8;border-radius:12px;padding:12px 14px;height:460px;overflow:auto;font:13px/1.6 Consolas,"Microsoft JhengHei",monospace;white-space:pre-wrap;word-break:break-all}
+#log .bad{color:#ff8b8b;font-weight:700}#log .ok{color:#7ee2a0}#log .warn{color:#ffd27a}#log .me{color:#8ab4ff}
+.reply{display:none;margin-top:10px;padding:12px;border-radius:12px;background:#fff8e1;border:1px solid #f5d98a}
+.reply.show{display:block}
+.reply p{margin:0 0 8px;font-weight:700;color:#7a5200}
+.alert{display:none;padding:12px 14px;border-radius:12px;background:#ffe3e5;color:var(--bad);font-weight:700;margin-bottom:12px}
+.alert.show{display:block}
+.empty{color:var(--mute);text-align:center;padding:24px 0}
+.tool{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.why{color:var(--mute);font-size:13px;line-height:1.6}
+.how{margin:0 0 10px;padding-left:20px;color:var(--ink);font-size:14px}.how li{margin:2px 0}
+details.adv summary{cursor:pointer;font-weight:800;font-size:15px}
+.advlist{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media(max-width:700px){.advlist{grid-template-columns:1fr}}
+.acts{display:flex;flex-wrap:wrap;gap:6px;max-width:230px}.acts button{padding:5px 10px;font-size:13px}
+.reply.ask{background:#fff1b8;border-color:#e0a800;box-shadow:0 0 0 3px #ffe58f}
+.pv{display:none;position:fixed;inset:0;background:rgba(15,20,30,.6);z-index:20;padding:20px}
+.pv.show{display:flex;align-items:center;justify-content:center}
+.pvbox{background:#fff;border-radius:16px;width:min(1200px,100%);height:100%;display:flex;flex-direction:column;overflow:hidden}
+.pvhead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:17px}
+.pvwarn{color:var(--bad);font-weight:700;font-size:14px}
+#pvframe{flex:1;border:0;width:100%}
+.pvbtns{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
+.nccpop{position:fixed!important;left:50%;top:6%;transform:translateX(-50%);width:min(860px,94vw);max-height:86vh;overflow:auto;z-index:26;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;opacity:0;transition:.2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 林相攝影　上架控制台</h1>
+  <span id="pill" class="pill">閒置中</span>
+  <span class="spacer"></span>
+  <button onclick="openFolder('root')">📁 打開資料夾</button>
+  <button onclick="run('update')">🔄 更新程式</button>
+</header>
+
+<main>
+  <div class="col">
+    <section class="card">
+      <h2>🚀 一鍵上架 <small>照順序按就好</small></h2>
+      <div class="steps">
+        <button class="big" onclick="run('order')"><span class="stepnum">步驟 1</span>📷 看拍照順序<span>每件拍完蓋鏡頭蓋拍 1 張全黑</span></button>
+        <button class="big" onclick="openFolder('inbox')"><span class="stepnum">步驟 2</span>📥 打開「照片放這裡」<span id="inboxInfo">照片全部放進來</span></button>
+        <button class="big primary" onclick="run('all')"><span class="stepnum">步驟 3</span>🚀 一鍵上架<span>分組 → 飛鼠上架 → 補照片</span></button>
+        <button class="big" onclick="run('check')" style="border-color:#f5a35b;background:#fff7ef"><span class="stepnum" style="color:#d9480f">步驟 4（等 5～10 分鐘）</span>🦐 蝦皮補資料<span>確認蝦皮都出現後再按：補資料＋檢查價格</span></button>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2>📸 已經上架的商品，想重拍照片？ <small>平常不用管這區</small></h2>
+      <ol class="how">
+        <li>在下面打序號、按 Enter，加進「要重拍的清單」（或在下方商品狀態按「＋ 要重拍照片」）</li>
+        <li>按上面「步驟 1 看拍照順序」→ 這些商品會排在最前面</li>
+        <li>照順序拍好、放進「照片放這裡」，按「步驟 3 一鍵上架」，照片就會傳到這些商品上</li>
+      </ol>
+      <div class="chips" id="chips"></div>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="refillInput" placeholder="輸入要重拍的商品序號，按 Enter" style="flex:1">
+        <button onclick="addRefill()">＋ 加入</button>
+        <button onclick="saveRefill([])" class="danger">清空</button>
+      </div>
+      <div class="why" style="margin-top:8px">⚠️ 要「換掉」舊照片的話，請先到飛鼠把舊照片刪掉（飛鼠上已經有照片的不會重複傳）。</div>
+    </section>
+
+    <details class="card adv">
+      <summary>🔧 進階功能（平常不用，出問題時才用）</summary>
+      <div class="advlist">
+        <div class="tool"><button onclick="if(confirm('會把所有已上架的商品（包含已經確認過的）全部到蝦皮重新檢查一次，比較久。確定嗎？'))run('recheck')">💰 全部重新檢查蝦皮</button><div class="why">連已經確認過的也全部重新檢查一次。懷疑有人改過蝦皮價格時才用。</div></div>
+        <div class="tool"><div class="row" style="width:100%"><input type="text" id="repubSerials" placeholder="商品序號（好幾個用空白隔開）" style="flex:1"><button onclick="run('republish',$('repubSerials').value.trim().split(/[\s,，、]+/).filter(Boolean))">🔁 重新發佈</button></div><div class="why">飛鼠上蝦皮是橘色勾勾、沒傳上去時用：自動打開商品再按一次「發佈」。一鍵上架會自動做。</div></div>
+        <div class="tool"><button onclick="run('catfix')">🗂️ 批次改蝦皮分類（數位相機）</button><div class="why">把 BSMI補填.csv 裡的商品，在飛鼠把蝦皮分類改成「全自動數位相機」（蝦皮上顯示「數位相機＋傻瓜相機」）並重新發佈。先按這個，等 5 分鐘再補 BSMI。</div></div>
+        <div class="tool"><div class="row"><button onclick="run('bsmi')">🧾 批次補 BSMI（蝦皮違規）</button><button onclick="openFolder('bsmi')">📄 打開 BSMI補填.csv</button></div><div class="why">蝦皮說「BSMI 字號未填寫」被禁賣時用。第一次按會建立 BSMI補填.csv：照相機底部／盒子上的<b>真實標籤</b>填號碼、存檔，再按一次就會全部填進蝦皮。沒有標籤的留空白（會略過）。</div></div>
+        <div class="tool"><button onclick="run('drafts')">📝 草稿補照片並發佈</button><div class="why">飛鼠上是草稿、照片已經分好的商品：傳照片並按發佈。一鍵上架會自動做。</div></div>
+        <div class="tool"><button onclick="run('group')">🗂️ 只分組照片</button><div class="why">只把「照片放這裡」的照片分組，不上架。</div></div>
+        <div class="tool"><button onclick="openPreview()">🖼️ 看分組預覽</button><div class="why">再看一次上次照片分組的結果。</div></div>
+        <div class="tool"><button onclick="run('draft')">💾 全部存成草稿</button><div class="why">不管有沒有照片，標記的商品全部先存成飛鼠草稿（不會上架）。</div></div>
+        <div class="tool"><div class="row" style="width:100%"><input type="text" id="serials" placeholder="商品序號（好幾個用空白隔開）" style="flex:1"><button onclick="runAddPhotos()">🖼️ 傳照片</button></div><div class="why">照片已經在「商品照片\序號」資料夾裡，直接傳到飛鼠那件商品（已經有照片的會略過）。</div></div>
+      </div>
+    </details>
+
+    <div id="nccBack" onclick="closeNccPop()" style="display:none;position:fixed;inset:0;background:rgba(15,20,30,.5);z-index:25"></div>
+    <section class="card" id="nccCard" style="display:none;border-color:#f5c26b;background:#fffaf0">
+      <h2>📡 這些相機還沒有 NCC／BSMI 字號 <small>填好按儲存，系統會記住，以後同型號自動帶入</small><span class="spacer"></span><button id="nccClose" onclick="closeNccPop()" style="display:none">✕ 先不填</button></h2>
+      <div id="nccList"></div>
+      <div class="why" style="margin-top:6px">NCC 看機身底部或盒子上「CCAx…」開頭的號碼；BSMI 是 ⊕ 旁邊 D 或 R 開頭的號碼。確定沒有 Wi-Fi／藍牙的相機，NCC 填「無」。CCD 相機只要填 BSMI。</div>
+    </section>
+
+    <section class="card">
+      <h2>📦 商品狀態 <small id="statusInfo">讀取中…</small><span class="spacer"></span><button onclick="loadStatus()">↻ 重新整理</button></h2>
+      <div class="filters" id="filters"></div>
+      <div id="table"><div class="empty">讀取中…</div></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card" style="position:sticky;top:70px">
+      <h2>🖥️ 執行畫面 <small id="jobInfo"></small><span class="spacer"></span><button class="danger" id="stopBtn" onclick="stop()" disabled>⏹ 停止</button></h2>
+      <div class="alert" id="alert"></div>
+      <div id="log"></div>
+      <div class="reply" id="reply">
+        <p id="replyQ">程式在跑。如果它問你問題，會在這裡亮起來，直接按下面的按鈕回答：</p>
+        <div class="row">
+          <button class="primary" onclick="send('')">⏎ 好了，繼續（Enter）</button>
+          <button onclick="send('y')">✅ 正確（y）</button>
+          <button onclick="send('s')">跳過這件（s）</button>
+          <button class="danger" onclick="send('q')">結束（q）</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="replyText" placeholder="或自己打字回覆，按 Enter 送出" style="flex:1">
+          <button onclick="send(document.getElementById('replyText').value)">送出</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<div id="pv" class="pv">
+  <div class="pvbox">
+    <div class="pvhead">
+      <b>🖼️ 照片分組預覽：每一組的照片對不對？</b>
+      <span id="pvwarn" class="pvwarn"></span>
+    </div>
+    <iframe id="pvframe" title="照片分組預覽"></iframe>
+    <div class="pvbtns">
+      <button class="primary big2" onclick="answerPreview(true)">✅ 分組正確，開始上架</button>
+      <button class="danger big2" onclick="answerPreview(false)">❌ 不對，取消（照片不會動）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2500); }
+async function post(url, data) { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) }); return r.json(); }
+
+// ---------- 執行 ----------
+let running = false, dangers = [];
+async function run(cmd, serials) {
+  if (running) return toast('還有功能在跑，請等它跑完');
+  const r = await post('/api/run', { cmd, serials });
+  if (!r.ok) toast(r.msg);
+}
+function runAddPhotos() {
+  const s = $('serials').value.trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!s.length && !confirm('沒有輸入序號，要自動找「所有有新照片的商品」嗎？')) return;
+  run('addphotos', s);
+}
+let askKind = '';
+async function send(text) {
+  const r = await post('/api/input', { text });
+  if (!r.ok) return toast(r.msg || '送不出去');
+  $('replyText').value = ''; $('reply').classList.remove('ask'); askKind = '';
+  $('replyQ').textContent = '已回覆，程式繼續跑…（之後如果再問你問題，這裡會再亮起來）';
+}
+let replaying = false, replayAsk = null;
+function onAsk(a) {
+  if (replaying) { replayAsk = a; return; }
+  askKind = a.kind || '';
+  $('replyQ').textContent = '👉 程式在問你：' + a.q;
+  $('reply').classList.add('show', 'ask');
+  $('reply').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (askKind.startsWith('preview')) {
+    $('pvwarn').textContent = askKind === 'preview-yes' ? '⚠️ 有警告（張數不對或組數不對），請仔細看清楚再按' : '';
+    $('pvframe').src = '/preview?t=' + Date.now();
+    $('pv').classList.add('show');
+  }
+}
+async function answerPreview(ok) {
+  if (ok) {
+    // 把預覽頁裡手動調整過的分組送回去
+    try {
+      const g = $('pvframe').contentWindow.getGrouping && $('pvframe').contentWindow.getGrouping();
+      if (g) await post('/api/preview-edit', g);
+    } catch (e) {}
+  }
+  $('pv').classList.remove('show');
+  send(ok ? (askKind === 'preview-yes' ? 'yes' : 'y') : 'n');
+}
+async function stop() { if (confirm('確定要停止嗎？（跑到一半的那一件可能要到飛鼠手動確認）')) await post('/api/stop'); }
+function openFolder(what) { post('/api/open', { what }); }
+function openPreview() { window.open('/preview?t=' + Date.now(), '_blank'); }
+
+function lineClass(l) {
+  if (/🚨|❌|失敗|錯誤/.test(l)) return 'bad';
+  if (/⚠️|警告/.test(l)) return 'warn';
+  if (/✅|完成|成功/.test(l)) return 'ok';
+  return '';
+}
+let pend = '';
+function appendLog(text) {
+  const log = $('log');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+  pend += text;
+  const lines = pend.split('\n');
+  pend = lines.pop();                      // 最後一段還沒換行
+  if (pend && !'__ASK__'.startsWith(pend.slice(0, 7)) ) { lines.push(pend); pend = ''; var partial = true; }
+  lines.forEach((l, i) => {
+    if (l.startsWith('__ASK__')) { try { onAsk(JSON.parse(l.slice(7))); } catch (e) {} return; }
+    // 重播時：問題後面如果還有別的輸出（不是問題本身那行），代表已經回答過了
+    if (replaying && replayAsk && l.trim() && !replayAsk.q.includes(l.trim())) replayAsk = null;
+    const cls = lineClass(l);
+    const nl = (partial && i === lines.length - 1) ? '' : '\n';
+    log.insertAdjacentHTML('beforeend', (cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l)) + nl);
+    if (l.includes('🚨') && !dangers.includes(l.trim())) { dangers.push(l.trim()); showAlert(); }
+  });
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+function showAlert() {
+  const a = $('alert');
+  a.innerHTML = '🚨 有商品要馬上處理（蝦皮價格／最低購買數量）：<br>' + dangers.map(esc).join('<br>');
+  a.classList.add('show');
+}
+let timer = null;
+function setJob(j) {
+  if (j.running) lastJobKey = j.key;
+  running = j.running;
+  $('stopBtn').disabled = !j.running;
+  document.querySelectorAll('main button:not(#stopBtn):not(.reply button)').forEach((b) => { if (!b.closest('.reply') && !b.closest('.filters') && !b.closest('.chips')) b.disabled = j.running && !/重新整理|看分組預覽|打開/.test(b.textContent); });
+  clearInterval(timer);
+  if (j.running) {
+    const tick = () => { const s = Math.round((Date.now() - j.start) / 1000); $('pill').textContent = `執行中：${j.label}　${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+    tick(); timer = setInterval(tick, 1000);
+    $('pill').className = 'pill run';
+    $('jobInfo').textContent = j.label;
+    $('reply').classList.add('show');
+  } else {
+    if (lastJobKey === 'order') popNccAfterLoad = true;  // 拍照順序跑完 → 重新整理狀態時，有缺字號就跳出來
+    $('pv').classList.remove('show'); askKind = ''; $('reply').classList.remove('ask');
+    $('pill').textContent = '閒置中'; $('pill').className = 'pill';
+    $('reply').classList.remove('show');
+  }
+}
+const es = new EventSource('/api/events');
+es.addEventListener('job', (e) => { const j = JSON.parse(e.data); if (j.running && !running) { $('log').innerHTML = ''; dangers = []; $('alert').classList.remove('show'); } setJob(j); });
+es.addEventListener('history', (e) => {
+  $('log').innerHTML = ''; pend = '';
+  replaying = true; replayAsk = null;
+  appendLog(JSON.parse(e.data));
+  replaying = false;
+  if (replayAsk && running) onAsk(replayAsk); // 重開網頁時，最後一個還沒回答的問題再顯示一次
+});
+es.addEventListener('log', (e) => appendLog(JSON.parse(e.data)));
+es.addEventListener('refresh', () => { loadStatus(); loadRefill(); });
+es.onerror = () => { $('pill').textContent = '⚠️ 控制台沒有在跑（黑色視窗被關掉了？）'; $('pill').className = 'pill run'; };
+
+// ---------- 補照片清單 ----------
+let refill = [];
+async function loadRefill() { const r = await (await fetch('/api/refill')).json(); refill = r.list || []; drawChips(); drawTable(); }
+async function saveRefill(list) { const r = await post('/api/refill', { list }); refill = r.list; drawChips(); drawTable(); }
+function addRefill(sn) {
+  const add = (sn || $('refillInput').value).trim().split(/[\s,，、]+/).filter(Boolean);
+  $('refillInput').value = '';
+  saveRefill([...refill, ...add.filter((x) => !refill.includes(x))]);
+}
+function drawChips() {
+  $('chips').innerHTML = refill.length
+    ? refill.map((s, i) => `<span class="chip">${i + 1}. ${esc(s)}<button title="移除" onclick="saveRefill(refill.filter(x=>x!=='${esc(s)}'))">✕</button></span>`).join('')
+    : '<span class="sub">（目前沒有要重拍的商品）</span>';
+}
+$('refillInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addRefill(); });
+$('replyText').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(e.target.value); });
+$('serials').addEventListener('keydown', (e) => { if (e.key === 'Enter') runAddPhotos(); });
+
+// ---------- 商品狀態 ----------
+const STAGES = { new: ['🛒 還沒上架', 'b-new'], draft: ['📝 飛鼠草稿', 'b-draft'], shopee: ['🦐 蝦皮待確認', 'b-shopee'], danger: ['🚨 要馬上處理', 'b-danger'], done: ['✅ 完成', 'b-done'], error: ['⚠️ 資料不全', 'b-error'] };
+let items = [], filter = 'todo';
+async function loadStatus() {
+  $('statusInfo').textContent = '讀取中…（會到官網確認，約 10 秒）';
+  const r = await (await fetch('/api/status')).json().catch(() => ({ ok: false, msg: '控制台沒有回應' }));
+  if (!r.ok) { $('statusInfo').textContent = '讀取失敗'; $('table').innerHTML = `<div class="empty">${esc(r.msg)}</div>`; return; }
+  items = r.items;
+  drawNcc();
+  if (r.writeOff) {
+    $('alert').innerHTML = '⚠️ Airtable 金鑰沒有「寫入」權限，收購後台的上架狀態不會自動更新。<br>請到 airtable.com/create/tokens 打開你的金鑰 → Scopes 加上 <b>data.records:write</b> → Save changes（金鑰不用重貼）。';
+    $('alert').classList.add('show');
+  }
+  $('inboxInfo').textContent = r.inbox ? `「照片放這裡」現在有 ${r.inbox} 張照片` : '資料夾是空的，SD 卡照片全部放進來';
+  $('statusInfo').textContent = `收購後台有標記的 ${items.length} 件`;
+  drawTable();
+}
+function drawTable() {
+  const count = (f) => items.filter(f).length;
+  const F = { todo: ['待處理', (x) => x.stage !== 'done'], all: ['全部', () => true], new: ['還沒上架', (x) => x.stage === 'new'], draft: ['草稿', (x) => x.stage === 'draft'], shopee: ['蝦皮待確認', (x) => x.stage === 'shopee' || x.stage === 'danger'], done: ['完成', (x) => x.stage === 'done'] };
+  $('filters').innerHTML = Object.entries(F).map(([k, [t, f]]) => `<button class="${filter === k ? 'on' : ''}" onclick="filter='${k}';drawTable()">${t} ${count(f)}</button>`).join('');
+  const list = items.filter(F[filter][1]);
+  if (!list.length) { $('table').innerHTML = '<div class="empty">沒有商品 🎉</div>'; return; }
+  $('table').innerHTML = `<table><tr><th>狀態</th><th>商品</th><th>照片</th><th></th></tr>${list.map((x) => {
+    const [t, c] = STAGES[x.stage] || ['?', 'b-error'];
+    const inList = refill.includes(x.serial);
+    const live = x.stage === 'shopee' || x.stage === 'done' || x.stage === 'danger';
+    return `<tr><td><span class="badge ${c}">${t}</span></td>
+      <td><div class="name">${esc(x.name)}</div><div class="sub">序號 ${esc(x.serial)}　${x.type}　售價 ${esc(x.price || '-')}</div><div class="sub">${esc(x.hint)}</div></td>
+      <td style="white-space:nowrap">${x.photos ? `${x.photos} 張${x.pending ? '<div class="sub">還沒傳</div>' : ''}` : '<span class="sub">沒有</span>'}</td>
+      <td><div class="acts">${live ? `<button onclick="${inList ? `saveRefill(refill.filter(s=>s!=='${esc(x.serial)}'))` : `addRefill('${esc(x.serial)}')`}">${inList ? '✓ 已加入重拍清單' : '＋ 要重拍照片'}</button>` : ''}
+        ${x.photos && x.stage !== 'new' ? `<button onclick="run('addphotos',['${esc(x.serial)}'])">🖼️ 傳照片</button>` : ''}
+        ${x.stage === 'shopee' || x.stage === 'danger' ? `<button onclick="run('republish',['${esc(x.serial)}'])">🔁 重新發佈到蝦皮</button><button onclick="markShopee('${esc(x.serial)}','${esc(x.name)}')">✓ 蝦皮已手動補好</button>` : ''}</div></td></tr>`;
+  }).join('')}</table>`;
+}
+function markShopee(sn, name) {
+  if (!confirm(`確定「${name}」（序號 ${sn}）在蝦皮已經都改好了嗎？\n\n請先到蝦皮確認這 4 件事：\n1. 保存狀況：二手\n2. NCC 字號\n3. 價格正確（15000 以下 ×1.18、15000 以上原價）\n4. 15000 以上：最低購買數量 3\n\n按「確定」會記成完成，之後不會再檢查。`)) return;
+  run('markshopee', [sn]);
+}
+let popNccAfterLoad = false, lastJobKey = '';
+function openNccPop(){ $('nccCard').classList.add('nccpop'); $('nccBack').style.display=''; $('nccClose').style.display=''; }
+function closeNccPop(){ $('nccCard').classList.remove('nccpop'); $('nccBack').style.display='none'; $('nccClose').style.display='none'; }
+function drawNcc() {
+  const seen = new Set();
+  const miss = items.filter((x) => x.certMissing && !seen.has(x.model) && seen.add(x.model));
+  $('nccCard').style.display = miss.length ? '' : 'none';
+  if (!miss.length) closeNccPop();
+  else if (popNccAfterLoad) openNccPop();   // 看完拍照順序，發現有缺 → 自動跳出來
+  popNccAfterLoad = false;
+  $('nccList').innerHTML = miss.map((x, i) => `<div class="row" style="margin-bottom:8px;align-items:flex-end">
+    <div style="flex:1.4;min-width:150px"><div class="sub">型號（${esc(x.name)}，序號 ${esc(x.serial)}）</div><input type="text" id="ncm${i}" value="${esc(x.model)}" style="width:100%"></div>
+    ${/NCC/.test(x.certMissing) ? `<div style="flex:1;min-width:130px"><div class="sub">NCC 字號（缺）</div><input type="text" id="ncn${i}" placeholder="CCAx…  或  無" style="width:100%"></div>` : '<input type="hidden" id="ncn' + i + '" value="">'}
+    ${/BSMI/.test(x.certMissing) ? `<div style="flex:1;min-width:110px"><div class="sub">BSMI 字號（缺）</div><input type="text" id="ncb${i}" placeholder="D3xxxx / Rxxxxx" style="width:100%"></div>` : '<input type="hidden" id="ncb' + i + '" value="">'}
+    <button class="primary" onclick="saveNcc(${i})">儲存</button></div>`).join('');
+}
+async function saveNcc(i) {
+  const r = await post('/api/ncc', { model: $('ncm' + i).value, ncc: $('ncn' + i).value, bsmi: $('ncb' + i).value });
+  if (!r.ok) return toast(r.msg);
+  toast('✅ 已記進 NCC 對照表');
+  loadStatus();
+}
+loadRefill(); loadStatus();
+</script>
+</body>
+</html>

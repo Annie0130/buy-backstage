@@ -1,0 +1,15 @@
+@echo off
+chcp 65001 >nul
+pushd "%~dp0"
+title 補照片
+echo ===== 補照片（草稿或已上架都可以，傳完會按發佈）=====
+echo.
+echo 照片要先放在 商品照片\序號 資料夾裡（01.jpg、02.jpg…）
+echo.
+set SN=
+set /p SN=請輸入序號（好幾個用空白隔開；直接按 Enter = 自動找全部有新照片的）：
+echo.
+node upload.js addphotos %SN%
+echo.
+echo ===== 跑完了，可以關掉這個視窗 =====
+pause
