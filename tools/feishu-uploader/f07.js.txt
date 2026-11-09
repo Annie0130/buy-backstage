@@ -3006,8 +3006,12 @@ async function shopeeMain() {
       if (failed.length) await dumpShopeeFields(p, failed.filter((x) => ['保存狀況', 'NCC', 'BSMI'].includes(x)));
       const danger = failed.some((x) => x === '價格' || x === '最低購買數量');
       if (auto && failed.length && !danger) {
-        console.log('   ⏭️ 有欄位沒填成功，這筆先不儲存，之後再手動補（已記在紀錄檔）');
-        shopeeLog(t.name, t.serial, '需手動補', notes.join('；'));
+        // 保存狀況／NCC／BSMI 有沒填到的：其他改好的（價格、最低購買數量…）照樣存，沒填到的記下來請你手動補
+        const sv = await saveShopeeVerified(p);
+        const miss = failed.filter((x) => ['保存狀況', 'NCC', 'BSMI'].includes(x)).join('、');
+        if (sv.ok === false) throw new Error(sv.msg);
+        console.log(`   ⚠️ 其他欄位已存好，但「${miss}」沒填進去，請到蝦皮手動補（已記在紀錄檔）`);
+        shopeeLog(t.name, t.serial, '需手動補', `沒填到：${miss}；` + notes.join('；'));
         continue;
       }
       if (danger) {
