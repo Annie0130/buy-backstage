@@ -2444,13 +2444,7 @@ ${styles}
   .print-wrap .lcard:nth-last-child(-n+2){margin-bottom:0;}
   .print-wrap .lcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:0;margin-bottom:1mm;}
   .print-wrap .lcard-footer{align-items:flex-start;}
-  /* 每張至少是一般相機卡的大小（鏡頭卡內容少也不會變小張）；比較長的只有自己那一排會變長 */
-  .print-wrap .lcard-header{min-height:76px;}
-  .print-wrap .lcard-body{min-height:145px;}
-  /* 規格比較少的卡（例如鏡頭），多出來的高度平均分給每一行，不要全部堆在「功能」下面 */
-  .print-wrap .lcard-spec-col{justify-content:space-between;}
-  .print-wrap .lcard-spec-row{flex:0 0 auto;}
-  .print-wrap .lcard-footer{min-height:86px;}
+
 }
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
 html,body{background:#fff!important;}
@@ -2493,16 +2487,20 @@ function fitNames(){
     while (over() && size > 12) { size -= 0.5; el.style.fontSize = size + 'px'; }
   });
 }
-// 同一次印的卡片全部一樣大：標題、規格、介紹三段各自撐到最高那張的高度（鏡頭卡內容少也不會變小張）
-function sameSize(){
-  ['.lcard-header', '.lcard-body', '.lcard-footer'].forEach(function(sel){
-    var els = document.querySelectorAll(sel), max = 0;
-    els.forEach(function(e){ e.style.minHeight = ''; });
-    els.forEach(function(e){ max = Math.max(max, e.getBoundingClientRect().height); });
-    els.forEach(function(e){ e.style.minHeight = max + 'px'; e.style.boxSizing = 'border-box'; });
-  });
+// 同一張紙（每 6 張）的卡片一樣大：標題、規格、介紹各自對齊那一頁最高的；行距不變，別頁的長卡不會影響這一頁
+function samePage(){
+  var cards = [].slice.call(document.querySelectorAll('.lcard'));
+  for (var i = 0; i < cards.length; i += 6) {
+    var grp = cards.slice(i, i + 6);
+    ['.lcard-header', '.lcard-body', '.lcard-footer'].forEach(function(sel){
+      var els = grp.map(function(c){ return c.querySelector(sel); }).filter(Boolean), max = 0;
+      els.forEach(function(e){ e.style.minHeight = ''; });
+      els.forEach(function(e){ max = Math.max(max, e.getBoundingClientRect().height); });
+      els.forEach(function(e){ e.style.minHeight = max + 'px'; e.style.boxSizing = 'border-box'; });
+    });
+  }
 }
-function fitAll(){ fitNames(); fitDesc(); }
+function fitAll(){ fitNames(); fitDesc(); samePage(); }
 // 拿掉原廠盒之後配件還是超過 6 行（卡片會變長）的，列出來讓老闆決定要拿掉哪些
 function longCards(){
   var out = [];
