@@ -2261,6 +2261,8 @@ body{background:#fff;font-family:'PingFang TC','Noto Sans TC',sans-serif;padding
 .print-wrap{display:flex;flex-wrap:wrap;gap:1mm;}
 ${styles}
 .lcard{box-shadow:none!important;border:1px dashed #ccc;break-inside:avoid;}
+/* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
+html,body{background:#fff!important;}
 @media print{
   body{padding:5mm;}
   .print-wrap{gap:1mm;}
