@@ -217,7 +217,14 @@ function onAsk(a) {
     $('pv').classList.add('show');
   }
 }
-function answerPreview(ok) {
+async function answerPreview(ok) {
+  if (ok) {
+    // 把預覽頁裡手動調整過的分組送回去
+    try {
+      const g = $('pvframe').contentWindow.getGrouping && $('pvframe').contentWindow.getGrouping();
+      if (g) await post('/api/preview-edit', g);
+    } catch (e) {}
+  }
   $('pv').classList.remove('show');
   send(ok ? (askKind === 'preview-yes' ? 'yes' : 'y') : 'n');
 }

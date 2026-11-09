@@ -1697,12 +1697,12 @@ const INBOX_DIR = ROOT_DIR !== __dirname ? path.join(ROOT_DIR, '照片放這裡'
 const INBOX_NAME = ROOT_DIR !== __dirname ? '「照片放這裡」資料夾' : '商品照片\\收件匣';
 const DONE_DIR = path.join(PHOTO_DIR, '已處理');
 const IMG_RE = /\.(jpe?g|png)$/i;
-const BLACK_MEAN = 45; // 平均亮度低於這個（0～255）…
-const BLACK_P90 = 60;  // …而且 90% 的像素都比這個暗（容許邊角漏一點光），就當作黑畫面
+const BLACK_MEAN = 60; // 平均亮度低於這個（0～255）…（手機／LINE 傳的照片壓縮過，黑畫面不會是全黑）
+const BLACK_P90 = 95;  // …而且 90% 的像素都比這個暗（容許邊角漏一點光、雜訊），就當作黑畫面
 // 每件商品大約拍幾張（只用來檢查有沒有漏拍；分組一律看黑畫面）
-const PHOTO_COUNT = { camera: [6, 6], lens: [4, 6] }; // [最少, 最多]
+const PHOTO_COUNT = { camera: [6, 99], lens: [4, 99] }; // [最少, 最多]：多拍沒關係，只有太少才提醒
 const expectedPhotos = (r) => (r && gearType(r) === 'lens' ? PHOTO_COUNT.lens : PHOTO_COUNT.camera);
-const countText = ([a, b]) => (a === b ? `${a} 張` : `${a}～${b} 張`);
+const countText = ([a, b]) => (b >= 99 ? `至少 ${a} 張` : a === b ? `${a} 張` : `${a}～${b} 張`);
 const PHOTO_MAX_SIDE = 2000; // 上傳前縮小到最長邊 2000px（飛鼠建議 1600x1600，太大傳很慢）
 const safeName = (sn) => String(sn).replace(/[\\/:*?"<>|]/g, '_');
 // 照片上傳紀錄：記下每個序號「上傳過哪一批照片」，避免同一批重複上傳
@@ -1895,10 +1895,16 @@ async function photosMain() {
       return { mean, p90, thumb: t.toDataURL('image/jpeg', 0.7), full: f.toDataURL('image/jpeg', 0.9) };
     }, { url: 'https://photo.local/' + encodeURIComponent(it.file), max: PHOTO_MAX_SIDE }).catch((e) => ({ error: e.message }));
     Object.assign(it, res);
-    it.black = !res.error && res.mean < BLACK_MEAN && res.p90 < BLACK_P90;
     if ((k + 1) % 10 === 0 || k === items.length - 1) console.log(`   …${k + 1}/${items.length}`);
   }
   await browser.close();
+  // 判斷黑畫面：夠暗（固定門檻），或是「比這批其他照片暗很多」（手機／LINE 傳的黑畫面常常是灰黑、有雜訊）
+  const ok = items.filter((it) => !it.error);
+  const med = (arr) => { const a = arr.slice().sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : 0; };
+  const medMean = med(ok.map((it) => it.mean)), medP90 = med(ok.map((it) => it.p90));
+  for (const it of ok) {
+    it.black = (it.mean < BLACK_MEAN && it.p90 < BLACK_P90) || (it.mean < 100 && it.mean < medMean * 0.45 && it.p90 < medP90 * 0.6);
+  }
   const bad = items.filter((it) => it.error);
 
   const blacks = items.filter((it) => it.black).length;
@@ -1925,19 +1931,44 @@ async function photosMain() {
   if (oddGroups.length) warns.push(`⚠️ 第 ${oddGroups.map((i) => i + 1).join('、')} 組張數不對（相機應該 ${countText(PHOTO_COUNT.camera)}、鏡頭 ${countText(PHOTO_COUNT.lens)}），可能漏拍、多拍，或順序跟清單不一樣，請檢查。`);
   const warn = warns.join('<br>');
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const sec = groups.map((g, i) => {
-    const r = rows[i];
-    const title = r ? `${i + 1}. ${esc(r['商品名稱'])}　<small>序號 ${esc(r['條碼'])}</small>` : `${i + 1}. <span style="color:#c00">（沒有對應的商品，這組不會使用）</span>`;
-    const cnt = !isOdd(g, i) ? `${g.length} 張` : `<b style="color:#c00">${g.length} 張（應該是 ${countText(expectedPhotos(r))}）</b>`;
-    return `<section><h2>${title}　<small>${cnt}，第一張是主圖</small></h2><div class="g">${g.map((it, k) => `<figure${k === 0 ? ' class="main"' : ''}><img src="${it.thumb}"><figcaption>${esc(it.file)}</figcaption></figure>`).join('')}</div></section>`;
-  }).join('');
-  const missingRows = rows.slice(groups.length).map((r, i) => `<li>${groups.length + i + 1}. ${esc(r['商品名稱'])}（序號 ${esc(r['條碼'])}）</li>`).join('');
+  // 預覽頁（可以手動調整：每張照片選「放到第幾組／不要」、設為主圖；在控制台按「分組正確」會照調整後的結果）
+  const nG = Math.max(groups.length, rows.length);
+  const model = {
+    rows: Array.from({ length: nG }, (_, i) => rows[i] ? { name: rows[i]['商品名稱'], sn: rows[i]['條碼'], expect: expectedPhotos(rows[i]) } : null),
+    groups: Array.from({ length: nG }, (_, i) => (groups[i] || []).map((it) => it.file)),
+    trash: items.filter((it) => it.black).map((it) => it.file),
+    thumbs: Object.fromEntries(items.filter((it) => !it.error).map((it) => [it.file, it.thumb])),
+    info: Object.fromEntries(items.filter((it) => !it.error).map((it) => [it.file, `亮度 ${Math.round(it.mean)}`])),
+  };
   const html = `<!doctype html><meta charset="utf-8"><title>照片分組預覽</title>
 <style>body{font-family:system-ui,"Microsoft JhengHei",sans-serif;margin:20px;background:#f6f6f4;color:#222}h1{font-size:22px}h2{font-size:17px;margin:22px 0 8px}small{color:#777;font-weight:400}
-.warn{background:#fff3cd;border:1px solid #f0c36d;padding:12px 14px;border-radius:8px;font-weight:700}.g{display:flex;flex-wrap:wrap;gap:8px}
-figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd}figure.main{border:3px solid #d9480f}img{display:block;max-width:220px;max-height:160px}figcaption{font-size:11px;color:#888;margin-top:4px}</style>
-<h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，${process.env.PANEL ? "按下面的「✅ 分組正確，開始上架」" : "回黑色視窗輸入 y"}。</p>
-${warn ? `<p class="warn">${warn}</p>` : ''}${sec}${missingRows ? `<h2 style="color:#c00">沒有分到照片的商品</h2><ul>${missingRows}</ul>` : ''}`;
+.warn{background:#fff3cd;border:1px solid #f0c36d;padding:12px 14px;border-radius:8px;font-weight:700}.tip{background:#e7f5ff;border:1px solid #a5d8ff;padding:10px 14px;border-radius:8px}.g{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
+figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd;width:232px}figure.main{border:3px solid #d9480f}img{display:block;max-width:220px;max-height:160px}figcaption{font-size:11px;color:#888;margin-top:4px;word-break:break-all}
+select,button{font:inherit;font-size:12px;margin-top:4px}button{cursor:pointer;border:1px solid #ccc;background:#fff;border-radius:6px;padding:2px 8px}.bad{color:#c00;font-weight:700}.trash figure{opacity:.6}</style>
+<h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，${process.env.PANEL ? '按下面的「✅ 分組正確，開始上架」' : '回黑色視窗輸入 y'}。</p>
+${warn ? `<p class="warn">${warn}</p>` : ''}
+<p class="tip">🖐️ 分錯了可以直接調整：每張照片下面選「放到哪一組」，或選「🗑 不要」（黑畫面、多拍的）；按「⭐ 設為主圖」會變成第一張。${process.env.PANEL ? '' : '（調整功能要在「控制台」裡用）'}</p>
+<div id="root"></div>
+<script>
+const M = ${JSON.stringify(model).replace(/</g, '\\u003c')};
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function where(f){ for (let i=0;i<M.groups.length;i++) if (M.groups[i].includes(f)) return i; return -1; }
+function move(f, to){ M.groups.forEach(g=>{const k=g.indexOf(f); if(k>=0) g.splice(k,1);}); const k=M.trash.indexOf(f); if(k>=0) M.trash.splice(k,1);
+  if (to === 'trash') M.trash.push(f); else M.groups[+to].push(f); render(); }
+function makeMain(f){ const i=where(f); if(i<0) return; const g=M.groups[i]; g.splice(g.indexOf(f),1); g.unshift(f); render(); }
+function opts(cur){ return M.groups.map((_,i)=>'<option value="'+i+'" '+(cur===i?'selected':'')+'>放到：'+(i+1)+'. '+esc(M.rows[i]?M.rows[i].name:'（沒有對應商品）')+'</option>').join('') + '<option value="trash" '+(cur==='trash'?'selected':'')+'>🗑 不要（黑畫面／多拍）</option>'; }
+function fig(f, k, cur){ return '<figure'+(k===0&&cur!=='trash'?' class="main"':'')+'><img src="'+M.thumbs[f]+'"><figcaption>'+esc(f)+'　'+esc(M.info[f]||'')+'</figcaption>'
+  + '<select data-f="'+esc(f)+'" onchange="move(this.dataset.f,this.value)">'+opts(cur)+'</select>' + (cur!=='trash'&&k>0?' <button data-f="'+esc(f)+'" onclick="makeMain(this.dataset.f)">⭐ 設為主圖</button>':'') + '</figure>'; }
+function render(){
+  let h='';
+  M.groups.forEach((g,i)=>{ const r=M.rows[i]; const [a,b]=r?r.expect:[0,0]; const odd=r&&(g.length<a||g.length>b);
+    h+='<section><h2>'+(i+1)+'. '+(r?esc(r.name)+'　<small>序號 '+esc(r.sn)+'</small>':'<span class="bad">（沒有對應的商品，這組不會使用）</span>')+'　<small class="'+(odd?'bad':'')+'">'+g.length+' 張'+(odd?'（應該'+(b>=99?'至少 '+a:(a===b?'是 '+a:'是 '+a+'～'+b))+' 張）':'')+'，第一張是主圖</small></h2><div class="g">'+(g.length?g.map((f,k)=>fig(f,k,i)).join(''):'<span class="bad">（沒有照片）</span>')+'</div></section>'; });
+  h+='<section class="trash"><h2>🗑 不使用（黑畫面、多拍的）<small>'+M.trash.length+' 張</small></h2><div class="g">'+M.trash.map(f=>fig(f,1,'trash')).join('')+'</div></section>';
+  document.getElementById('root').innerHTML=h;
+}
+window.getGrouping = () => ({ groups: M.groups });
+render();
+</script>`;
   const preview = path.join(__dirname, '照片分組預覽.html');
   fs.writeFileSync(preview, html, 'utf8');
   console.log(`\n分成 ${groups.length} 組（黑畫面 ${blacks} 張），商品 ${rows.length} 件`);
@@ -1950,10 +1981,25 @@ ${warn ? `<p class="warn">${warn}</p>` : ''}${sec}${missingRows ? `<h2 style="co
     : '\n預覽正確嗎？輸入 y 套用（照片放進各商品資料夾），其他鍵取消：', warn ? 'preview-yes' : 'preview-y');
   if (warn ? a.toLowerCase() !== 'yes' : a.toLowerCase() !== 'y') { console.log('已取消，收件匣的照片都沒有動。可以調整後再跑一次。'); return false; }
 
+  // 在控制台手動調整過分組：照調整後的結果
+  const editFile = path.join(__dirname, '照片分組修改.json');
+  if (fs.existsSync(editFile)) {
+    try {
+      const ed = JSON.parse(fs.readFileSync(editFile, 'utf8'));
+      if (fs.statSync(editFile).mtimeMs >= fs.statSync(preview).mtimeMs && Array.isArray(ed.groups)) {
+        const byFile = Object.fromEntries(items.map((it) => [it.file, it]));
+        groups.length = 0;
+        ed.groups.forEach((g) => groups.push((g || []).map((f) => byFile[f]).filter((it) => it && !it.error)));
+        console.log('   🖐️ 照你在預覽頁調整後的分組：' + groups.map((g, i) => `${i + 1}組 ${g.length} 張`).join('、'));
+      }
+    } catch (e) { console.log('   ⚠️ 讀不到調整後的分組，照原本的分組'); }
+    try { fs.unlinkSync(editFile); } catch (e) {}
+  }
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
   const backup = path.join(DONE_DIR, stamp);
   fs.mkdirSync(backup, { recursive: true });
   groups.forEach((g, i) => {
+    if (!g.length) return;
     const r = rows[i];
     if (!r) return;
     const dir = path.join(PHOTO_DIR, safeName(r['條碼']));

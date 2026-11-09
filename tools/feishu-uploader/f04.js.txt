@@ -160,6 +160,13 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'POST') { const b = await body(req); return json(res, { ok: true, list: writeRefill(b.list || []) }); }
       return json(res, { ok: true, list: readRefill() });
     }
+    if (url.pathname === '/api/preview-edit' && req.method === 'POST') {
+      const b = await body(req);
+      if (!Array.isArray(b.groups)) return json(res, { ok: false });
+      const groups = b.groups.map((g) => (Array.isArray(g) ? g.filter((f) => typeof f === 'string' && f.length < 200) : []));
+      fs.writeFileSync(path.join(DIR, '照片分組修改.json'), JSON.stringify({ groups }), 'utf8');
+      return json(res, { ok: true });
+    }
     if (url.pathname === '/api/ncc' && req.method === 'POST') {
       // 在控制台補 NCC／BSMI：寫進 NCC字號.csv（同型號就更新，並清掉 ⚠️ 備註）
       const b = await body(req);

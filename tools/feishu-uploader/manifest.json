@@ -1,6 +1,6 @@
 {
- "version": "20261109-1154",
- "note": "控制台：步驟 1～4 排在同一列（步驟 4＝蝦皮）",
+ "version": "20261109-1427",
+ "note": "黑畫面判斷更準（手機／LINE 傳的灰黑畫面也抓得到）；分組預覽可以手動調整；照片張數不設上限",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,12 +20,12 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "86a6306ef91218ca9ddfa125578134c4712beafacd9c08a7998dcc90f9318823"
+   "sha256": "4cc56333ed5d26f96129239c8c144ebab5ebf6ff479694d4ffbea7a369f682c2"
   },
   {
    "path": "panel.js",
    "url": "f04.js.txt",
-   "sha256": "1378797af029e4ca4536a395d5592108ff94f1f8b2e77e6ea2cf9b5fc9ad645f"
+   "sha256": "4b430b0737bf76fcedbced7a63a2fa65096b1ba88d28e47724b37cebedf846ba"
   },
   {
    "path": "shopee-minqty.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "6f64f23d08179f28df30ea7e8ba75f43cb4ef8c129f2911566acfc28a3aa5e01"
+   "sha256": "2f4914d039fa332f9cd99e81948691cb147403cdb7289b2292390b2f4b07f608"
   },
   {
    "path": "使用說明.txt",
