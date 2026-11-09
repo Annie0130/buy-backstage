@@ -1,6 +1,6 @@
 {
- "version": "20261109-1118",
- "note": "L 接環鏡頭（Leica／Panasonic S）同時放 Leica 和 Lumix 分類",
+ "version": "20261109-1122",
+ "note": "拍照順序會列出「已經有照片、不用拍」的商品",
  "files": [
   {
    "path": "migrate.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "52a56201f74b7d19535c15fce68b273a10a0c2440d08c476468d4b809bdb7506"
+   "sha256": "31dabd9a67ad78312ee36893fac15d0c0caa86f99bb513b0b9926c640aa2a9f7"
   },
   {
    "path": "使用說明.txt",

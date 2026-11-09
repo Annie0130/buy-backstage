@@ -1726,6 +1726,7 @@ async function rowsBySerials(serials) {
   return serials.map((sn) => found.find((r) => r['條碼'] === sn) || { 商品名稱: `（Airtable 找不到序號 ${sn}）`, 條碼: sn, _missing: true });
 }
 
+let HAVE_PHOTOS = []; // 已經有分好照片、不用再拍的（拍照順序會另外列出來）
 async function photoOrderRows() {
   // 先排「補照片清單」裡的已上架商品，再排收購後台標記、還沒上架的新商品
   const list = refillSerials();
@@ -1733,6 +1734,7 @@ async function photoOrderRows() {
   refill.forEach((r) => (r._refill = true));
   const rows = await readAirtable();
   const st = lastFeishuStatus();
+  HAVE_PHOTOS = rows.filter((r) => r['條碼'] && !list.includes(r['條碼']) && productPhotos(r['條碼']).length && !/已上架/.test(r._fsStatus || ''));
   const cand = rows.filter((r) => !list.includes(r['條碼'])).filter((r) => {
     if (!r['條碼'] || productPhotos(r['條碼']).length) return false;  // 已經有分好的照片就不用再拍
     if (/已上架/.test(r._fsStatus || '')) return false;               // 收購後台顯示已上架
@@ -1759,6 +1761,11 @@ async function photosOrderMain() {
     `照這個順序拍：相機 ${countText(PHOTO_COUNT.camera)}、鏡頭 ${countText(PHOTO_COUNT.lens)}。`,
     '每拍完一件，一定要蓋上鏡頭蓋拍 1 張「全黑」當分隔！', ''];
   rows.forEach((r, i) => { autoFill(r); lines.push(`${i + 1}. ${r['商品名稱']}　序號 ${r['條碼']}　（${gearType(r) === 'lens' ? '鏡頭' : '相機'} ${countText(expectedPhotos(r))}）${r._isDraft ? '　【飛鼠已是草稿，等補照片】' : ''}${r._refill ? '　【補照片】' : ''}`, '   → 拍完蓋鏡頭蓋拍 1 張全黑'); });
+  if (HAVE_PHOTOS.length) {
+    lines.push('', `📁 這 ${HAVE_PHOTOS.length} 件已經有分好的照片，不用拍（按「一鍵上架」會直接用這些照片上架）：`);
+    HAVE_PHOTOS.forEach((r) => lines.push(`   ・${r['商品名稱']}　序號 ${r['條碼']}（${productPhotos(r['條碼']).length} 張）`));
+    lines.push('   （想重拍的話，把「系統\\商品照片\\序號」那個資料夾刪掉，它就會回到拍照順序裡）', '');
+  }
   if (!rows.length) {
     lines.push('（目前沒有要拍的商品）');
     lines.push('・新商品：請先在收購後台填售價、按「🛒 標記上架飛鼠」');
