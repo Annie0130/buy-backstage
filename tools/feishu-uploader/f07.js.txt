@@ -2997,7 +2997,7 @@ async function shopeeMain() {
       const bsmi = t.cam && t.name ? bsmiFor(t.name, t.origin) : '';
       if (bsmi) {
         if (await setShopeeField(p, 'BSMI', bsmi).catch(() => false)) console.log(`   ✏️ BSMI：${bsmi}${nccRow && nccRow.bsmi ? '' : '（公司貨，品牌代理商碼）'}`);
-        else { failed.push('BSMI'); notes.push(`BSMI 沒填成功，請手動填：${bsmi}`); }
+        else console.log(`   ℹ️ 蝦皮頁面沒有 BSMI 欄位，BSMI（${bsmi}）已寫在商品內文，不用另外填`);
       } else if (t.cam) notes.push(`「${t.name || t.serial}」沒有 BSMI（水貨或對照表沒有），蝦皮 BSMI 請手動填`);
       if (t.ccd) {
         // CCD 相機：只填 BSMI，不填 NCC

@@ -1,6 +1,6 @@
 {
- "version": "20261109-1505",
- "note": "看拍照順序後，缺 NCC／BSMI 的相機會自動跳出來讓你填，填過會記住",
+ "version": "20261109-1509",
+ "note": "蝦皮找不到 BSMI 欄位不算失敗（BSMI 已寫在商品內文）",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "10a427d7c624329313213174f47d5d690ae8d7b11775874ca1d580e3ef9526bb"
+   "sha256": "e90111c8e8143c13bd4a251cfdc01607206b09a3ecf0b3d233db5e39d421143d"
   },
   {
    "path": "使用說明.txt",
