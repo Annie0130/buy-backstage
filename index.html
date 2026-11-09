@@ -2085,7 +2085,7 @@ function clearStockAI() {
   if (!confirm(`確定清除 ${picked.length} 筆的 AI 紀錄？清除後要再按「✨ AI 處理」重新產生（會再花一次 AI 費用）。`)) return;
   picked.forEach(it => {
     try { localStorage.removeItem('stockAI:' + it.key); } catch(e) {}
-    it.ai = null; it.status = ''; it.error = '';
+    it.ai = null; it.status = stockRecIntro(it) ? 'done' : ''; it.error = '';
   });
   document.getElementById('stock-progress').textContent = `已清除 ${picked.length} 筆，請按「✨ AI 處理勾選的商品」重新產生`;
   renderStockList();
@@ -2119,7 +2119,8 @@ async function loadStockFile(file) {
         };
         item.key = item.sn + '|' + item.name;
         item.ai = stockCacheGet(item.key);
-        item.status = item.ai ? 'done' : '';
+        item.rec = stockFindRecord(item);
+        item.status = (item.ai || stockRecIntro(item)) ? 'done' : '';
         return item;
       });
     stockSelectAll(true);
@@ -2149,16 +2150,16 @@ function renderStockList() {
   const icon = {done: '✅', running: '⏳', error: '❌', '': '・'};
   const done = vis.filter(it => it.status === 'done').length;
   const checked = vis.filter(it => it.checked).length;
-  list.innerHTML = `<div style="margin:6px 0 8px">共 ${vis.length} 筆，已勾選 ${checked} 筆，AI 已處理 ${done} 筆</div>
+  list.innerHTML = `<div style="margin:6px 0 8px">共 ${vis.length} 筆，已勾選 ${checked} 筆，已有商品介紹 ${done} 筆</div>
   <table style="width:100%;border-collapse:collapse">
-    <tr style="text-align:left;color:#8a96a5;font-size:11px"><th style="padding:4px"></th><th>狀態</th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>品類（AI）</th><th>CCD／Y2K</th></tr>
+    <tr style="text-align:left;color:#8a96a5;font-size:11px"><th style="padding:4px"></th><th>狀態</th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>品類（📋＝用收購紀錄）</th><th>CCD／Y2K</th></tr>
     ${vis.map(it => `<tr style="border-top:1px solid #f0f0ec;color:#141413">
       <td style="padding:5px 4px"><input type="checkbox" ${it.checked ? 'checked' : ''} onchange="stockToggle(${stockItems.indexOf(it)}, this.checked)"></td>
       <td title="${esc(it.error || '')}">${icon[it.status]}</td>
       <td>${esc(it.name)}</td>
       <td style="font-family:monospace;color:#6b6b63">${esc(it.sn)}</td>
       <td style="text-align:right">${it.price ? parseInt(it.price).toLocaleString() : '—'}</td>
-      <td style="color:#6b6b63">${esc(it.ai?.category || '')}</td>
+      <td style="color:#6b6b63">${esc((it.rec && it.rec.fields['品類']) || it.ai?.category || '')}${it.rec ? ' <span title="有對到收購紀錄，新舊程度和商品介紹用收購紀錄的" style="color:#2b8a3e">📋</span>' : ''}</td>
       <td><select onchange="stockItems[${stockItems.indexOf(it)}].ccd=this.value" style="font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px">${['','CCD 相機','Y2K 復古'].map(o=>`<option value="${o}" ${(it.ccd||'')===o?'selected':''}>${o||'—'}</option>`).join('')}</select></td>
     </tr>`).join('')}
   </table>`;
@@ -2196,10 +2197,10 @@ async function stockProcessOne(it) {
   }
 }
 
-async function runStockAI() {
+async function runStockAI(items) {
   if (stockRunning) return;
-  const todo = stockVisible().filter(it => it.checked && it.status !== 'done');
-  if (!todo.length) { alert('勾選的商品都已經處理過了'); return; }
+  const todo = (items || stockVisible().filter(it => it.checked)).filter(it => it.status !== 'done');
+  if (!todo.length) { if (!items) alert('勾選的商品都已經有商品介紹了'); return; }
   stockRunning = true;
   const btn = document.getElementById('stock-ai-btn');
   const prog = document.getElementById('stock-progress');
@@ -2223,13 +2224,42 @@ async function runStockAI() {
   stockRunning = false;
 }
 
+// 用條碼對到收購紀錄（忽略大小寫、開頭的 0），有對到就用收購紀錄的新舊程度、商品介紹等
+const normSn = v => String(v || '').trim().toLowerCase().replace(/^0+/, '');
+function stockFindRecord(it) {
+  const sn = normSn(it.sn);
+  if (!sn || !allRecords.length) return null;
+  const hits = allRecords.filter(r => normSn(r.fields['序號']) === sn);
+  if (!hits.length) return null;
+  return hits.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')))[0];
+}
+const stockRecIntro = it => String((it.rec && it.rec.fields['商品介紹']) || '').trim();
+
 function stockToCardData(it) {
   const ai = it.ai || {};
+  if (it.rec) {
+    const {data, accOverride} = recordToCardData(it.rec);
+    const f = it.rec.fields;
+    const hasCond = !!String(f['新舊程度'] || '').trim();
+    return {
+      data: Object.assign({}, data, {
+        name: data.name || it.name,
+        price: it.price || data.price,            // 價格用 POS 現在的售價
+        sn: it.sn || data.sn,
+        cond: hasCond ? data.cond : (ai.condition || ''),
+        desc: data.desc || ai.intro || '',
+        category: data.category || ai.category || '',
+        shutter: data.shutter || ai.shutter || '',
+        ccd: it.ccd || data.ccd || '',
+      }),
+      accOverride,
+    };
+  }
   const box = it.box || '';
   const origin = it.origin === '水貨' ? '水貨' : it.origin === '公司貨' ? '公司貨' : '';
   return {
     data: {
-      name: it.name, price: it.price, cond: ai.condition || '近無使用痕跡', sn: it.sn,
+      name: it.name, price: it.price, cond: ai.condition || '', sn: it.sn,
       shutter: ai.shutter || '', origin,
       mfgw: ai.warranty_until ? '在保' : '', mfgwRaw: ai.warranty_until ? `在保（至${ai.warranty_until}）` : '',
       shopw: '半年保固(180天)',
@@ -2240,13 +2270,21 @@ function stockToCardData(it) {
   };
 }
 
-function printStockCards() {
+async function printStockCards() {
+  if (stockRunning) { alert('AI 還在處理中，請等它跑完'); return; }
   const picked = stockVisible().filter(it => it.checked);
   if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
   const notDone = picked.filter(it => it.status !== 'done').length;
-  if (notDone && !confirm(`有 ${notDone} 筆還沒經過 AI 處理，卡片會缺品類和商品介紹。仍要列印嗎？`)) return;
+  // 先開列印視窗（避免被瀏覽器擋掉），沒有商品介紹的自動先跑 AI，跑完再印
+  const win = window.open('', '_blank', 'width=500,height=700');
+  if (notDone) {
+    if (win) win.document.write(`<p style="font:16px sans-serif;padding:20px">AI 正在補 ${notDone} 筆的商品介紹，跑完會自動跳出列印…</p>`);
+    await runStockAI(picked);
+  }
+  const failed = picked.filter(it => it.status === 'error').length;
+  if (failed && !confirm(`有 ${failed} 筆 AI 沒有處理成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
   const cards = picked.map(it => { const {data, accOverride} = stockToCardData(it); return buildCardHTML(data, accOverride); }).join('\n');
-  openPrintWindow(cards, `庫存印卡 ${picked.length} 張`);
+  openPrintWindow(cards, `庫存印卡 ${picked.length} 張`, win);
 }
 
 function printSelectedCards() {
@@ -2263,9 +2301,10 @@ function printSelectedCards() {
   openPrintWindow(allCards, `批次印卡 ${checkedIds.length} 張`);
 }
 
-function openPrintWindow(cardsHtml, title) {
+function openPrintWindow(cardsHtml, title, win) {
   const styles = [...document.querySelectorAll('style')].map(s => s.innerHTML).join('\n');
-  const win = window.open('', '_blank', 'width=500,height=700');
+  if (!win || win.closed) win = window.open('', '_blank', 'width=500,height=700');
+  else win.document.open();
   win.document.write(`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
