@@ -845,7 +845,9 @@ function feishuCategoryKeys(r) {
   const t = gearType(r);
   if (t === 'lens' && !FEISHU_BRAND_KEY[brand]) brand = guessMount(name) || brand;
   const keys = [];
-  if (FEISHU_BRAND_KEY[brand]) keys.push(FEISHU_BRAND_KEY[brand]);
+  // L 接環（Leica、Panasonic S 系列共用）的鏡頭：Leica 和 Lumix 兩個分類都勾
+  if (t === 'lens' && /\bL[\s-]*mount\b|for\s*L\b|L\s*接環/i.test(name)) keys.push('Leica', 'Lumix');
+  else if (FEISHU_BRAND_KEY[brand]) keys.push(FEISHU_BRAND_KEY[brand]);
   if (t === 'compact') keys.push('所有口袋機');
   if (r['Y2K']) keys.push('CCD', 'Y2K'); // 分類名稱只要包含 CCD 或 Y2K 就會勾（改名也沒關係）
   return keys;

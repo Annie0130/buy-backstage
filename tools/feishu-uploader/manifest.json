@@ -1,6 +1,6 @@
 {
- "version": "20261108-2008",
- "note": "先傳照片、等 AI 去背跑完再填欄位（蝦皮標題／價格不會被清掉）；按建立後等 30 秒",
+ "version": "20261109-1118",
+ "note": "L 接環鏡頭（Leica／Panasonic S）同時放 Leica 和 Lumix 分類",
  "files": [
   {
    "path": "migrate.js",
@@ -35,7 +35,7 @@
   {
    "path": "upload.js",
    "url": "f06.js.txt",
-   "sha256": "818b983b9d6aae3039b97bf43ee636b5658a5c9922fe9ed05405b2973d9866de"
+   "sha256": "52a56201f74b7d19535c15fce68b273a10a0c2440d08c476468d4b809bdb7506"
   },
   {
    "path": "使用說明.txt",
