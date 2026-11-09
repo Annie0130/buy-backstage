@@ -1520,7 +1520,11 @@ function renderStats(){
   font-family:'PingFang TC','Noto Sans TC',sans-serif;flex-shrink:0;
 }
 .lcard-header{background:#0d3b66;padding:10px 12px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.lcard-left{flex:1;min-width:0;}
+.lcard-left{flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;}
+/* 品牌在上，名稱（＋規格）在剩下的空間上下置中；名稱只有一行時下面不會空空的 */
+.lcard-prod-name{margin-top:auto;}
+.lcard-prod-name:last-child,.lcard-prod-spec:last-child{margin-bottom:auto;}
+.lcard-header-right{align-self:center;}
 .lcard-prod-type{font-size:9px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.08em;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;gap:3px 6px;white-space:nowrap;}
 .lcard-brand{display:flex;align-items:center;padding-right:6px;border-right:1px solid rgba(255,255,255,.25);}
 .lcard-brand:last-child{padding-right:0;border-right:none;}
@@ -1695,7 +1699,7 @@ function cardQrDataUrl(text) {
 
 // 品牌：名稱開頭是品牌就拿掉，改用 logo（logos/ 資料夾裡有圖檔的才用圖，否則用文字）
 const CARD_BRANDS = [
-  {name:'Canon'}, {name:'Sony'}, {name:'Fujifilm', alias:['Fuji']}, {name:'Nikon'}, {name:'Sigma'},
+  {name:'Canon'}, {name:'Sony'}, {name:'Fujifilm', alias:['Fujinon', 'Fuji']}, {name:'Nikon'}, {name:'Sigma'},
   {name:'Olympus'}, {name:'OM System'}, {name:'Tamron'}, {name:'Leica'}, {name:'Ricoh'}, {name:'Tokina'},
   {name:'Pentax'}, {name:'Panasonic', alias:['Lumix']}, {name:'Zeiss'}, {name:'Viltrox'}, {name:'Samyang'}, {name:'DJI'}, {name:'Hasselblad'},
 ];
@@ -1739,16 +1743,16 @@ function splitCardName(raw) {
   let name = (raw || '').replace(/\s+/g, ' ').trim();
   let brand = null;
   for (const b of CARD_BRANDS) {
-    const hit = [b.name, ...(b.alias || [])].find(n => name.toLowerCase().startsWith(n.toLowerCase()));
+    // 品牌後面要接空白或結尾才算（避免「Fujinon」被當成「Fuji」+「non」）
+    const hit = [b.name, ...(b.alias || [])].find(n => name.toLowerCase().startsWith(n.toLowerCase()) && !/[a-z0-9]/i.test(name.charAt(n.length)));
     if (hit) { brand = b.name; name = name.slice(hit.length).trim(); break; }
   }
-  // 名稱太長時，鏡頭的光圈與規格（mm 後面）放到第二行
-  // 只有焦段太短（例如「35mm」）時，把光圈一起留在第一行
+  // 名稱太長時，光圈後面的規格放到第二行；光圈一律跟在 mm 後面留在第一行
   let main = name, spec = '';
   const m = name.match(/^(.+?\d+(?:-\d+)?mm)\s+(.+)$/i);
-  const mf = name.match(/^(.+?\d+(?:-\d+)?mm\s+F\/?[\d.]+(?:-[\d.]+)?)\s+(.+)$/i);
+  const mf = name.match(/^(.+?\d+(?:-\d+)?mm\s+F\/?[\d.]+(?:-[\d.]+)?L?)\s+(.+)$/i);
   if (m && name.length > 14) {
-    [main, spec] = (m[1].length < 6 && mf) ? [mf[1], mf[2]] : [m[1], m[2]];
+    [main, spec] = mf ? [mf[1], mf[2]] : (/^F\/?[\d.]/i.test(m[2]) ? [name, ''] : [m[1], m[2]]);
   }
   const size = main.length <= 6 ? 28 : main.length <= 10 ? 22 : main.length <= 14 ? 18 : main.length <= 18 ? 16 : 14;
   return {brand, main, spec, size};
