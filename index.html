@@ -1798,7 +1798,8 @@ function splitCardName(raw) {
   if (m && name.length > 14) {
     [main, spec] = mf ? [mf[1], mf[2]] : (/^F\/?[\d.]/i.test(m[2]) ? [name, ''] : [m[1], m[2]]);
   }
-  const size = main.length <= 6 ? 29 : main.length <= 10 ? 23 : main.length <= 14 ? 19 : main.length <= 18 ? 17 : 15;
+  // 兩行（有第二行規格）的名稱一律同一個字級，列印前太長的才自動縮到放得下
+  const size = spec ? 21 : main.length <= 6 ? 29 : main.length <= 10 ? 23 : main.length <= 14 ? 19 : main.length <= 18 ? 17 : 15;
   return {brand, main, spec, size};
 }
 
@@ -2441,7 +2442,24 @@ function fitDesc(){
   });
 }
 fitDesc();
-window.onload=function(){ fitDesc(); setTimeout(function(){ fitDesc(); window.print(); },400); };
+// 商品名稱不換行：放不下的才一點一點縮小（放得下的維持原本字級，所以兩行的名稱大小都一樣）
+function fitNames(){
+  document.querySelectorAll('.lcard-prod-name').forEach(function(el){
+    el.style.whiteSpace = 'nowrap';
+    var size = parseFloat(getComputedStyle(el).fontSize);
+    var hd = el.closest('.lcard-header'), hr = hd && hd.querySelector('.lcard-header-right');
+    var over = function(){
+      if (el.scrollWidth > el.clientWidth + 1) return true;
+      if (!hr) return false;
+      var card = el.closest('.lcard') || hd;
+      var limit = Math.min(hd.getBoundingClientRect().right, card.getBoundingClientRect().right) - parseFloat(getComputedStyle(hd).paddingRight);
+      return hr.getBoundingClientRect().right > limit + 0.5;
+    };
+    while (over() && size > 12) { size -= 0.5; el.style.fontSize = size + 'px'; }
+  });
+}
+fitNames();
+window.onload=function(){ fitNames(); fitDesc(); setTimeout(function(){ fitNames(); fitDesc(); window.print(); },400); };
 <\/script>
 </body></html>`);
   win.document.close();
