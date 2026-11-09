@@ -1846,6 +1846,14 @@ function buildCardHTML(d, accOverride) {
 
   // 配件 checklist（隨身機、CCD／Y2K 配的是手繩，不是背帶）
   const isPocketCam = /隨身相機/.test(d.category || '') || /CCD|Y2K/.test(d.ccd || '');
+  // 鏡頭一定有前蓋、後蓋（已經寫了副廠前蓋／鏡頭蓋的就不重複加）
+  if (isLensCard) {
+    const accNow = String(d.acc || '').replace(/前後蓋/g, '鏡頭前蓋、鏡頭後蓋');
+    const add = [];
+    if (!/前蓋|鏡頭蓋/.test(accNow)) add.push('鏡頭前蓋');
+    if (!/後蓋/.test(accNow)) add.push('鏡頭後蓋');
+    d = Object.assign({}, d, {acc: [accNow, ...add].filter(Boolean).join('、')});
+  }
   const checkedAcc = accOverride || cardAccChecked;
   const allAccItems = [
     ...cardAlwaysAcc(d).map(a => ({name: a, on: checkedAcc[a]})),
