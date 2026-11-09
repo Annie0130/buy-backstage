@@ -27,8 +27,8 @@ button.primary:hover{background:#1a5fd0}
 button.danger{color:var(--bad);border-color:#f3c4c7}
 button.big{padding:14px 18px;font-size:17px;border-radius:12px;text-align:left;display:flex;flex-direction:column;gap:2px}
 button.big span{font-weight:400;font-size:13px;opacity:.85}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:700px){.steps{grid-template-columns:1fr}}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:900px){.steps{grid-template-columns:1fr 1fr}}@media(max-width:560px){.steps{grid-template-columns:1fr}}
 .stepnum{font-size:12px;font-weight:800;color:var(--brand);letter-spacing:.05em}
 button.primary .stepnum{color:#cfe0ff}
 .tools{display:flex;flex-wrap:wrap;gap:8px}
@@ -93,17 +93,11 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
       <div class="steps">
         <button class="big" onclick="run('order')"><span class="stepnum">步驟 1</span>📷 看拍照順序<span>每件拍完蓋鏡頭蓋拍 1 張全黑</span></button>
         <button class="big" onclick="openFolder('inbox')"><span class="stepnum">步驟 2</span>📥 打開「照片放這裡」<span id="inboxInfo">照片全部放進來</span></button>
-        <button class="big primary" onclick="run('all')"><span class="stepnum">步驟 3</span>🚀 一鍵上架<span>分組 → 飛鼠上架 → 補照片（蝦皮之後另外按）</span></button>
+        <button class="big primary" onclick="run('all')"><span class="stepnum">步驟 3</span>🚀 一鍵上架<span>分組 → 飛鼠上架 → 補照片</span></button>
+        <button class="big" onclick="run('check')" style="border-color:#f5a35b;background:#fff7ef"><span class="stepnum" style="color:#d9480f">步驟 4（等 5～10 分鐘）</span>🦐 蝦皮補資料<span>確認蝦皮都出現後再按：補資料＋檢查價格</span></button>
       </div>
     </section>
 
-    <section class="card">
-      <h2>🦐 步驟 4：蝦皮 <small>確認飛鼠都推到蝦皮後再按</small></h2>
-      <div class="tool">
-        <button class="primary" onclick="run('check')">🦐 蝦皮補資料＋價格檢查</button>
-        <div class="why">一鍵上架<b>不會</b>自動跑蝦皮。等 5～10 分鐘，確認飛鼠都推到蝦皮後再按這顆：補<b>保存狀況、NCC／BSMI</b>，檢查<b>價格、最低購買數量</b>，不對的自動改好。已經補好的不會再動。</div>
-      </div>
-    </section>
 
     <section class="card">
       <h2>📸 已經上架的商品，想重拍照片？ <small>平常不用管這區</small></h2>

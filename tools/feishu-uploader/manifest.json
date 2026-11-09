@@ -1,6 +1,6 @@
 {
- "version": "20261109-1148",
- "note": "一鍵上架不再自動跑蝦皮；確認飛鼠推到蝦皮後，再按「🦐 蝦皮補資料＋價格檢查」",
+ "version": "20261109-1154",
+ "note": "控制台：步驟 1～4 排在同一列（步驟 4＝蝦皮）",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "09e332f6f5d06e8e487644c66b540fdecbd9a964fdce486e8ebc86ca44803083"
+   "sha256": "86a6306ef91218ca9ddfa125578134c4712beafacd9c08a7998dcc90f9318823"
   },
   {
    "path": "panel.js",
