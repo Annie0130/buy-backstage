@@ -2855,6 +2855,39 @@ function ensureBsmiFile() {
   fs.writeFileSync(BSMI_FILE, '﻿' + [csvLine(['序號', '商品', 'BSMI字號', '備註', '結果']), ...rows.map(csvLine)].join('\r\n') + '\r\n', 'utf8');
   return true;
 }
+// 找蝦皮編輯頁的「商品描述」輸入框
+async function shopeeDescInput(p) {
+  const tab = p.getByText('基本資訊', { exact: true }).first();
+  if (await tab.isVisible().catch(() => false)) { await tab.click().catch(() => {}); await p.waitForTimeout(800); }
+  const box = await shopeeFieldBox(p, '商品描述');
+  if (!box) return null;
+  const input = box.locator('textarea, [contenteditable="true"]').first();
+  return (await input.count()) ? input : null;
+}
+const readDesc = async (input) => input.evaluate((e) => ('value' in e && e.tagName === 'TEXTAREA' ? e.value : e.innerText) || '');
+// 蝦皮找不到 BSMI 欄位時：寫進商品描述（已經有 BSMI 那行就換掉，沒有就加在最後）
+// 回傳 'already'＝本來就有、'set'＝改好了（還沒存）、''＝找不到描述
+async function setShopeeDescBsmi(p, bsmi) {
+  const input = await shopeeDescInput(p);
+  if (!input) return '';
+  const cur = (await readDesc(input)).replace(/\r/g, '');
+  if (cur.includes(bsmi)) return 'already';
+  const line = `【BSMI商檢字號】${bsmi}`;
+  const lines = cur.split('\n');
+  const i = lines.findIndex((l) => /BSMI/i.test(l));
+  if (i >= 0) lines[i] = line; else { while (lines.length && !lines[lines.length - 1].trim()) lines.pop(); lines.push(line); }
+  await input.fill(lines.join('\n'), { timeout: 5000 });
+  await input.press('End').catch(() => {}); // 讓蝦皮知道內容有變
+  return (await readDesc(input)).includes(bsmi) ? 'set' : '';
+}
+async function shopeeDescHas(p, editUrl, bsmi) {
+  try {
+    await p.goto(editUrl, { waitUntil: 'domcontentloaded' });
+    await p.waitForTimeout(4000);
+    const input = await shopeeDescInput(p);
+    return !!input && (await readDesc(input)).includes(bsmi);
+  } catch (e) { return false; }
+}
 // 把確認過的 BSMI 記進 NCC字號.csv（同型號下次上架會自動帶入）
 function rememberBsmi(model, bsmi) {
   try {
@@ -2924,9 +2957,22 @@ async function bsmiFixMain() {
     try {
       p = await openEditBySerial(ctx, page, sn);
       await p.waitForTimeout(1500);
-      if (!(await setShopeeField(p, 'BSMI', bsmi).catch(() => false))) throw new Error('找不到蝦皮的「BSMI」欄位，請手動填');
-      { const sv = await saveShopeeVerified(p); if (sv.ok !== true) throw new Error(sv.msg); }
-      console.log(`   ✅ BSMI 已填 ${bsmi} 並儲存（蝦皮會重新審核）`);
+      const editUrl = p.url();
+      const inField = await setShopeeField(p, 'BSMI', bsmi).catch(() => false);
+      const inDesc = await setShopeeDescBsmi(p, bsmi).catch(() => '');
+      if (!inField && !inDesc) throw new Error('找不到蝦皮的「BSMI」欄位，也找不到「商品描述」，請手動填');
+      const where = [inField ? 'BSMI 欄位' : '', inDesc ? '商品描述' : ''].filter(Boolean).join('＋');
+      if (inDesc === 'already' && !inField) {
+        console.log(`   ✅ 商品描述裡本來就有 BSMI ${bsmi}，不用改`);
+      } else {
+        const sv = await saveShopeeVerified(p);
+        if (sv.ok === false) throw new Error(sv.msg);
+        if (sv.ok !== true) { // 沒看到成功訊息：重新打開讀描述確認
+          if (!(await shopeeDescHas(p, editUrl, bsmi))) throw new Error(sv.msg);
+          console.log('   🔄 重新打開確認：商品描述裡有 BSMI 了');
+        }
+        console.log(`   ✅ BSMI ${bsmi} 已寫進${where}並儲存（蝦皮會重新審核）`);
+      }
       result.set(sn, '成功 ' + new Date().toLocaleDateString('zh-TW'));
       rememberBsmi(name, bsmi);
     } catch (e) {
@@ -3169,4 +3215,4 @@ if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() :
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
-module.exports = { autoFillBsmi, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
+module.exports = { autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
