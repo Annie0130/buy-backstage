@@ -1,6 +1,6 @@
 {
- "version": "20261109-1509",
- "note": "蝦皮找不到 BSMI 欄位不算失敗（BSMI 已寫在商品內文）",
+ "version": "20261109-1514",
+ "note": "加快速度：官網查詢同時查多件、記住結果、收購後台已上架的不再查",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "e90111c8e8143c13bd4a251cfdc01607206b09a3ecf0b3d233db5e39d421143d"
+   "sha256": "c5b8f74b117f6b47d1f29cf4aff76cf91cee7079fabe70d004ebc1d96dcfa375"
   },
   {
    "path": "使用說明.txt",

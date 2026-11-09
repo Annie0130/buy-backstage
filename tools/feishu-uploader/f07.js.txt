@@ -1576,7 +1576,8 @@ async function main(srcOverride) {
   // 上架紀錄被刪掉時也不會重複上架：先查官網，已經有這個序號的就當作已上架
   if (src === 'airtable' && !redo && todo.length) {
     const live = [];
-    for (const r of todo) if (r['條碼'] && (await isOnStorefront(r['條碼']))) live.push(r);
+    const sf = await storefrontMany(todo.map((r) => r['條碼']));
+    for (const r of todo) if (r['條碼'] && sf.get(r['條碼'])) live.push(r);
     live.forEach((r) => {
       console.log(`⏭️  「${r['商品名稱']}」序號 ${r['條碼']} 官網已經有了，當作已上架，略過`);
       if (!listOnly) log(r, '成功（已建立）', '官網已有，補記紀錄');
@@ -1810,8 +1811,9 @@ async function photoOrderRows() {
   });
   // 再到官網確認：已經上架的（例如在飛鼠手動按了發佈）就不列，並補記紀錄
   const out = [];
+  const sf = await storefrontMany(cand.map((r) => r['條碼']));
   for (const r of cand) {
-    if (await isOnStorefront(r['條碼'])) { log(r, '成功（已建立）', '官網已有，補記紀錄'); setFeishuStatus(r['條碼'], '飛鼠已上架', r._id); continue; }
+    if (sf.get(r['條碼'])) { log(r, '成功（已建立）', '官網已有，補記紀錄'); setFeishuStatus(r['條碼'], '飛鼠已上架', r._id); continue; }
     r._isDraft = (st.get(keyOf(r)) || '').includes('草稿') || /草稿/.test(r._fsStatus || '');
     out.push(r);
   }
@@ -2308,7 +2310,7 @@ async function republishMain(serials) {
       if (!w) throw new Error('找不到「發佈」按鈕，請手動點進去按發佈');
       // 確認真的上架了（官網查得到）；還是草稿的話通常是有必填欄位沒填，飛鼠不讓發佈
       let live = false;
-      for (let t = 0; t < 4 && !live; t++) { await new Promise((r) => setTimeout(r, 5000)); live = !!(await isOnStorefront(sn)); }
+      for (let t = 0; t < 4 && !live; t++) { await new Promise((r) => setTimeout(r, 5000)); live = !!(await isOnStorefront(sn, { fresh: true })); }
       if (!live) throw new Error(`按了「${w}」，但官網還看不到，可能還是草稿（有必填欄位沒填？）。請點進去看飛鼠的紅字提示，補好再按發佈`);
       console.log(`   ✅ 已重新按「${w}」，官網已上架，2～5 分鐘內會推到蝦皮`);
       ok++;
@@ -2388,13 +2390,31 @@ async function allMain() {
 
 // =================== 待辦清單（node upload.js todo）===================
 // 列出：① 已標記但還沒上架　② 存成草稿但還沒按建立　③ 已建立但蝦皮還沒補資料
-async function isOnStorefront(serial) {
+// 官網查得到這個序號＝已上架。結果會記 30 分鐘（有上架的）／5 分鐘（還沒上架的），重複查不用再等
+const SF_CACHE_FILE = path.join(__dirname, '官網查詢快取.json');
+let SF_CACHE = null;
+function sfCache() {
+  if (!SF_CACHE) { try { SF_CACHE = JSON.parse(fs.readFileSync(SF_CACHE_FILE, 'utf8')); } catch (e) { SF_CACHE = {}; } }
+  return SF_CACHE;
+}
+async function isOnStorefront(serial, { fresh = false } = {}) {
+  const c = sfCache()[serial];
+  if (!fresh && c && Date.now() - c.t < (c.live ? 30 : 5) * 60 * 1000) return c.live;
   try {
-    const res = await fetchRetry(`https://linscam.fslol.com/product/${encodeURIComponent(serial)}/x`, { headers: { 'User-Agent': 'Mozilla/5.0' } }, 3);
-    if (res.status !== 200) return false;
-    const html = await res.text();
-    return html.includes(`【${serial}】`);
+    const res = await fetchRetry(`https://linscam.fslol.com/product/${encodeURIComponent(serial)}/x`, { headers: { 'User-Agent': 'Mozilla/5.0' } }, 2);
+    const live = res.status === 200 && (await res.text()).includes(`【${serial}】`);
+    sfCache()[serial] = { live, t: Date.now() };
+    try { fs.writeFileSync(SF_CACHE_FILE, JSON.stringify(SF_CACHE)); } catch (e) {}
+    return live;
   } catch (e) { return null; } // 查不到（網路問題）
+}
+// 一次查很多件：最多 6 件同時查
+async function storefrontMany(serials) {
+  const out = new Map(), queue = [...new Set(serials.filter(Boolean))];
+  await Promise.all(Array.from({ length: Math.min(6, queue.length) }, async () => {
+    while (queue.length) { const sn = queue.shift(); out.set(sn, await isOnStorefront(sn)); }
+  }));
+  return out;
 }
 
 // =================== 控制台用：每件商品的狀態（node upload.js status）===================
@@ -2409,7 +2429,7 @@ async function statusMain() {
     autoFill(r);
     const sn = r['條碼'];
     const f = feishu.get(keyOf(r)), sp = shopee.get(sn);
-    const live = sn ? await isOnStorefront(sn) : false; // 每件都到官網確認（手動上架的也算）
+    const live = !sn ? false : /已上架/.test(r._fsStatus || '') ? true : await isOnStorefront(sn); // 收購後台已經是「已上架」就不用再查官網
     let stage, hint;
     const miss = validate(r);
     if (!sn) { stage = 'error'; hint = '沒有序號'; }
@@ -2553,12 +2573,9 @@ async function findTargets() {
   }
   const feishuDone = loadFeishuDone();
   // 飛鼠已上架：上架紀錄有成功、收購後台顯示已上架、或官網查得到（在飛鼠手動上架的也算）
-  const out = [];
-  for (const r of rows) {
-    if (!r['條碼']) continue;
-    if (feishuDone.has(keyOf(r)) || /已上架/.test(r._fsStatus || '') || (await isOnStorefront(r['條碼']))) out.push(mk(r));
-  }
-  return out;
+  const need = rows.filter((r) => r['條碼'] && !feishuDone.has(keyOf(r)) && !/已上架/.test(r._fsStatus || ''));
+  const sf = await storefrontMany(need.map((r) => r['條碼']));
+  return rows.filter((r) => r['條碼'] && (feishuDone.has(keyOf(r)) || /已上架/.test(r._fsStatus || '') || sf.get(r['條碼']))).map(mk);
 }
 
 async function openEditBySerial(ctx, page, serial) {
