@@ -2380,6 +2380,9 @@ function stockToCardData(it) {
 }
 
 async function printStockCards() {
+  try { await _printStockCards(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+}
+async function _printStockCards() {
   if (stockRunning) { alert('AI 還在處理中，請等它跑完'); return; }
   const picked = stockVisible().filter(it => it.checked);
   if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
@@ -2392,7 +2395,10 @@ async function printStockCards() {
   }
   const failed = picked.filter(it => it.status === 'error').length;
   if (failed && !confirm(`有 ${failed} 筆 AI 沒有處理成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
-  const cards = picked.map(it => { const {data, accOverride} = stockToCardData(it); return buildCardHTML(data, accOverride); }).join('\n');
+  const bs = buildCardsSafe(picked, it => { const {data, accOverride} = stockToCardData(it); return buildCardHTML(data, accOverride); }, it => (it.name || it.model || '某一筆'));
+  const cards = bs.html;
+  if (!cards) { alert('沒有可以印的卡片（資料都有問題）'); if (win) try { win.close(); } catch (e) {} return; }
+  if (!reportBadCards(bs.bad, win)) return;
   openPrintWindow(cards, `庫存印卡 ${picked.length} 張`, win);
 }
 
@@ -2424,6 +2430,9 @@ async function fillMissingIntros(recs, win) {
 }
 
 async function printSelectedCards() {
+  try { await _printSelectedCards(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+}
+async function _printSelectedCards() {
   const checkedIds = selectedIds();
   if (!checkedIds.length) { alert('請先勾選要印卡的紀錄'); return; }
   const win = openWaitWindow();
@@ -2432,22 +2441,40 @@ async function printSelectedCards() {
   const noSn = checkedIds.map(id => allRecords.find(rec => rec.id === id)).filter(r => r && !String(r.fields['序號'] || '').trim());
   if (noSn.length) showToast(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上不會有 S/N（${noSn.slice(0, 3).map(r => r.fields['器材一']).join('、')}${noSn.length > 3 ? '…' : ''}）`);
 
-  const allCards = checkedIds.map(id => {
+  const built = buildCardsSafe(checkedIds, id => {
     const r = allRecords.find(rec => rec.id === id);
     if (!r) return '';
     const {data, accOverride} = recordToCardData(r);
     return buildCardHTML(data, accOverride);
-  }).filter(Boolean).join('\n');
+  }, id => { const r = allRecords.find(rec => rec.id === id); return r ? (r.fields['器材一'] || id) : id; });
+  const allCards = built.html;
+  if (!allCards) { alert('沒有可以印的卡片（資料都有問題）'); if (win) try { win.close(); } catch (e) {} return; }
+  if (!reportBadCards(built.bad, win)) return;
 
   openPrintWindow(allCards, `批次印卡 ${checkedIds.length} 張`, win);
   markPrinted(checkedIds.map(id => allRecords.find(rec => rec.id === id)));
   try { filterRecords(); } catch (e) {}
 }
 
+// 一張一張產生卡片：某一筆資料有問題時跳過它並告知，不要讓整批都印不出來
+function buildCardsSafe(items, mk, label) {
+  const html = [], bad = [];
+  items.forEach(it => { try { const h = mk(it); if (h) html.push(h); } catch (e) { console.error('卡片產生失敗', it, e); bad.push(label(it)); } });
+  return {html: html.join('\n'), bad};
+}
+function reportBadCards(bad, win) {
+  if (!bad.length) return true;
+  const msg = `有 ${bad.length} 張卡片資料有問題，無法產生：\n${bad.slice(0, 8).join('\n')}${bad.length > 8 ? '\n…' : ''}\n\n其餘的卡片要先印嗎？`;
+  if (!confirm(msg)) { if (win) try { win.close(); } catch (e) {} return false; }
+  return true;
+}
+
 // 先開列印視窗並顯示「準備中」（等 AI 補介紹時視窗不會空白轉圈）
+let lastWaitWin = null;
 function openWaitWindow() {
   const win = window.open('', '_blank', 'width=500,height=700');
-  if (!win) return null;
+  lastWaitWin = win;
+  if (!win) { alert('瀏覽器擋住了列印視窗，請在網址列右側允許彈出視窗後再按一次'); return null; }
   win.document.open();
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>準備印卡…</title></head><body style="font:16px sans-serif;padding:20px;color:#333"><p>準備商品卡中…</p></body></html>');
   win.document.close();
@@ -3068,6 +3095,9 @@ async function posAiButton() {
 }
 
 async function posPrint() {
+  try { await _posPrint(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+}
+async function _posPrint() {
   if (posBusy) { alert('還在處理中，請稍等'); return; }
   const picked = posVisible().filter(r => posChecked.has(r.id));
   if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
