@@ -2510,9 +2510,15 @@ html,body{background:#fff!important;}
   .print-wrap{gap:1mm;}
   /* 每一頁上方都多留一點（加在頁邊，不是只有第一頁），避免印表機切到卡片上緣 */
   @page{size:A4 portrait;margin:10mm 5mm 2mm;}
+  .no-print{display:none!important;}
 }
 </style>
 </head><body>
+<div class="no-print" id="print-bar" style="position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #ddd;padding:10px 0 10px;margin-bottom:10px;font-family:sans-serif">
+  <button onclick="window.print()" style="font-size:18px;font-weight:700;padding:12px 22px;background:#0d3b66;color:#fff;border:none;border-radius:10px;cursor:pointer">🖨️ 按這裡列印</button>
+  <span style="font-size:13px;color:#666;margin-left:8px">（沒有自動跳出列印時按這個；這一列不會印出來）</span>
+  <div id="long-note" style="display:none;margin-top:8px;font-size:13px;color:#b45309;line-height:1.6"></div>
+</div>
 <div class="print-wrap">${cardsHtml}</div>
 <script>
 // 商品介紹超過四行：從最後一句往前收，收到四行內並以「。」結尾（不會切在半個字）
@@ -2575,9 +2581,10 @@ fitAll();
 var started = false;
 function go(){ if (started) return; started = true; fitAll(); setTimeout(function(){
   fitAll();
-  var L = longCards();
-  if (L.length && !confirm('下面 ' + L.length + ' 張的配件太多（超過 6 項），卡片會比較長：\\n\\n' + L.join('\\n') + '\\n\\n要拿掉哪些配件請跟我們說，或先到「編輯」改配件。\\n仍要直接列印嗎？')) return;
-  window.print();
+  // 配件太多的只在上面列出來提醒（不跳視窗，免得擋住列印）
+  var L = longCards(), box = document.getElementById('long-note');
+  if (L.length && box) { box.style.display = 'block'; box.innerHTML = '⚠️ 這 ' + L.length + ' 張配件太多（超過 6 項），卡片會比較長，要拿掉哪些可以到「編輯」改：<br>' + L.join('<br>'); }
+  try { window.print(); } catch (e) {}
 },400); }
 window.onload = go;
 setTimeout(go, 1500);  // 有些瀏覽器的載入事件不會觸發，備用
