@@ -1788,18 +1788,22 @@ function cardBarColor(d, brand) {
   if (/CCD|Y2K/.test(d.ccd || '')) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
   if (THIRD_PARTY.includes(brand)) { const mb = mountBrand(d.name); if (mb) return CARD_BAR[mb]; }
   if (/M43/.test(d.category || '')) return '#525C2D';
-  return CARD_BAR[brand] || '#0d3b66';
+  return CARD_BAR[brand] || '#4a5560';  // 認不出品牌：中性灰，不要誤用 Sony 的藍
 }
 const CARD_LOGO_HEIGHT = { DJI: 16 };  // 比較方的 LOGO 放大一點，其他預設 12px
 const CARD_LOGO_WIDE = ['Hasselblad'];  // 太寬的 LOGO 自己一行，品類放下一行
 
 function splitCardName(raw) {
   let name = (raw || '').replace(/\s+/g, ' ').trim();
+  name = name.replace(/^[#＃]?\d{3,}[\s\-_.:：]+/, '');   // 前面的流水號（如 014349）不算名稱，先拿掉才認得出品牌
   let brand = null;
   for (const b of CARD_BRANDS) {
     // 品牌後面要接空白或結尾才算（避免「Fujinon」被當成「Fuji」+「non」）
     const hit = [b.name, ...(b.alias || [])].find(n => name.toLowerCase().startsWith(n.toLowerCase()) && !/[a-z0-9]/i.test(name.charAt(n.length)));
     if (hit) { brand = b.name; name = name.slice(hit.length).trim(); break; }
+  }
+  if (!brand) {   // 開頭沒寫品牌：用常見型號判斷（X100VI、X-T5…＝Fujifilm）
+    if (/^X(?:100|\d{2,3})[A-Z0-9]*\b|^X-[A-Z]\d/i.test(name)) brand = 'Fujifilm';
   }
   // 名稱太長時，光圈後面的規格放到第二行；光圈一律跟在 mm 後面留在第一行
   let main = name, spec = '';
