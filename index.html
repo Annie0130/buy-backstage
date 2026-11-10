@@ -1802,6 +1802,16 @@ function splitCardName(raw) {
     const hit = [b.name, ...(b.alias || [])].find(n => name.toLowerCase().startsWith(n.toLowerCase()) && !/[a-z0-9]/i.test(name.charAt(n.length)));
     if (hit) { brand = b.name; name = name.slice(hit.length).trim(); break; }
   }
+  name = name.replace(/\s+[#＃]?\d{4,}$/, '');   // 結尾的流水號（如 14349）也拿掉
+  if (!brand) {   // 開頭品牌打錯字（如 Fujifiim）：第一個字跟品牌名只差 1~2 個字母就算
+    const lev = (a, b) => { const d = Array.from({length: a.length + 1}, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
+      for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+      return d[a.length][b.length]; };
+    const w = name.split(' ')[0].toLowerCase();
+    if (w.length >= 4) for (const b of CARD_BRANDS) {
+      if ([b.name, ...(b.alias || [])].some(n => n.length >= 5 && lev(w, n.toLowerCase()) <= (n.length >= 7 ? 2 : 1))) { brand = b.name; name = name.slice(w.length).trim(); break; }
+    }
+  }
   if (!brand) {   // 開頭沒寫品牌：用常見型號判斷（X100VI、X-T5…＝Fujifilm）
     if (/^X(?:100|\d{2,3})[A-Z0-9]*\b|^X-[A-Z]\d/i.test(name)) brand = 'Fujifilm';
   }
