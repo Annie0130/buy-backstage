@@ -2416,7 +2416,7 @@ function stockToCardData(it) {
 }
 
 async function printStockCards() {
-  try { await _printStockCards(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+  try { await _printStockCards(); } catch (e) { console.error(e); showPrintError(e); }
 }
 async function _printStockCards() {
   if (stockRunning) { alert('AI 還在處理中，請等它跑完'); return; }
@@ -2466,7 +2466,7 @@ async function fillMissingIntros(recs, win) {
 }
 
 async function printSelectedCards() {
-  try { await _printSelectedCards(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+  try { await _printSelectedCards(); } catch (e) { console.error(e); showPrintError(e); }
 }
 async function _printSelectedCards() { return _printBasket(); }
 
@@ -2486,7 +2486,8 @@ async function _printBasket() {
       });
       failed += res.failed;
     }
-    if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
+    const notes = [];
+    if (failed) notes.push(`有 ${failed} 張 AI 沒有寫出商品介紹（多半是配件或認不出的型號），卡片介紹會是空的`);
     const noSn = recs.filter(r => !String(r.fields['序號'] || '').trim());
     if (noSn.length) showToast(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上不會有 S/N（${noSn.slice(0, 3).map(r => r.fields['器材一']).join('、')}${noSn.length > 3 ? '…' : ''}）`);
     const items = [...recs.map(r => ({k: 'rec', r})), ...posPicked.map(r => ({k: 'pos', r}))];
@@ -2494,9 +2495,10 @@ async function _printBasket() {
       const {data, accOverride} = it.k === 'rec' ? recordToCardData(it.r) : posToCardData(it.r);
       return buildCardHTML(data, accOverride);
     }, it => it.k === 'rec' ? (it.r.fields['器材一'] || it.r.id) : (it.r.fields['名稱'] || it.r.id));
-    if (!built.html) { alert('沒有可以印的卡片（資料都有問題）'); if (win) try { win.close(); } catch (e) {} return; }
-    if (!reportBadCards(built.bad, win)) return;
-    openPrintWindow(built.html, `印卡 ${items.length} 張`, win);
+    if (!built.html) { showPrintError('勾選的卡片資料都有問題，沒有可以印的：' + built.bad.slice(0, 8).join('、')); return; }
+    if (built.bad.length) notes.push(badCardsNote(built.bad));
+    if (noSn.length) notes.push(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上沒有 S/N`);
+    openPrintWindow(built.html, `印卡 ${items.length} 張`, win, notes);
     if (recs.length) markPrinted(recs);
     if (posPicked.length) { markPrinted(posPicked, POS_API); renderPos(); }
     try { filterRecords(); } catch (e) {}
@@ -2550,6 +2552,18 @@ function buildCardsSafe(items, mk, label) {
   items.forEach(it => { try { const h = mk(it); if (h) html.push(h); } catch (e) { console.error('卡片產生失敗', it, e); bad.push(label(it)); } });
   return {html: html.join('\n'), bad};
 }
+// 印卡出錯：把原因寫在列印視窗裡（不關視窗、不跳主畫面的對話框，iPad 上會看不到）
+function showPrintError(e) {
+  const msg = '印卡失敗：' + (e && e.message || e);
+  try {
+    if (lastWaitWin && !lastWaitWin.closed) { lastWaitWin.document.body.innerHTML = `<div style="font:16px sans-serif;padding:20px;color:#c62828">❌ ${String(msg).replace(/[<>&]/g, '')}<br><br><span style="color:#333">請把這段畫面截圖給我們，或重新整理頁面再試。</span></div>`; return; }
+  } catch (_) {}
+  alert(msg + '\n請重新整理頁面再試，或把這段訊息給我');
+}
+// 有問題的卡片：不再跳視窗詢問，改成寫在列印視窗上方的提醒裡，其餘照印
+function badCardsNote(bad) {
+  return bad.length ? `有 ${bad.length} 張卡片資料有問題，這次沒有印：${bad.slice(0, 8).join('、')}${bad.length > 8 ? '…' : ''}` : '';
+}
 function reportBadCards(bad, win) {
   if (!bad.length) return true;
   const msg = `有 ${bad.length} 張卡片資料有問題，無法產生：\n${bad.slice(0, 8).join('\n')}${bad.length > 8 ? '\n…' : ''}\n\n其餘的卡片要先印嗎？`;
@@ -2569,7 +2583,8 @@ function openWaitWindow() {
   return win;
 }
 
-function openPrintWindow(cardsHtml, title, win) {
+function openPrintWindow(cardsHtml, title, win, notes) {
+  const noteHtml = (notes || []).filter(Boolean).map(n => '⚠️ ' + String(n).replace(/[<>&]/g, '')).join('<br>');
   const styles = [...document.querySelectorAll('style')].map(s => s.innerHTML).join('\n');
   if (!win || win.closed) win = window.open('', '_blank', 'width=500,height=700');
   else win.document.open();
@@ -2605,6 +2620,7 @@ html,body{background:#fff!important;}
 <div class="no-print" id="print-bar" style="position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #ddd;padding:10px 0 10px;margin-bottom:10px;font-family:sans-serif">
   <button onclick="window.print()" style="font-size:18px;font-weight:700;padding:12px 22px;background:#0d3b66;color:#fff;border:none;border-radius:10px;cursor:pointer">🖨️ 按這裡列印</button>
   <span style="font-size:13px;color:#666;margin-left:8px">（沒有自動跳出列印時按這個；這一列不會印出來）</span>
+  ${noteHtml ? `<div style="margin-top:8px;font-size:13px;color:#b45309;line-height:1.6">${noteHtml}</div>` : ''}
   <div id="long-note" style="display:none;margin-top:8px;font-size:13px;color:#b45309;line-height:1.6"></div>
 </div>
 <div class="print-wrap">${cardsHtml}</div>
@@ -3190,7 +3206,7 @@ async function posAiButton() {
 }
 
 async function posPrint() {
-  try { await _posPrint(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
+  try { await _posPrint(); } catch (e) { console.error(e); showPrintError(e); }
 }
 async function _posPrint() { return _printBasket(); }
 
