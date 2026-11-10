@@ -1600,6 +1600,7 @@ function renderStats(){
 /* 商品介紹最多四行（列印前會把超過的句子收掉） */
 .lcard-desc{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
 .lcard-fn-bad{color:#c62828;}
+.lcard-consign{background:#fff;color:#654B3D;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:900;letter-spacing:.04em;}
 .lcard-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;}
 .lcard-qr-wrap img{width:56px;height:56px;display:block;}
 .lcard-qr-label{font-size:8px;color:#aaa;letter-spacing:.04em;text-align:center;}
@@ -1775,6 +1776,7 @@ function mountBrand(name) {
   return '';
 }
 function cardBarColor(d, brand) {
+  if (d.consign) return '#654B3D';  // 客人寄賣：深可可棕（最優先）
   if (/CCD|Y2K/.test(d.ccd || '')) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
   if (THIRD_PARTY.includes(brand)) { const mb = mountBrand(d.name); if (mb) return CARD_BAR[mb]; }
   if (/M43/.test(d.category || '')) return '#525C2D';
@@ -1877,7 +1879,7 @@ function buildCardHTML(d, accOverride) {
     // 快門數自己一行（放在新舊後面），新舊那一行才不會被擠成兩段
     {label:'快門數', val: hasShutter ? `<span style="color:#333;font-weight:700">${parseInt(d.shutter)}</span>` : '', empty: !hasShutter},
     {label:'原廠保', val: cardWarrantyHTML(d), empty: !d.mfgw},
-    {label:'本店保', val: d.shopw||'—'},
+    {label:'本店保', val: d.consign ? '<span class="lcard-fn-bad">寄賣・不保固</span>' : (d.shopw||'—')},
     {label:'來源', val: originText, empty: d.origin === '不影響'},
     {label:'功能', val: d.fn && !/^全數正常$/.test(d.fn.trim()) ? `<span class="lcard-fn-bad">${d.fn.replace(/\n/g,'<br>')}</span>` : (d.fn||'—'), empty: !d.fn},
   ].filter(s => !s.empty);
@@ -1889,7 +1891,7 @@ function buildCardHTML(d, accOverride) {
   return `<div class="lcard">
   <div class="lcard-header" style="background:${cardBarColor(d, nm.brand)}">
     <div class="lcard-left">
-      <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}</div>
+      <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}${d.consign ? '<span class="lcard-consign">寄賣・不保固</span>' : ''}</div>
       <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main||'—'}</div>
       ${nm.spec ? `<div class="lcard-prod-spec">${nm.spec}</div>` : ''}
     </div>
@@ -2116,6 +2118,7 @@ function recordToCardData(r) {
       category: f['品類'] || '',
       mfgwRaw: mfgwRaw,
       ccd:     String((f['CCD／Y2K'] && f['CCD／Y2K'].name) || f['CCD／Y2K'] || ''),
+      consign: f['進貨管道'] === '寄賣',
     },
     accOverride
   };
@@ -2913,7 +2916,7 @@ function renderPos() {
     <tr style="text-align:left;color:#8a96a5;font-size:11px"><th></th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>新舊</th><th>狀況說明</th><th>店保</th><th>介紹</th><th>印卡</th><th></th></tr>
     ${vis.map(r => { const f = r.fields; return `<tr style="border-top:1px solid #f0f0ec;${f['狀態'] === '已售出' ? 'color:#aaa' : ''}">
       <td style="padding:6px 4px"><input type="checkbox" ${posChecked.has(r.id) ? 'checked' : ''} onchange="posToggle('${r.id}',this.checked)"></td>
-      <td>${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
+      <td>${f['寄賣'] ? '<span style="background:#654B3D;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">寄賣</span> ' : ''}${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
       <td style="font-family:monospace;color:#6b6b63">${posEsc(f['條碼'])}</td>
       <td style="text-align:right">${f['售價'] ? Number(f['售價']).toLocaleString() : '—'}</td>
       <td style="color:${condColor[f['新舊程度']] || '#888'};white-space:nowrap">${posEsc(f['新舊程度'] || '—')}</td>
@@ -2931,7 +2934,7 @@ function posSelectAll(on) { posVisible().forEach(r => on ? posChecked.add(r.id) 
 
 // ── 編輯 ──
 const POS_EDIT = [
-  ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
+  ['名稱', 'text'], ['條碼', 'text'], ['寄賣', 'checkbox'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
   ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
   ['店保', ['半年保固(180天)', '7天保固', '2週保固', '1個月保固', '2個月保固', '3個月保固', '無保固']],
   ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],
@@ -2993,7 +2996,7 @@ function posToCardData(r) {
       shutter: f['快門數'] != null ? String(f['快門數']) : '', origin,
       mfgw: f['原廠保固'] || '', mfgwRaw: until ? `在保（至${until}）` : (f['原廠保固'] || ''),
       shopw: f['店保'] || '半年保固(180天)', acc: f['配件'] || '', fn: fn || '全數正常',
-      desc: f['商品介紹'] || '', category: f['品類'] || '', ccd: f['CCD／Y2K'] || '',
+      desc: f['商品介紹'] || '', category: f['品類'] || '', ccd: f['CCD／Y2K'] || '', consign: !!f['寄賣'],
     },
     accOverride: {'原廠盒': !!f['原廠盒'], '保卡': !!f['保卡']},
   };
@@ -3068,6 +3071,7 @@ function posRowFields(get, today) {
       '名稱': name, '條碼': get('sn'), '狀態': '在庫', 'POS分類': get('category'), '品牌': get('brand'),
       '售價': Math.round(parseFloat(get('price')) || 0) || null, '庫存量': qty, '貨品來源': get('origin'),
       '盒單': get('box'), '原廠盒': b.box, '保卡': b.card, 'POS備註': note, '最後匯入': today,
+      ...(/寄賣|寄售/.test(note + ' ' + name + ' ' + get('supplier')) ? {'寄賣': true} : {}),
     },
     parsed: {
       '新舊程度': p.cond, '狀況說明': p.issues.join('、'), '選單語言': p.lang, '配件': p.acc.join('、'),
@@ -3086,7 +3090,7 @@ async function posImportFile(file) {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval: ''});
     if (!rows.length) throw new Error('檔案裡沒有資料');
     const headers = Object.keys(rows[0]);
-    const COLS = Object.assign({}, STOCK_COLS, {brand: ['品牌']});
+    const COLS = Object.assign({}, STOCK_COLS, {brand: ['品牌'], supplier: ['供货商', '供貨商']});
     const col = {};
     for (const [k, names] of Object.entries(COLS)) col[k] = headers.find(h => names.includes(h.replace(/[（(]必填[)）]/g, '').trim()));
     if (!col.name || !col.sn) throw new Error('找不到「名稱」或「條碼」欄位，請確認是 POS 匯出的商品資料');
