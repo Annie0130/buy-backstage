@@ -1726,6 +1726,13 @@ function renderCardForm() {
     <div style="font-size:11px;font-weight:700;color:#8a96a5;margin-bottom:6px;letter-spacing:.04em">${cardData.origin==='水貨'?'原廠盒（水貨不列保卡）':'原廠盒 / 保卡'}</div>
     <div style="display:flex;gap:16px">${accChecks}</div>
   </div>`;
+  // 客人寄賣：卡片標題列改深可可棕、標「寄賣・不保固」（存檔時寫進「進貨管道」）
+  html += `<div style="grid-column:1/-1;background:#f5efeb;border:1px solid #d9c9bf;border-radius:8px;padding:8px 10px">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700;color:#654B3D;user-select:none">
+      <input type="checkbox" ${cardData.consign ? 'checked' : ''} onchange="cardData.consign=this.checked;renderCardPreview()" style="width:18px;height:18px;accent-color:#654B3D">
+      客人寄賣（卡片標示「寄賣・不保固」）
+    </label>
+  </div>`;
 
   form.innerHTML = html;
 }
@@ -1950,6 +1957,11 @@ async function saveCardToAirtable() {
     ? ((cardData.mfgwRaw||'').startsWith('在保') ? cardData.mfgwRaw : '在保')
     : (cardData.mfgw || '');
   if (cardData.shopw) fields['店保'] = cardData.shopw;
+  // 寄賣：勾了寫「寄賣」；原本是寄賣、現在取消的清空（其他進貨管道不動）
+  { const recNow = allRecords.find(r => r.id === currentCardRecordId);
+    const was = recNow && recNow.fields['進貨管道'];
+    if (cardData.consign) fields['進貨管道'] = '寄賣';
+    else if (was === '寄賣') fields['進貨管道'] = ''; }
   fields['CCD／Y2K'] = cardData.ccd || null;
   if (cardData.price) fields['售價'] = parseInt(cardData.price) || 0;
   // 配件清單：合併勾選的 always_acc 與手動填寫的配件
@@ -2934,7 +2946,7 @@ function posSelectAll(on) { posVisible().forEach(r => on ? posChecked.add(r.id) 
 
 // ── 編輯 ──
 const POS_EDIT = [
-  ['名稱', 'text'], ['條碼', 'text'], ['寄賣', 'checkbox'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
+  ['寄賣', 'checkbox'], ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
   ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
   ['店保', ['半年保固(180天)', '7天保固', '2週保固', '1個月保固', '2個月保固', '3個月保固', '無保固']],
   ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],
@@ -2953,6 +2965,7 @@ function posOpenEdit(id) {
     else if (t === 'checkbox') input = `<input id="${id2}" type="checkbox" ${v ? 'checked' : ''} style="width:20px;height:20px">`;
     else if (Array.isArray(t)) input = `<select id="${id2}" style="${st}">${[...new Set([...t, v].filter(x => x !== undefined))].map(o => `<option ${o === v ? 'selected' : ''}>${posEsc(o)}</option>`).join('')}</select>`;
     else input = `<input id="${id2}" type="${t}" value="${posEsc(v)}" style="${st}">`;
+    if (k === '寄賣') return `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:#f5efeb;border:1px solid #d9c9bf;border-radius:8px;padding:9px 10px;font-size:14px;font-weight:700;color:#654B3D;cursor:pointer">${input.replace('style="width:20px;height:20px"', 'style="width:20px;height:20px;accent-color:#654B3D"')}客人寄賣（卡片標示「寄賣・不保固」）</label>`;
     return `<div style="margin-bottom:10px"><div style="font-size:12px;color:#8a96a5;margin-bottom:3px">${k}${k === 'POS備註' ? '（POS 原文，重新匯入時會更新）' : ''}</div>${input}</div>`;
   }).join('');
   document.getElementById('pos-edit').style.display = 'flex';
