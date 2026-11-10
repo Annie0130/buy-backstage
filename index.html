@@ -175,6 +175,10 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
       style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
       全選
     </button>
+    <button onclick="selectAll(true)"
+      style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
+      全選未印過的
+    </button>
     <button onclick="clearSelect()"
       style="background:var(--gray-100);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;color:var(--gray-600);cursor:pointer;font-family:inherit">
       取消全選
@@ -271,6 +275,7 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
       <label style="padding:7px 12px;background:#2b8a3e;color:#fff;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📥 匯入 POS 檔<input type="file" accept=".xlsx,.xls,.csv" onchange="posImportFile(this.files[0]);this.value=''" style="display:none"></label>
       <button onclick="posSelectAll(true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選畫面上的</button>
+      <button onclick="posSelectAll(true, true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選未印過的</button>
       <button onclick="posSelectAll(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消全選</button>
       <button onclick="posAiButton()" style="padding:7px 12px;background:#7b4fc9;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✨ AI 補勾選的商品介紹</button>
       <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡（含收購紀錄勾的）</button>
@@ -643,9 +648,12 @@ function updateExportCount(){
 }
 function selectedIds(){ return [...SELECTED]; }
 
-function selectAll(){
-  // 全選「目前畫面上看得到的」，之前勾的保留
-  document.querySelectorAll('.record-checkbox').forEach(cb=>{ cb.checked=true; SELECTED.add(cb.dataset.id); });
+function selectAll(skipPrinted){
+  // 全選「目前畫面上看得到的」，之前勾的保留；skipPrinted＝跳過已經印過卡的
+  document.querySelectorAll('.record-checkbox').forEach(cb=>{
+    if (skipPrinted) { const rec = allRecords.find(x => x.id === cb.dataset.id); if (rec && rec.fields['印卡日期']) return; }
+    cb.checked=true; SELECTED.add(cb.dataset.id);
+  });
   updateExportCount();
 }
 
@@ -2510,9 +2518,22 @@ function updateBasketBar() {
     bar.dataset.key = key;
     bar.innerHTML = `<span>🖨️ 印卡清單：收購 <b>${nRec}</b> 張＋POS <b>${nPos}</b> 張</span>
       <button onclick="printSelectedCards()" style="background:#fff;color:#0d3b66;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit">一起印</button>
+      <button onclick="dropPrinted()" title="把已經印過卡的從清單拿掉" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit">跳過已印的</button>
       <button onclick="clearBasket()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit">清空</button>`;
   }
   bar.style.display = 'flex';
+}
+function dropPrinted() {
+  let n = 0;
+  [...SELECTED].forEach(id => { const rec = allRecords.find(x => x.id === id); if (rec && rec.fields['印卡日期']) { SELECTED.delete(id); n++; } });
+  document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = SELECTED.has(cb.dataset.id));
+  try { updateExportCount(); } catch (e) {}
+  if (typeof posChecked !== 'undefined') {
+    [...posChecked].forEach(id => { const r = posRecs.find(x => x.id === id); if (r && r.fields['印卡日期']) { posChecked.delete(id); n++; } });
+    try { renderPos(); } catch (e) {}
+  }
+  updateBasketBar();
+  showToast(n ? `已拿掉 ${n} 張印過的` : '勾選的都還沒印過');
 }
 function clearBasket() {
   SELECTED.clear();
@@ -3058,7 +3079,7 @@ function renderPos() {
 }
 
 function posToggle(id, on) { on ? posChecked.add(id) : posChecked.delete(id); renderPos(); }
-function posSelectAll(on) { posVisible().forEach(r => on ? posChecked.add(r.id) : posChecked.delete(r.id)); renderPos(); }
+function posSelectAll(on, skipPrinted) { posVisible().forEach(r => { if (on && skipPrinted && r.fields['印卡日期']) return; on ? posChecked.add(r.id) : posChecked.delete(r.id); }); renderPos(); }
 
 // ── 編輯 ──
 const POS_EDIT = [
