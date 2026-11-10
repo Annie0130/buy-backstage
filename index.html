@@ -273,7 +273,7 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
       <button onclick="posSelectAll(true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選畫面上的</button>
       <button onclick="posSelectAll(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消全選</button>
       <button onclick="posAiButton()" style="padding:7px 12px;background:#7b4fc9;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✨ AI 補勾選的商品介紹</button>
-      <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡</button>
+      <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡（含收購紀錄勾的）</button>
       <button onclick="loadPos()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
       <span id="pos-progress" style="font-size:12px;color:#6b6b63"></span>
     </div>
@@ -1620,7 +1620,7 @@ const CARD_FIELDS = [
   {id:'origin', label:'貨品來源', type:'select',   full:false, options:['公司貨','水貨']},
   {id:'mfgw',   label:'原廠保固', type:'select',   full:false, options:['已過保','在保（請填日期）','不確定']},
   {id:'shopw',  label:'店保',     type:'select',   full:false, options:['半年保固(180天)','7天保固','無保固']},
-  {id:'ccd',    label:'CCD／Y2K（選了色條變紫色）', type:'select', full:false, options:['','CCD 相機','Y2K 復古']},
+  {id:'ccd',    label:'CCD／Y2K（空白＝照名稱自動判斷顏色）', type:'select', full:false, options:['','CCD 相機','Y2K 復古']},
   {id:'acc',    label:'配件清單', type:'textarea', full:true,  placeholder:'例：原廠充電器、充電線…（原廠盒/保卡另有勾選）'},
   {id:'fn',     label:'功能狀態', type:'textarea', full:true,  placeholder:'例：全數正常'},
   {id:'desc',   label:'商品介紹', type:'textarea-spec', full:true, placeholder:'例：2024年推出，3300萬畫素，全片幅，6K影片'},
@@ -1783,9 +1783,37 @@ function mountBrand(name) {
   if (/for\s*l\b|l\s*mount|for\s*leica/i.test(n)) return 'Leica';
   return '';
 }
+// 用名稱認 CCD 年代的隨身機系列；手動選了 CCD／Y2K／都不是 的照手動
+const CCD_NAME_RULES = [
+  /\bDSC-?[PTWSHNLUFVM]\d{1,3}\b/i,                  // Sony Cyber-shot 舊款 P/T/W/S/H…（WX/TX/HX/RX 不算）
+  /\b(IXUS|IXY|ELPH)\s*\d+(?!\s*\d*\s*HS)(?![\dA-Z]*HS)\b/i, /\bpowershot\s*A\d{2,4}\b/i, /^(canon\s+)?(powershot\s+)?A\d{3,4}\b/i,
+  /^(canon\s+)?(powershot\s+)?S(90|95|[1-9]\d?\b)(?!\d)/i, /^(canon\s+)?(powershot\s+)?SX1[0-7]0\b/i, /^(canon\s+)?(powershot\s+)?G(7|9|10|11|12)\b(?!\s*X)/i,
+  /\bfinepix\b/i, /^fuji(film)?\s+(F\d{2,3}(EXR|fd)?|S\d{4}|Z\d{1,3}|J\d{2})\b/i,
+  /\bcoolpix\s*\d{3,4}\b/i, /\bcoolpix\s*(L\d{1,3}|S[1-9]\d{0,2})\b/i, /^nikon\s+(coolpix\s+)?P(5\d{3}|6000|7000|7100)\b/i,
+  /^(panasonic\s+lumix|panasonic|lumix)\s+(DMC-)?(FX\d{1,3}|FS\d{1,2}|LX[1-5]|TZ([1-9]|10)|ZS[1-7]|FZ(\d{1,2}|1[05]0))\b/i,
+  /^olympus\s+(μ|mju|u-?\d|FE-?\d|SP-?\d{3})/i, /\b(exilim|kodak|easyshare|optio|caplio)\b/i,
+  /^ricoh\s+GR\s*digital(\s*(i{1,3}|[123]))?\b/i, /^leica\s+(d-?lux\s*[1-5]|c-?lux\s*[1-3]|v-?lux\s*[1-2])\b/i,
+];
+// 老隨身機風格、但感光元件不是 CCD 的
+const Y2K_NAME_RULES = [
+  /\bDSC-?(WX|TX|HX)\d{1,3}V?\b/i, /^sony\s+(WX|TX|HX)\d{1,3}V?\b/i,
+  /^(canon\s+)?(powershot\s+)?S1[0-2]0\b/i, /^(canon\s+)?(powershot\s+)?SX2\d0\b/i,
+  /^pentax\s+MX-?1\b/i, /^fuji(film)?\s+(XF1|XQ[12])\b/i, /^olympus\s+XZ-?\d\b/i,
+];
+function retroType(d) {
+  const set = String(d.ccd || '').trim();
+  if (set === '都不是') return '';
+  if (set) return set;
+  const n = String(d.name || '').trim();
+  if (/\+|\d+(-\d+)?mm/i.test(n)) return '';           // 機身+鏡頭、鏡頭不算
+  if (CCD_NAME_RULES.some(re => re.test(n))) return 'CCD 相機';
+  if (Y2K_NAME_RULES.some(re => re.test(n))) return 'Y2K 復古';
+  return '';
+}
+
 function cardBarColor(d, brand) {
   if (d.consign) return '#654B3D';  // 客人寄賣：深可可棕（最優先）
-  if (/CCD|Y2K/.test(d.ccd || '')) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
+  if (/CCD|Y2K/.test(retroType(d))) return '#5a3d8a';  // CCD／Y2K 相機：紫色（優先於品牌）
   if (THIRD_PARTY.includes(brand)) { const mb = mountBrand(d.name); if (mb) return CARD_BAR[mb]; }
   if (/M43/.test(d.category || '')) return '#525C2D';
   return CARD_BAR[brand] || '#4a5560';  // 認不出品牌：中性灰，不要誤用 Sony 的藍
@@ -1869,7 +1897,7 @@ function buildCardHTML(d, accOverride) {
   const condText = d.cond || '—';
 
   // 配件 checklist（隨身機、CCD／Y2K 配的是手繩，不是背帶）
-  const isPocketCam = /隨身相機/.test(d.category || '') || /CCD|Y2K/.test(d.ccd || '');
+  const isPocketCam = /隨身相機/.test(d.category || '') || /CCD|Y2K/.test(retroType(d));
   // 鏡頭一定有前蓋、後蓋（已經寫了副廠前蓋／鏡頭蓋的就不重複加）
   if (isLensCard) {
     const accNow = String(d.acc || '').replace(/前後蓋/g, '鏡頭前蓋、鏡頭後蓋');
@@ -2432,29 +2460,68 @@ async function fillMissingIntros(recs, win) {
 async function printSelectedCards() {
   try { await _printSelectedCards(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
 }
-async function _printSelectedCards() {
-  const checkedIds = selectedIds();
-  if (!checkedIds.length) { alert('請先勾選要印卡的紀錄'); return; }
+async function _printSelectedCards() { return _printBasket(); }
+
+// 印卡清單：收購紀錄勾的 + POS 庫存勾的，可以一起印（兩個分頁的勾選都會保留）
+async function _printBasket() {
+  if (typeof posBusy !== 'undefined' && posBusy) { alert('還在處理中，請稍等'); return; }
+  const recs = selectedIds().map(id => allRecords.find(rec => rec.id === id)).filter(Boolean);
+  const posPicked = (typeof posRecs !== 'undefined') ? posRecs.filter(r => posChecked.has(r.id)) : [];
+  if (!recs.length && !posPicked.length) { alert('請先勾選要印卡的商品（收購紀錄、POS 庫存都可以勾）'); return; }
   const win = openWaitWindow();
-  const failed = await fillMissingIntros(checkedIds.map(id => allRecords.find(rec => rec.id === id)).filter(Boolean), win);
-  if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
-  const noSn = checkedIds.map(id => allRecords.find(rec => rec.id === id)).filter(r => r && !String(r.fields['序號'] || '').trim());
-  if (noSn.length) showToast(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上不會有 S/N（${noSn.slice(0, 3).map(r => r.fields['器材一']).join('、')}${noSn.length > 3 ? '…' : ''}）`);
-
-  const built = buildCardsSafe(checkedIds, id => {
-    const r = allRecords.find(rec => rec.id === id);
-    if (!r) return '';
-    const {data, accOverride} = recordToCardData(r);
-    return buildCardHTML(data, accOverride);
-  }, id => { const r = allRecords.find(rec => rec.id === id); return r ? (r.fields['器材一'] || id) : id; });
-  const allCards = built.html;
-  if (!allCards) { alert('沒有可以印的卡片（資料都有問題）'); if (win) try { win.close(); } catch (e) {} return; }
-  if (!reportBadCards(built.bad, win)) return;
-
-  openPrintWindow(allCards, `批次印卡 ${checkedIds.length} 張`, win);
-  markPrinted(checkedIds.map(id => allRecords.find(rec => rec.id === id)));
-  try { filterRecords(); } catch (e) {}
+  if (typeof posBusy !== 'undefined') posBusy = true;
+  try {
+    let failed = await fillMissingIntros(recs, win);
+    if (posPicked.length) {
+      const res = await posFillIntros(posPicked, (n, t) => {
+        try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補 POS 商品介紹 ${n} / ${t}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {}
+      });
+      failed += res.failed;
+    }
+    if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
+    const noSn = recs.filter(r => !String(r.fields['序號'] || '').trim());
+    if (noSn.length) showToast(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上不會有 S/N（${noSn.slice(0, 3).map(r => r.fields['器材一']).join('、')}${noSn.length > 3 ? '…' : ''}）`);
+    const items = [...recs.map(r => ({k: 'rec', r})), ...posPicked.map(r => ({k: 'pos', r}))];
+    const built = buildCardsSafe(items, it => {
+      const {data, accOverride} = it.k === 'rec' ? recordToCardData(it.r) : posToCardData(it.r);
+      return buildCardHTML(data, accOverride);
+    }, it => it.k === 'rec' ? (it.r.fields['器材一'] || it.r.id) : (it.r.fields['名稱'] || it.r.id));
+    if (!built.html) { alert('沒有可以印的卡片（資料都有問題）'); if (win) try { win.close(); } catch (e) {} return; }
+    if (!reportBadCards(built.bad, win)) return;
+    openPrintWindow(built.html, `印卡 ${items.length} 張`, win);
+    if (recs.length) markPrinted(recs);
+    if (posPicked.length) { markPrinted(posPicked, POS_API); renderPos(); }
+    try { filterRecords(); } catch (e) {}
+  } finally { if (typeof posBusy !== 'undefined') posBusy = false; }
 }
+
+// 畫面下方的「印卡清單」：顯示兩邊各勾了幾張，可以一起印或清空
+function updateBasketBar() {
+  const nRec = SELECTED.size, nPos = (typeof posChecked !== 'undefined') ? posChecked.size : 0;
+  let bar = document.getElementById('basket-bar');
+  if (!bar) {
+    bar = document.createElement('div'); bar.id = 'basket-bar';
+    bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:250;background:#0d3b66;color:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.25);display:none;align-items:center;gap:10px;font-size:13px;white-space:nowrap';
+    document.body.appendChild(bar);
+  }
+  if (!nRec && !nPos) { bar.style.display = 'none'; return; }
+  const key = nRec + '/' + nPos;
+  if (bar.dataset.key !== key) {
+    bar.dataset.key = key;
+    bar.innerHTML = `<span>🖨️ 印卡清單：收購 <b>${nRec}</b> 張＋POS <b>${nPos}</b> 張</span>
+      <button onclick="printSelectedCards()" style="background:#fff;color:#0d3b66;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit">一起印</button>
+      <button onclick="clearBasket()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit">清空</button>`;
+  }
+  bar.style.display = 'flex';
+}
+function clearBasket() {
+  SELECTED.clear();
+  document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = false);
+  try { updateExportCount(); } catch (e) {}
+  if (typeof posChecked !== 'undefined') { posChecked.clear(); try { renderPos(); } catch (e) {} }
+  updateBasketBar();
+}
+setInterval(updateBasketBar, 700);
 
 // 一張一張產生卡片：某一筆資料有問題時跳過它並告知，不要讓整批都印不出來
 function buildCardsSafe(items, mk, label) {
@@ -2977,7 +3044,7 @@ function renderPos() {
     <tr style="text-align:left;color:#8a96a5;font-size:11px"><th></th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>新舊</th><th>狀況說明</th><th>店保</th><th>介紹</th><th>印卡</th><th></th></tr>
     ${vis.map(r => { const f = r.fields; return `<tr style="border-top:1px solid #f0f0ec;${f['狀態'] === '已售出' ? 'color:#aaa' : ''}">
       <td style="padding:6px 4px"><input type="checkbox" ${posChecked.has(r.id) ? 'checked' : ''} onchange="posToggle('${r.id}',this.checked)"></td>
-      <td>${f['寄賣'] ? '<span style="background:#654B3D;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">寄賣</span> ' : ''}${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
+      <td>${f['寄賣'] ? '<span style="background:#654B3D;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">寄賣</span> ' : ''}${(() => { const t = retroType({name: f['名稱'], ccd: f['CCD／Y2K']}); return t ? `<span style="background:#5a3d8a;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">${t.replace(' 相機', '').replace(' 復古', '')}</span> ` : ''; })()}${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
       <td style="font-family:monospace;color:#6b6b63">${posEsc(f['條碼'])}</td>
       <td style="text-align:right">${f['售價'] ? Number(f['售價']).toLocaleString() : '—'}</td>
       <td style="color:${condColor[f['新舊程度']] || '#888'};white-space:nowrap">${posEsc(f['新舊程度'] || '—')}</td>
@@ -2999,7 +3066,7 @@ const POS_EDIT = [
   ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
   ['店保', ['半年保固(180天)', '7天保固', '2週保固', '1個月保固', '2個月保固', '3個月保固', '無保固']],
   ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],
-  ['原廠盒', 'checkbox'], ['保卡', 'checkbox'], ['品類', ['', ...CARD_CATEGORIES]], ['CCD／Y2K', ['', 'CCD 相機', 'Y2K 復古']],
+  ['原廠盒', 'checkbox'], ['保卡', 'checkbox'], ['品類', ['', ...CARD_CATEGORIES]], ['CCD／Y2K', ['', 'CCD 相機', 'Y2K 復古', '都不是']],
   ['商品介紹', 'textarea'], ['狀態', ['在庫', '已售出']], ['POS備註', 'readonly'],
 ];
 function posOpenEdit(id) {
@@ -3104,25 +3171,7 @@ async function posAiButton() {
 async function posPrint() {
   try { await _posPrint(); } catch (e) { console.error(e); try { lastWaitWin && lastWaitWin.close(); } catch (_) {} alert('印卡失敗：' + (e && e.message || e) + '\n請重新整理頁面再試，或把這段訊息給我'); }
 }
-async function _posPrint() {
-  if (posBusy) { alert('還在處理中，請稍等'); return; }
-  const picked = posVisible().filter(r => posChecked.has(r.id));
-  if (!picked.length) { alert('請先勾選要印卡的商品'); return; }
-  posBusy = true;
-  const win = openWaitWindow();
-  try {
-    // 沒有商品介紹的先請 AI 寫，寫好存回專區
-    const {failed} = await posFillIntros(picked, (n, t) => {
-      try { win && (win.document.body.innerHTML = `<p style="font:16px sans-serif;padding:20px">AI 正在補商品介紹 ${n} / ${t}…<br>跑完會自動跳出列印，請不要關掉這個視窗。</p>`); } catch (e) {}
-      posProg(`AI 補介紹 ${n} / ${t}`);
-    });
-    posProg('');
-    if (failed && !confirm(`有 ${failed} 筆 AI 沒有寫成功，卡片會缺商品介紹。仍要列印嗎？`)) { if (win) win.close(); return; }
-    const cards = picked.map(r => { const {data, accOverride} = posToCardData(r); return buildCardHTML(data, accOverride); }).join('\n');
-    openPrintWindow(cards, `POS 庫存印卡 ${picked.length} 張`, win);
-    markPrinted(picked, POS_API); renderPos();
-  } finally { posBusy = false; }
-}
+async function _posPrint() { return _printBasket(); }
 
 // ── 匯入 POS 檔：照條碼更新、新的加入、新檔沒有的標成已售出 ──
 function posRowFields(get, today) {
