@@ -2599,13 +2599,8 @@ body{background:#fff;font-family:'PingFang TC','Noto Sans TC',sans-serif;padding
 ${styles}
 .lcard{box-shadow:none!important;border:1px dashed #ccc;break-inside:avoid;}
 /* 同一排的卡：標題、規格、商品描述三段高度對齊（描述列一樣高，空白放在規格區下面） */
-@supports (grid-template-rows:subgrid){
-  .print-wrap{display:grid;grid-template-columns:repeat(auto-fill,306px);column-gap:1mm;row-gap:0;}
-  .print-wrap .lcard:nth-last-child(-n+2){margin-bottom:0;}
-  .print-wrap .lcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:0;margin-bottom:1mm;}
-  .print-wrap .lcard-footer{align-items:flex-start;}
-
-}
+/* 每張卡獨立：照自己的內容決定長短，旁邊配件多的卡不會把它拉長 */
+.print-wrap{align-items:flex-start;}
 /* 列印頁一律白底（後台本身是灰底，不要帶過來浪費墨水） */
 html,body{background:#fff!important;}
 @media print{
@@ -2667,7 +2662,7 @@ function samePage(){
     });
   }
 }
-function fitAll(){ fitNames(); fitDesc(); samePage(); }
+function fitAll(){ fitNames(); fitDesc(); }
 // 拿掉原廠盒之後配件還是超過 6 行（卡片會變長）的，列出來讓老闆決定要拿掉哪些
 function longCards(){
   var out = [];
