@@ -1,6 +1,6 @@
 {
- "version": "20261109-1536",
- "note": "批次改蝦皮分類：只改 CCD 相機",
+ "version": "20261112-1622",
+ "note": "店保可以自己輸入（例：3個月保固），上架文案照實際寫",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "52d96a398ee8a5f3c922616af8f2ce0fd415fb9d4774647cc601bab18abf315e"
+   "sha256": "9beb5fee1390cac5155cbe5cc9409130ad3c474763f116195c7a18af4b70039f"
   },
   {
    "path": "使用說明.txt",

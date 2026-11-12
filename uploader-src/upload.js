@@ -375,8 +375,9 @@ function buildListingText(f) {
   const warrantyStr = warranty && warranty.startsWith('在保')
     ? `原廠保固${warranty.replace('在保', '').trim()}`
     : shopW.startsWith('7天') ? '商品售出 7 天保固'
-    : shopW.startsWith('無') ? '本商品無店家保固'
-    : '商品售出半年保固';
+    : /^(無|不)保固|^無$/.test(shopW) ? '本商品無店家保固'
+    : !shopW.trim() || /半年|180/.test(shopW) ? '商品售出半年保固'
+    : `商品售出${shopW.trim().replace(/保固$/, '')}保固`;   // 自己輸入的（例：3個月保固 → 商品售出3個月保固）
 
   // 不寫來源的情況：CCD／Y2K 相機、或收購時貨品來源選「不影響」；其他照寫公司貨／水貨
   const isRetro = !!(f['CCD／Y2K'] && (f['CCD／Y2K'].name || f['CCD／Y2K']));

@@ -287,6 +287,13 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
 
 </div>
 
+<!-- 本店保固：可以選，也可以自己輸入 -->
+<datalist id="shopw-list">
+  <option value="半年保固(180天)"></option><option value="7天保固"></option><option value="2週保固"></option>
+  <option value="1個月保固"></option><option value="2個月保固"></option><option value="3個月保固"></option>
+  <option value="1年保固"></option><option value="無保固"></option>
+</datalist>
+
 <!-- POS 庫存：編輯一筆 -->
 <div id="pos-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:320;align-items:flex-end;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:18px 18px 40px">
@@ -1627,7 +1634,7 @@ const CARD_FIELDS = [
   {id:'shutter',label:'快門數',   type:'text',     full:false, placeholder:'例：5000'},
   {id:'origin', label:'貨品來源', type:'select',   full:false, options:['公司貨','水貨']},
   {id:'mfgw',   label:'原廠保固', type:'select',   full:false, options:['已過保','在保（請填日期）','不確定']},
-  {id:'shopw',  label:'店保',     type:'select',   full:false, options:['半年保固(180天)','7天保固','無保固']},
+  {id:'shopw',  label:'店保（可選也可自己打）', type:'combo', full:false},
   {id:'ccd',    label:'CCD／Y2K（空白＝照名稱自動判斷顏色）', type:'select', full:false, options:['','CCD 相機','Y2K 復古']},
   {id:'acc',    label:'配件清單', type:'textarea', full:true,  placeholder:'例：原廠充電器、充電線…（原廠盒/保卡另有勾選）'},
   {id:'fn',     label:'功能狀態', type:'textarea', full:true,  placeholder:'例：全數正常'},
@@ -1704,6 +1711,8 @@ function renderCardForm() {
         input += `<input type="date" value="${dm ? dm[1] : ''}" onchange="cardData.mfgwRaw=this.value?'在保（至'+this.value+'）':'在保';renderCardPreview()" style="${baseS}margin-top:6px" title="原廠保固到期日">
           <div style="font-size:10px;color:#8a96a5;margin-top:2px">↑ 原廠保固到期日</div>`;
       }
+    } else if (f.type === 'combo') {
+      input = `<input list="shopw-list" value="${String(val).replace(/"/g,'&quot;')}" placeholder="可直接輸入，例：3個月保固" oninput="cardData['${f.id}']=this.value;renderCardPreview()" onfocus="this.select()" style="${baseS}">`;
     } else if (f.type === 'textarea' || f.type === 'textarea-spec') {
       const textarea = `<textarea id="card-field-${f.id}" oninput="cardData['${f.id}']=this.value;renderCardPreview()" style="${baseS}min-height:52px;resize:vertical" placeholder="${f.placeholder||''}">${val}</textarea>`;
       if (f.type === 'textarea-spec') {
@@ -2776,7 +2785,7 @@ const EDIT_FIELDS = [
   {key:'快門數', label:'快門數（純數字，例：5000）', type:'text'},
   {key:'貨品來源', label:'貨品來源', type:'select', options:['公司貨','水貨']},
   {key:'原廠保固', label:'原廠保固狀態', type:'select', options:['已過保','在保','不確定']},
-  {key:'店保', label:'本店保固', type:'select', options:['','半年保固(180天)','7天保固','無保固']},
+  {key:'店保', label:'本店保固（可選也可自己打）', type:'combo'},
   {key:'新舊程度', label:'新舊程度', type:'select', options:['全新','近無使用痕跡','些許使用痕跡','使用痕跡多']},
   {key:'盒裝', label:'盒裝', type:'select', options:['有盒子','無盒子']},
   {key:'盒單', label:'盒單', type:'select', options:['無盒無單','有盒無單','有盒有單','無盒有單']},
@@ -2805,6 +2814,8 @@ function openEdit(id){
     let input = '';
     if(field.type==='textarea'){
       input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
+    } else if(field.type==='combo'){
+      input = `<input list="shopw-list" id="edit-${field.key}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
     } else if(field.type==='select'){
       // 原本的值不在選項裡（例如「在保（至2027-03-31）」）就加進去，存檔時才不會被換掉
       const list = (val && !field.options.includes(val)) ? [val, ...field.options] : field.options;
@@ -2916,7 +2927,7 @@ const ADD_FIELDS = [
   {key:'功能備註', label:'功能／外觀備註（例：已維修更換快門組）', type:'textarea'},
   {key:'原廠保固', label:'原廠保固', type:'select', options:['已過保','在保','不確定']},
   {key:'保固到期', label:'原廠保固到期日（選「在保」才要填）', type:'date'},
-  {key:'店保', label:'本店保固', type:'select', options:['半年保固(180天)','7天保固','無保固']},
+  {key:'店保', label:'本店保固（可選也可自己打）', type:'combo'},
   {key:'CCD／Y2K', label:'CCD／Y2K 相機（不是就不用選）', type:'select', options:['','CCD 相機','Y2K 復古']},
   {key:'經手人員', label:'經手人員', type:'text'},
 ];
@@ -2925,7 +2936,8 @@ function openAddItem(){
   const today = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
   document.getElementById('add-fields').innerHTML = ADD_FIELDS.map(f=>{
     let input;
-    if(f.type==='select') input = `<select id="add-${f.key}" style="${addInputStyle}">${f.options.map(o=>`<option value="${o}">${o||'（不是）'}</option>`).join('')}</select>`;
+    if(f.type==='combo') input = `<input list="shopw-list" id="add-${f.key}" value="半年保固(180天)" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="${addInputStyle}">`;
+    else if(f.type==='select') input = `<select id="add-${f.key}" style="${addInputStyle}">${f.options.map(o=>`<option value="${o}">${o||'（不是）'}</option>`).join('')}</select>`;
     else if(f.type==='textarea') input = `<textarea id="add-${f.key}" style="${addInputStyle};min-height:56px;resize:vertical"></textarea>`;
     else input = `<input type="${f.type}" id="add-${f.key}" value="${f.key==='交易日期'?today:''}" style="${addInputStyle}" ${f.type==='number'?'inputmode="numeric"':''}>`;
     return `<div style="margin-bottom:11px"><div style="font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:4px">${f.label}</div>${input}</div>`;
@@ -3140,7 +3152,7 @@ function posSelectAll(on, skipPrinted) { posVisible().forEach(r => { if (on && s
 const POS_EDIT = [
   ['寄賣', 'checkbox'], ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
   ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
-  ['店保', ['半年保固(180天)', '7天保固', '2週保固', '1個月保固', '2個月保固', '3個月保固', '無保固']],
+  ['店保', 'combo'],
   ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],
   ['原廠盒', 'checkbox'], ['保卡', 'checkbox'], ['品類', ['', ...CARD_CATEGORIES]], ['CCD／Y2K', ['', 'CCD 相機', 'Y2K 復古', '都不是']],
   ['商品介紹', 'textarea'], ['狀態', ['在庫', '已售出']], ['POS備註', 'readonly'],
@@ -3155,6 +3167,7 @@ function posOpenEdit(id) {
     if (t === 'textarea') input = `<textarea id="${id2}" style="${st};min-height:70px">${posEsc(v)}</textarea>`;
     else if (t === 'readonly') input = `<div style="font-size:12px;color:#6b6b63;background:#f6f6f2;border-radius:8px;padding:8px 10px">${posEsc(v) || '—'}</div>`;
     else if (t === 'checkbox') input = `<input id="${id2}" type="checkbox" ${v ? 'checked' : ''} style="width:20px;height:20px">`;
+    else if (t === 'combo') input = `<input id="${id2}" list="shopw-list" value="${posEsc(v)}" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="${st}">`;
     else if (Array.isArray(t)) input = `<select id="${id2}" style="${st}">${[...new Set([...t, v].filter(x => x !== undefined))].map(o => `<option ${o === v ? 'selected' : ''}>${posEsc(o)}</option>`).join('')}</select>`;
     else input = `<input id="${id2}" type="${t}" value="${posEsc(v)}" style="${st}">`;
     if (k === '寄賣') return `<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:#f5efeb;border:1px solid #d9c9bf;border-radius:8px;padding:9px 10px;font-size:14px;font-weight:700;color:#654B3D;cursor:pointer">${input.replace('style="width:20px;height:20px"', 'style="width:20px;height:20px;accent-color:#654B3D"')}客人寄賣（卡片標示「寄賣・不保固」）</label>`;
