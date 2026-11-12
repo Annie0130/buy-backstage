@@ -1,6 +1,6 @@
 {
- "version": "20261113-0014",
- "note": "蝦皮不接受最低購買數量時，保留原本數量、其他欄位照樣存好並提醒",
+ "version": "20261113-0015",
+ "note": "蝦皮按更新後跳出確認視窗會自動按確認，並拍下畫面方便檢查",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "93206b409da694abb3f70ef646ede279c1dc5eaedd8ba4520cc04f3103b9d1ec"
+   "sha256": "78b115df9893616aa05ed9d5f8b8251d74ccad82d8ccd79108d599b2f4ae4589"
   },
   {
    "path": "使用說明.txt",
