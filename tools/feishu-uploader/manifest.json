@@ -1,6 +1,6 @@
 {
- "version": "20261112-2345",
- "note": "重新上架：照片放進「照片放這裡」也可以，會照輸入的序號分照片",
+ "version": "20261112-2350",
+ "note": "控制台重新上架說明更新",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "a4c8cd811ecdfb7c8bf6651b197ff1473b7ce40dd8fd4e2a5b4c22a9724c0d67"
+   "sha256": "4ebed7f9b918854994cb564859d278ef70aab1c8f8ad4e0a97880b3dd015ccc9"
   },
   {
    "path": "panel.js",
