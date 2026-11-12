@@ -37,6 +37,7 @@ const COMMANDS = {
   bsmi: { label: '🧾 批次補 BSMI', args: ['upload.js', 'bsmifix'] },
   catfix: { label: '🗂️ 批次改蝦皮分類', args: ['upload.js', 'catfix'] },
   republish: { label: '🔁 重新發佈到蝦皮', args: ['upload.js', 'republish'], serials: true },
+  redo: { label: '🛠️ 輸入序號重新上架', args: ['upload.js', 'redo'], serials: true },
   todo: { label: '📋 待辦清單', args: ['upload.js', 'todo'] },
   markshopee: { label: '✓ 蝦皮已手動補好', args: ['upload.js', 'markshopee'], serials: true },
   update: { label: '🔄 更新程式', args: ['update.js'] },

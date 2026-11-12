@@ -1,6 +1,6 @@
 {
- "version": "20261112-1622",
- "note": "店保可以自己輸入（例：3個月保固），上架文案照實際寫",
+ "version": "20261112-2335",
+ "note": "控制台新增「輸入序號重新上架」；機身+鏡頭套組的飛鼠分類改成相機",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,12 +20,12 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "9a13ae08d3522096eb6de862c2a5f12098f77904d5345d5df17422f00634949d"
+   "sha256": "a4c8cd811ecdfb7c8bf6651b197ff1473b7ce40dd8fd4e2a5b4c22a9724c0d67"
   },
   {
    "path": "panel.js",
    "url": "f04.js.txt",
-   "sha256": "4b430b0737bf76fcedbced7a63a2fa65096b1ba88d28e47724b37cebedf846ba"
+   "sha256": "1b0a70da9d6b5d278f7f592dd8d5246a203c2478bd529a92935ebda7480c8e85"
   },
   {
    "path": "shopee-minqty.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "9beb5fee1390cac5155cbe5cc9409130ad3c474763f116195c7a18af4b70039f"
+   "sha256": "49ebe6bd3721fde4796df284431b0d684ef2e43996a8def1945c89ea21b88fd4"
   },
   {
    "path": "使用說明.txt",

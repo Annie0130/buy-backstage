@@ -100,6 +100,15 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
     </section>
 
 
+    <section class="card" style="border:2px solid #f0b429">
+      <h2>🛠️ 上架失敗、要重新上架？ <small>輸入序號就好</small></h2>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="redoSerials" placeholder="要重新上架的序號（好幾個用空白隔開，例：06255504）" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter')redoRun()">
+        <button onclick="redoRun()">🛠️ 重新上架</button>
+      </div>
+      <div class="why">給「上次上架失敗，但狀態已經變成已上架／草稿，所以一鍵上架不會再處理」的商品用。會用「系統\商品照片\序號」裡的照片重新建立並發佈，不用勾「上架飛鼠」。官網上已經查得到的會先問你要不要繼續（避免重複上架），請在下方黑色紀錄區的輸入框回答。</div>
+    </section>
+
     <section class="card">
       <h2>📸 已經上架的商品，想重拍照片？ <small>平常不用管這區</small></h2>
       <ol class="how">
@@ -182,6 +191,12 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
 </div>
 
 <script>
+function redoRun(){
+  const list = document.getElementById('redoSerials').value.trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!list.length) { alert('請先輸入序號'); return; }
+  if (!confirm('要重新上架這些序號嗎？\n' + list.join('、'))) return;
+  run('redo', list);
+}
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2500); }

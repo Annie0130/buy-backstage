@@ -647,7 +647,8 @@ const BRAND_RULES = [
   ['Ricoh', /ricoh|理光|\bgr\s?i{1,3}x?\b/i],
   ['Sony', /sony|索尼|\bα\d|\bilce|\bzv-?e?\d|\ba7[a-z]*\d*\b|\ba6\d{3}\b/i],
 ];
-const LENS_RE = /\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*mm|\d+(\.\d+)?\s*mm|f\s*\/?\s*\d+(\.\d+)?\b|鏡頭|\blens\b|macro|nikkor|zuiko/i;
+const LENS_RE_ALL = /\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*mm|\d+(\.\d+)?\s*mm|f\s*\/?\s*\d+(\.\d+)?\b|鏡頭|\blens\b|macro|nikkor|zuiko/i;
+const LENS_RE = LENS_RE_ALL;
 
 // 副廠鏡頭品牌（不在飛鼠分類清單裡）：品牌照填，分類留空讓你手動選
 const THIRD_PARTY = [['Tamron', /tamron|騰龍/i], ['Viltrox', /viltrox|唯卓/i], ['Samyang', /samyang|森養/i],
@@ -675,6 +676,9 @@ function guessMount(name) {
 
 function guessCategory(name, brand) {
   if (!brand) return '';
+  // 「機身+鏡頭」套組（例：Nikon ZFC+16-50mm）算相機，不要因為有焦段就放進鏡頭分類
+  const isKit = /\+/.test(name);
+  const LENS_RE = { test: (n) => !isKit && LENS_RE_ALL.test(n) };
   if (THIRD_PARTY_NAMES.has(brand)) {
     const mount = guessMount(name);
     return mount && LENS_RE.test(name) ? `${mount} 鏡頭` : '';
@@ -1536,14 +1540,17 @@ async function openNewProductPage(page) {
 async function main(srcOverride) {
   const src = srcOverride || process.argv[2];
   const listOnly = process.argv.includes('--list');
-  const redo = process.argv.includes('--redo'); // 之前記成已上架的也重新處理
+  const redo = process.argv.includes('--redo') || !!REDO_ROWS; // 之前記成已上架的也重新處理
   // 指令後面可加：--draft（自動存草稿）、--create（自動建立）、--limit 1（只跑 1 筆）
   if (process.argv.includes('--draft')) CONFIG.mode = 'draft';
   if (process.argv.includes('--create')) CONFIG.mode = 'create';
   const li = process.argv.indexOf('--limit');
   if (li > 0 && process.argv[li + 1]) CONFIG.limit = parseInt(process.argv[li + 1], 10) || 0;
   let rows;
-  if (src === 'airtable') {
+  if (src === 'airtable' && REDO_ROWS) {
+    rows = REDO_ROWS;
+    console.log(`這次只重新上架指定的 ${rows.length} 筆`);
+  } else if (src === 'airtable') {
     rows = await readAirtable();
     console.log(`從 Airtable 讀到 ${rows.length} 筆${CONFIG.airtable.requireMark ? '「已標記上架飛鼠」' : ''}的收購紀錄`);
   } else if (src && fs.existsSync(src)) {
@@ -2343,6 +2350,48 @@ async function hasReadyPhotos() {
   const st = lastFeishuStatus();
   return (await readAirtable()).some((r) => r['條碼'] && !(st.get(keyOf(r)) || '').startsWith('成功') && productPhotos(r['條碼']).length);
 }
+// =================== 輸入序號重新上架（node upload.js redo 序號…）===================
+// 給「上次失敗、但收購後台已經記成已上架／草稿」所以一鍵上架不會再處理的商品用；不需要勾「上架飛鼠」
+let REDO_ROWS = null;
+async function redoMain(serials) {
+  serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).map((x) => String(x).trim()).filter(Boolean);
+  if (!serials.length) { console.log('請在控制台輸入要重新上架的序號（好幾個用空白隔開）'); return; }
+  console.log(`要重新上架的序號：${serials.join('、')}`);
+  const rows = await rowsBySerials(serials);
+  rows.filter((r) => r._missing).forEach((r) => console.log(`❌ 收購紀錄找不到序號 ${r['條碼']}（請確認序號有沒有打錯、開頭的 0）`));
+  let todo = rows.filter((r) => !r._missing);
+  const noPhoto = todo.filter((r) => !productPhotos(r['條碼']).length);
+  noPhoto.forEach((r) => console.log(`📷 「${r['商品名稱']}」序號 ${r['條碼']} 還沒有分好的照片（系統\\商品照片\\${r['條碼']}），這次先略過`));
+  todo = todo.filter((r) => productPhotos(r['條碼']).length);
+  if (!todo.length) { console.log('\n沒有可以重新上架的商品。'); return; }
+  // 官網已經查得到的，再建立會變成兩筆：先問
+  const sf = await storefrontMany(todo.map((r) => r['條碼']));
+  const live = todo.filter((r) => sf.get(r['條碼']));
+  if (live.length) {
+    console.log('\n⚠️ 這幾件在官網上已經查得到，再建立一次會變成兩筆重複的商品：');
+    live.forEach((r) => console.log(`   ・${r['商品名稱']}　序號 ${r['條碼']}`));
+    const a = await ask('👉 確定這幾件也要重新上架嗎？輸入 y 再按 Enter＝要；直接按 Enter＝這幾件不要（其他照樣上架）：');
+    if (!/^y/i.test(String(a || '').trim())) todo = todo.filter((r) => !live.includes(r));
+  }
+  if (!todo.length) { console.log('\n沒有要重新上架的商品。'); return; }
+  console.log(`\n開始重新上架 ${todo.length} 件：`);
+  todo.forEach((r, i) => console.log(`  ${i + 1}. ${r['商品名稱']}　序號 ${r['條碼']}（${productPhotos(r['條碼']).length} 張照片）`));
+  REDO_ROWS = todo;
+  CONFIG.mode = 'create';
+  CONFIG.closeWhenDone = true;
+  CONFIG.onlyWithPhotos = true;
+  const logBefore = readCsv(CONFIG.logFile).length;
+  await main('airtable');
+  REDO_ROWS = null;
+  const created = [...new Set(readCsv(CONFIG.logFile).slice(logBefore)
+    .filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '')).map((c) => c[2]).filter(Boolean))];
+  if (!created.length) { console.log('\n這次沒有重新上架成功的商品，請看上面的訊息。'); return; }
+  console.log('\n===== 重新發佈一次，讓飛鼠推到蝦皮 =====');
+  await new Promise((res) => setTimeout(res, 20000));
+  await republishMain(created);
+  shopeeLaterNote();
+}
+
 async function allMain() {
   console.log('===== ① 照片分組 =====');
   const applied = await photosMain();
@@ -3231,6 +3280,6 @@ async function checkUpdate() {
 if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
 if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'catfix' ? catFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
-  : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'drafts' ? draftsMain()
+  : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'redo' ? redoMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
 module.exports = { ccdOnly, autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
