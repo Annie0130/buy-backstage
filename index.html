@@ -2671,7 +2671,42 @@ function twoSizes(){
     c.style.minHeight = (h <= CARD_SHORT ? CARD_SHORT : Math.max(CARD_LONG, h)) + 'px';
   });
 }
-function fitAll(){ fitNames(); fitDesc(); twoSizes(); }
+// 品牌｜品類那一行、第二行規格：放不下時縮小字，不要換行（APS-C 不會跑到第二行）
+function fitOneLine(sel){
+  document.querySelectorAll(sel).forEach(function(el){
+    var card = el.closest('.lcard'), hd = el.closest('.lcard-header'), hr = hd && hd.querySelector('.lcard-header-right');
+    var limit = function(){ return hr ? hr.getBoundingClientRect().left - 6 : card.getBoundingClientRect().right - 12; };
+    if (el.querySelector('.lcard-brand.wide')) return;   // 太寬的 LOGO（如 Hasselblad）本來就自己一行，不要縮
+    var items = [].slice.call(el.children), bi = -1;
+    items.forEach(function(c, i){ if (bi < 0 && c.classList.contains('lcard-break')) bi = i; });
+    var first = bi >= 0 ? items.slice(0, bi) : items;           // 「寄賣・不保固」前面那一段（品牌＋品類）
+    if (bi < 0) { el.style.whiteSpace = 'nowrap'; if (!first.length) el.style.overflow = 'visible'; }
+    var kids = first.length ? first.concat([].slice.call(el.querySelectorAll('.lcard-brand img, .lcard-brand span'))) : [el];
+    var base = kids.map(function(k){ return k.tagName === 'IMG' ? k.getBoundingClientRect().height : parseFloat(getComputedStyle(k).fontSize); });
+    var bad = function(){
+      var right, wrapped = false;
+      if (first.length) {
+        var top0 = first[0].getBoundingClientRect().top;
+        first.forEach(function(c){ if (c.getBoundingClientRect().top > top0 + 2) wrapped = true; });
+        right = Math.max.apply(null, first.map(function(c){ return c.getBoundingClientRect().right; }));
+      } else { var rg = document.createRange(); rg.selectNodeContents(el); right = rg.getBoundingClientRect().right; }
+      return wrapped || right > limit() + 0.5;
+    };
+    var scale = 1;
+    while (bad() && scale > 0.6) {
+      scale -= 0.05;
+      kids.forEach(function(k, i){ if (k.tagName === 'IMG') k.style.height = (base[i] * scale) + 'px'; else k.style.fontSize = (base[i] * scale) + 'px'; });
+    }
+  });
+}
+// 同一次印的卡片，上方顏色條一樣高（照最高的那條）
+function sameHeader(){
+  var hs = document.querySelectorAll('.lcard-header'), max = 0;
+  hs.forEach(function(h){ h.style.minHeight = ''; });
+  hs.forEach(function(h){ max = Math.max(max, h.getBoundingClientRect().height); });
+  hs.forEach(function(h){ h.style.minHeight = max + 'px'; h.style.boxSizing = 'border-box'; });
+}
+function fitAll(){ fitNames(); fitOneLine('.lcard-prod-type'); fitOneLine('.lcard-prod-spec'); fitDesc(); sameHeader(); twoSizes(); }
 // 拿掉原廠盒之後配件還是超過 6 行（卡片會變長）的，列出來讓老闆決定要拿掉哪些
 function longCards(){
   var out = [];
