@@ -2721,9 +2721,27 @@ async function setMinQty(p, want = SHOPEE.minQty) {
   await box.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A').catch(() => {});
   await box.type(String(want), { delay: 40 });
   await box.press('Tab').catch(() => {});
-  await p.waitForTimeout(400);
+  await p.waitForTimeout(600);
   const after = String(await box.inputValue().catch(() => '')).trim();
   if (after !== String(want)) throw new Error(`最低購買數量填了 ${want} 但欄位顯示 ${after}`);
+  // 欄位旁邊出現紅字（例如蝦皮不允許最低購買數量大於庫存）：改回原本的值，免得整頁都存不進去
+  const err = await box.evaluate((el) => {
+    let n = el;
+    for (let i = 0; i < 6 && n; i++, n = n.parentElement) {
+      const e = [...n.querySelectorAll('[class*="error"], [class*="Error"], [class*="invalid"], .text-danger')]
+        .find((x) => x.offsetParent !== null && (x.innerText || '').trim() && !x.contains(el));
+      if (e) return e.innerText.trim().slice(0, 80);
+    }
+    return '';
+  }).catch(() => '');
+  if (err && before && before !== String(want)) {
+    await box.click({ timeout: 3000 }).catch(() => {});
+    await box.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A').catch(() => {});
+    await box.type(before, { delay: 40 });
+    await box.press('Tab').catch(() => {});
+    await p.waitForTimeout(300);
+    return { rejected: err, before };
+  }
   return before;
 }
 
@@ -2769,7 +2787,7 @@ async function saveShopeeVerified(p) {
   return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
 }
 // 沒看到成功訊息時：重新打開商品編輯頁，把價格、最低購買數量讀回來，跟要改的一樣就算成功
-async function verifyShopeeByReload(p, editUrl, price) {
+async function verifyShopeeByReload(p, editUrl, price, qtyOverride) {
   try {
     await p.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await p.waitForTimeout(4000);
@@ -2777,7 +2795,7 @@ async function verifyShopeeByReload(p, editUrl, price) {
     if (await tab.isVisible().catch(() => false)) { await tab.click().catch(() => {}); await p.waitForTimeout(800); }
     const num = async (label) => { const b = await visibleFieldAfter(p, label).catch(() => null); return b ? String(await b.inputValue().catch(() => '')).replace(/[^\d]/g, '') : ''; };
     const gotPrice = await num('價格'), gotQty = await num('最低購買數量');
-    const wantPrice = String(expectedShopeePrice(price) || ''), wantQty = Number(price) >= CONFIG.shopee.highPrice ? String(SHOPEE.minQty) : '1';
+    const wantPrice = String(expectedShopeePrice(price) || ''), wantQty = qtyOverride ? String(qtyOverride) : Number(price) >= CONFIG.shopee.highPrice ? String(SHOPEE.minQty) : '1';
     const okPrice = !wantPrice || gotPrice === wantPrice, okQty = !price || gotQty === wantQty;
     if (okPrice && okQty) return { ok: true, msg: `重新打開確認：價格 ${gotPrice}、最低購買數量 ${gotQty}` };
     return { ok: false, msg: `重新打開後：價格 ${gotPrice || '?'}（應該 ${wantPrice}）、最低購買數量 ${gotQty || '?'}（應該 ${wantQty}），沒有存成功` };
@@ -3148,6 +3166,7 @@ async function shopeeMain() {
     try {
       p = await openEditBySerial(ctx, page, t.serial);
       const notes = [], failed = [];
+      let keepQty = null, qtyRejected = '';
       await p.waitForTimeout(1500);
       // 1) 保存狀況
       if (await setShopeeCondition(p).catch(() => false)) console.log(`   ✏️ 保存狀況：${SHOPEE.condition}`);
@@ -3173,7 +3192,13 @@ async function shopeeMain() {
       if (t.price) {
         const wantQty = t.price >= CONFIG.shopee.highPrice ? String(SHOPEE.minQty) : '1';
         const before = await setMinQty(p, wantQty).catch((e) => { notes.push('🚨 ' + e.message); return null; });
-        if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${wantQty}，請馬上到蝦皮手動改！`); }
+        if (before && before.rejected) {
+          keepQty = before.before;
+          qtyRejected = `蝦皮不接受最低購買數量 ${wantQty}（蝦皮說：${before.rejected}），先保留 ${before.before}，其他欄位照樣存`;
+          console.log('   ⚠️ ' + qtyRejected);
+          DANGER.push(`${t.name || ''} 序號 ${t.serial}：${qtyRejected}`);
+        }
+        else if (before === null) { failed.push('最低購買數量'); notes.push(`🚨 最低購買數量沒改成 ${wantQty}，請馬上到蝦皮手動改！`); }
         else if (before === wantQty) console.log(`   ✏️ 最低購買數量：${wantQty}（本來就對）`);
         else console.log(`   ✏️ 最低購買數量：${before || '?'} → ${wantQty}`);
       } else notes.push('收購紀錄沒有售價，最低購買數量和價格沒有檢查');
@@ -3208,8 +3233,26 @@ async function shopeeMain() {
       if (auto) {
         const editUrl = p.url();
         let sv = await saveShopeeVerified(p);
-        if (sv.ok === null) { sv = await verifyShopeeByReload(p, editUrl, t.price); if (sv.ok) console.log('   🔎 ' + sv.msg); }
+        if (sv.ok === null) { sv = await verifyShopeeByReload(p, editUrl, t.price, keepQty); if (sv.ok) console.log('   🔎 ' + sv.msg); }
+        if (sv.ok === false && /最低購買數量/.test(sv.msg || '') && !keepQty) {
+          // 整頁沒存進去、而且最低購買數量沒變：多半是蝦皮不接受這個數量 → 重開、這次不改最低購買數量，先把其他欄位存好
+          console.log('   ⚠️ 最低購買數量好像蝦皮不接受，整頁沒存進去。重新打開、這次不改最低購買數量再存一次…');
+          await p.goto(editUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+          await p.waitForTimeout(3000);
+          await setShopeeCondition(p).catch(() => false);
+          const nr = t.name ? lookupNcc(t.name) : null;
+          if (!t.ccd && nr && nr.ncc && !isNoRadio(nr)) await setShopeeNcc(p, nr.ncc).catch(() => false);
+          await checkShopeePrice(p, t.price).catch(() => null);
+          sv = await saveShopeeVerified(p);
+          if (sv.ok === null) sv = await verifyShopeeByReload(p, editUrl, t.price, '1');
+          if (sv.ok !== false) {
+            qtyRejected = `蝦皮不接受最低購買數量 ${SHOPEE.minQty}（大概是不能大於庫存），已保留 1；保存狀況、NCC、價格已存好`;
+            console.log('   ⚠️ ' + qtyRejected);
+            DANGER.push(`${t.name || ''} 序號 ${t.serial}：${qtyRejected}`);
+          }
+        }
         if (sv.ok === false) throw new Error(sv.msg);
+        if (qtyRejected) { shopeeLog(t.name, t.serial, '🚨需馬上處理', qtyRejected); continue; }
         if (sv.ok === null) { console.log('   ⚠️ ' + sv.msg); shopeeLog(t.name, t.serial, '需確認', sv.msg); continue; }
         console.log('   ✅ 已儲存（蝦皮確認成功）');
         shopeeLog(t.name, t.serial, '成功（自動儲存）');

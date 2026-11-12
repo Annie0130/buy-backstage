@@ -1,6 +1,6 @@
 {
- "version": "20261112-2350",
- "note": "控制台重新上架說明更新",
+ "version": "20261113-0014",
+ "note": "蝦皮不接受最低購買數量時，保留原本數量、其他欄位照樣存好並提醒",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "6562c5d5cf7e06527c31620ffa59423ae6cf7c69ff6c960ee683559e25d822a4"
+   "sha256": "93206b409da694abb3f70ef646ede279c1dc5eaedd8ba4520cc04f3103b9d1ec"
   },
   {
    "path": "使用說明.txt",
