@@ -1855,9 +1855,10 @@ async function photosOrderMain() {
   fs.writeFileSync(path.join(__dirname, '拍照順序.txt'), '\uFEFF' + text.replace(/\n/g, '\r\n'), 'utf8');
 }
 
+let PHOTO_ROWS_OVERRIDE = null;   // 重新上架時：照輸入的序號順序分照片
 async function photosMain() {
   fs.mkdirSync(INBOX_DIR, { recursive: true });
-  const rows = await photoOrderRows();
+  const rows = PHOTO_ROWS_OVERRIDE || await photoOrderRows();
   const all = fs.readdirSync(INBOX_DIR).filter((f) => !f.startsWith('.'));
   const files = all.filter((f) => IMG_RE.test(f));
   const skipped = all.length - files.length;
@@ -2360,8 +2361,16 @@ async function redoMain(serials) {
   const rows = await rowsBySerials(serials);
   rows.filter((r) => r._missing).forEach((r) => console.log(`❌ 收購紀錄找不到序號 ${r['條碼']}（請確認序號有沒有打錯、開頭的 0）`));
   let todo = rows.filter((r) => !r._missing);
+  // 還沒有分好照片、但「照片放這裡」有新照片：照輸入的序號順序分給這幾件（每件之間一樣用全黑照片隔開）
+  const needPhoto = todo.filter((r) => !productPhotos(r['條碼']).length);
+  const inboxCount = fs.existsSync(INBOX_DIR) ? fs.readdirSync(INBOX_DIR).filter((f) => IMG_RE.test(f)).length : 0;
+  if (needPhoto.length && inboxCount) {
+    console.log(`\n📷「照片放這裡」有 ${inboxCount} 張照片，照輸入的順序分給：${needPhoto.map((r) => r['商品名稱']).join('、')}`);
+    PHOTO_ROWS_OVERRIDE = needPhoto;
+    try { await photosMain(); } finally { PHOTO_ROWS_OVERRIDE = null; }
+  }
   const noPhoto = todo.filter((r) => !productPhotos(r['條碼']).length);
-  noPhoto.forEach((r) => console.log(`📷 「${r['商品名稱']}」序號 ${r['條碼']} 還沒有分好的照片（系統\\商品照片\\${r['條碼']}），這次先略過`));
+  noPhoto.forEach((r) => console.log(`📷 「${r['商品名稱']}」序號 ${r['條碼']} 還沒有照片：請把照片放進「照片放這裡」（好幾件的話照輸入序號的順序拍，每件之間拍 1 張全黑），再按一次重新上架`));
   todo = todo.filter((r) => productPhotos(r['條碼']).length);
   if (!todo.length) { console.log('\n沒有可以重新上架的商品。'); return; }
   // 官網已經查得到的，再建立會變成兩筆：先問
