@@ -129,6 +129,10 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
     style="flex:1;padding:12px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;font-family:inherit;white-space:nowrap">
     📦 POS 庫存
   </button>
+  <button id="tab-print" onclick="switchTab('print')"
+    style="flex:1;padding:12px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:var(--gray-400);cursor:pointer;font-family:inherit;white-space:nowrap">
+    🖨️ 印卡區
+  </button>
   <button onclick="showDailyReport()"
     style="padding:12px 14px;border:none;border-bottom:2px solid transparent;background:none;font-size:13px;font-weight:600;color:#c0392b;cursor:pointer;font-family:inherit;white-space:nowrap">
     📋 今日報表
@@ -260,6 +264,21 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
         <div id="legend-customers"></div>
       </div>
     </div>
+  </div>
+
+  <!-- 印卡區：排隊等著印的、印卡紀錄（Airtable「印卡清單」表） -->
+  <div id="view-print" style="display:none;padding-bottom:80px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 8px">
+      <div style="font-size:15px;font-weight:700">⏳ 排隊中</div>
+      <span id="pq-count" style="font-size:12px;color:#6b6b63"></span>
+      <button onclick="printQueue()" style="padding:7px 14px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印排隊中的全部</button>
+      <button onclick="clearQueue()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">清空排隊</button>
+      <button onclick="loadPrintArea()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
+    </div>
+    <div style="font-size:12px;color:#8a96a5;margin-bottom:6px">在「收購紀錄」或「POS 庫存」勾選商品後，按下方印卡清單的「➕ 加入排隊」就會放進來；關掉網頁、換裝置都還在。</div>
+    <div id="pq-list" style="font-size:13px;margin-bottom:22px">載入中…</div>
+    <div style="font-size:15px;font-weight:700;margin:6px 0 8px">📜 印卡紀錄（最近 60 天）</div>
+    <div id="ph-list" style="font-size:13px">載入中…</div>
   </div>
 
   <!-- POS 庫存專區（跟收購紀錄分開的 Airtable「POS庫存」表） -->
@@ -1276,7 +1295,7 @@ loadRecords();
 <script>
 // ── Tab 切換 ──
 function switchTab(tab){
-  ['records', 'stats', 'pos'].forEach(t => {
+  ['records', 'stats', 'pos', 'print'].forEach(t => {
     const on = t === tab;
     document.getElementById('view-' + t).style.display = on ? 'block' : 'none';
     const b = document.getElementById('tab-' + t);
@@ -1286,6 +1305,7 @@ function switchTab(tab){
   });
   if (tab === 'stats') renderStats();
   if (tab === 'pos' && !posLoaded) loadPos();
+  if (tab === 'print') loadPrintArea();
 }
 
 const PIE_COLORS = ['#1565c0','#2196d3','#52b788','#c9a84c','#c0392b','#8e44ad','#e67e22','#1abc9c','#e91e63','#607d8b'];
@@ -2480,10 +2500,11 @@ async function printSelectedCards() {
 async function _printSelectedCards() { return _printBasket(); }
 
 // 印卡清單：收購紀錄勾的 + POS 庫存勾的，可以一起印（兩個分頁的勾選都會保留）
-async function _printBasket() {
+async function _printBasket(opts) {
+  opts = opts || {};
   if (typeof posBusy !== 'undefined' && posBusy) { alert('還在處理中，請稍等'); return; }
-  const recs = selectedIds().map(id => allRecords.find(rec => rec.id === id)).filter(Boolean);
-  const posPicked = (typeof posRecs !== 'undefined') ? posRecs.filter(r => posChecked.has(r.id)) : [];
+  const recs = opts.recs || selectedIds().map(id => allRecords.find(rec => rec.id === id)).filter(Boolean);
+  const posPicked = opts.pos || ((typeof posRecs !== 'undefined') ? posRecs.filter(r => posChecked.has(r.id)) : []);
   if (!recs.length && !posPicked.length) { alert('請先勾選要印卡的商品（收購紀錄、POS 庫存都可以勾）'); return; }
   const win = openWaitWindow();
   if (typeof posBusy !== 'undefined') posBusy = true;
@@ -2508,10 +2529,142 @@ async function _printBasket() {
     if (built.bad.length) notes.push(badCardsNote(built.bad));
     if (noSn.length) notes.push(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上沒有 S/N`);
     openPrintWindow(built.html, `印卡 ${items.length} 張`, win, notes);
+    logPrintBatch(recs, posPicked, opts.queueRows || []);   // 記到「印卡區」的紀錄
     if (recs.length) markPrinted(recs);
     if (posPicked.length) { markPrinted(posPicked, POS_API); renderPos(); }
     try { filterRecords(); } catch (e) {}
   } finally { if (typeof posBusy !== 'undefined') posBusy = false; }
+}
+
+// ─── 印卡區：排隊與紀錄（Airtable「印卡清單」表）───
+const PQ_API = '/.netlify/functions/print-queue';
+let pqQueue = [], pqHistory = [];
+const pqNow = () => new Date().toISOString();
+async function pqWrite(records) {
+  const out = [];
+  for (let i = 0; i < records.length; i += 10) {
+    const res = await adminFetch('', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({records: records.slice(i, i + 10)})}, PQ_API);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('存檔失敗 ' + res.status));
+    out.push(...(data.records || []));
+  }
+  return out;
+}
+async function pqRead(view) {
+  let all = [], offset = '';
+  do {
+    const res = await adminFetch(`?view=${view}` + (offset ? '&offset=' + encodeURIComponent(offset) : ''), {}, PQ_API);
+    const data = await res.json();
+    if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || ('讀取失敗 ' + res.status));
+    all = all.concat(data.records || []); offset = data.offset || '';
+  } while (offset && all.length < 2000);
+  return all;
+}
+const pqRow = (src, r) => src === '收購紀錄'
+  ? {'名稱': r.fields['器材一'] || '', '來源': '收購紀錄', '紀錄ID': r.id, '條碼': r.fields['序號'] || ''}
+  : {'名稱': r.fields['名稱'] || '', '來源': 'POS庫存', '紀錄ID': r.id, '條碼': r.fields['條碼'] || ''};
+
+// 勾選的（收購＋POS）放進排隊；已經在排隊的不重複加
+async function addToQueue() {
+  const recs = selectedIds().map(id => allRecords.find(x => x.id === id)).filter(Boolean);
+  const pos = (typeof posRecs !== 'undefined') ? posRecs.filter(r => posChecked.has(r.id)) : [];
+  if (!recs.length && !pos.length) { alert('請先勾選商品'); return; }
+  try {
+    pqQueue = await pqRead('queue');
+    const inQ = new Set(pqQueue.map(q => q.fields['紀錄ID']));
+    const now = pqNow();
+    const rows = [...recs.map(r => pqRow('收購紀錄', r)), ...pos.map(r => pqRow('POS庫存', r))]
+      .filter(x => !inQ.has(x['紀錄ID'])).map(x => ({fields: Object.assign(x, {'狀態': '排隊中', '加入時間': now})}));
+    if (rows.length) await pqWrite(rows);
+    const dup = recs.length + pos.length - rows.length;
+    clearBasket();
+    showToast(`✅ 已加入排隊 ${rows.length} 張${dup ? `（${dup} 張本來就在排隊）` : ''}`);
+  } catch (e) { alert('加入排隊失敗：' + e.message); }
+}
+
+// 每次印卡都記一筆紀錄（同一次＝同一個批次）；從排隊印的，把那幾列改成已印
+async function logPrintBatch(recs, pos, queueRows) {
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  const batch = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  const now = pqNow(), qById = new Map(queueRows.map(q => [q.fields['紀錄ID'], q]));
+  const rows = [...recs.map(r => ['收購紀錄', r]), ...pos.map(r => ['POS庫存', r])].map(([src, r]) => {
+    const q = qById.get(r.id), f = {'狀態': '已印', '印卡時間': now, '批次': batch};
+    return q ? {id: q.id, fields: f} : {fields: Object.assign(pqRow(src, r), f)};
+  });
+  try { await pqWrite(rows); } catch (e) { console.error('印卡紀錄存檔失敗', e); }
+  if (document.getElementById('view-print').style.display !== 'none') loadPrintArea();
+}
+
+async function loadPrintArea() {
+  if (typeof posLoaded !== 'undefined' && !posLoaded) loadPos();   // 先載好 POS，按印的時候才能馬上開視窗
+  const ql = document.getElementById('pq-list'), hl = document.getElementById('ph-list');
+  ql.textContent = '載入中…'; hl.textContent = '載入中…';
+  try { [pqQueue, pqHistory] = await Promise.all([pqRead('queue'), pqRead('history')]); }
+  catch (e) { ql.textContent = '❌ ' + e.message; hl.textContent = ''; return; }
+  renderPrintArea();
+}
+function renderPrintArea() {
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const tm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  document.getElementById('pq-count').textContent = pqQueue.length ? `共 ${pqQueue.length} 張（${Math.ceil(pqQueue.length / 6)} 頁）` : '';
+  document.getElementById('pq-list').innerHTML = !pqQueue.length ? '<div style="color:#aaa">目前沒有排隊的商品卡</div>'
+    : pqQueue.map((q, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-top:1px solid #f0f0ec">
+      <span style="color:#aaa;width:22px">${i + 1}</span>
+      <span style="font-size:10px;border-radius:3px;padding:0 4px;color:#fff;background:${q.fields['來源'] === 'POS庫存' ? '#2b8a3e' : '#0d3b66'}">${q.fields['來源'] === 'POS庫存' ? 'POS' : '收購'}</span>
+      <span style="flex:1">${esc(q.fields['名稱'])}</span>
+      <span style="font-family:monospace;color:#6b6b63">${esc(q.fields['條碼'])}</span>
+      <span style="color:#aaa;font-size:11px">${tm(q.fields['加入時間'])}</span>
+      <button onclick="removeFromQueue('${q.id}')" style="padding:2px 8px;border:1px solid var(--gray-200);background:#fff;border-radius:5px;cursor:pointer;font-size:11px">移除</button></div>`).join('');
+  const groups = new Map();
+  pqHistory.forEach(h => { const b = h.fields['批次'] || '（無批次）'; if (!groups.has(b)) groups.set(b, []); groups.get(b).push(h); });
+  document.getElementById('ph-list').innerHTML = !groups.size ? '<div style="color:#aaa">還沒有印卡紀錄</div>'
+    : [...groups.entries()].map(([b, rows]) => `<div style="border:1px solid #eee;border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#fff">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <b>${tm(rows[0].fields['印卡時間'])}</b><span style="color:#6b6b63">共 ${rows.length} 張</span>
+        <button onclick="reprintBatch('${esc(b)}')" style="margin-left:auto;padding:3px 10px;border:1px solid #0d3b66;color:#0d3b66;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">整批重印</button></div>
+      <div style="color:#555;line-height:1.7">${rows.map(h => esc(h.fields['名稱']) + (h.fields['條碼'] ? `<span style="color:#aaa">（${esc(h.fields['條碼'])}）</span>` : '')).join('、')}</div></div>`).join('');
+}
+async function removeFromQueue(id) {
+  try { await pqWrite([{id, fields: {'狀態': '已移除'}}]); pqQueue = pqQueue.filter(q => q.id !== id); renderPrintArea(); }
+  catch (e) { alert('移除失敗：' + e.message); }
+}
+async function clearQueue() {
+  if (!pqQueue.length) return;
+  if (!confirm(`確定把排隊中的 ${pqQueue.length} 張全部移除？`)) return;
+  try { await pqWrite(pqQueue.map(q => ({id: q.id, fields: {'狀態': '已移除'}}))); pqQueue = []; renderPrintArea(); }
+  catch (e) { alert('清空失敗：' + e.message); }
+}
+// 照「印卡清單」的列找回收購紀錄／POS 的資料（POS 還沒載入的先載入）
+function rowsToItems(rows) {
+  const recs = [], pos = [], missing = [];
+  rows.forEach(q => {
+    const id = q.fields['紀錄ID'];
+    const r = q.fields['來源'] === 'POS庫存' ? posRecs.find(x => x.id === id) : allRecords.find(x => x.id === id);
+    if (!r) missing.push(q.fields['名稱']); else (q.fields['來源'] === 'POS庫存' ? pos : recs).push(r);
+  });
+  if (missing.length) showToast(`有 ${missing.length} 張找不到原本的資料（可能已刪除）：${missing.slice(0, 3).join('、')}`);
+  return {recs, pos};
+}
+// 按下去要「馬上」開列印視窗（瀏覽器才不會擋），所以 POS 資料要先載好
+function posReadyFor(rows) {
+  if (rows.some(q => q.fields['來源'] === 'POS庫存') && (!posLoaded || !posRecs.length)) {
+    if (!posLoaded) loadPos();
+    alert('POS 庫存資料還在載入，請等 2～3 秒再按一次');
+    return false;
+  }
+  return true;
+}
+async function printQueue() {
+  if (!pqQueue.length) { alert('目前沒有排隊的商品卡'); return; }
+  if (!posReadyFor(pqQueue)) return;
+  const {recs, pos} = rowsToItems(pqQueue);
+  try { await _printBasket({recs, pos, queueRows: pqQueue}); } catch (e) { showPrintError(e); }
+}
+async function reprintBatch(batch) {
+  const rows = pqHistory.filter(h => (h.fields['批次'] || '（無批次）') === batch);
+  if (!posReadyFor(rows)) return;
+  const {recs, pos} = rowsToItems(rows);
+  try { await _printBasket({recs, pos}); } catch (e) { showPrintError(e); }
 }
 
 // 畫面下方的「印卡清單」：顯示兩邊各勾了幾張，可以一起印或清空
@@ -2529,6 +2682,7 @@ function updateBasketBar() {
     bar.dataset.key = key;
     bar.innerHTML = `<span>🖨️ 印卡清單：收購 <b>${nRec}</b> 張＋POS <b>${nPos}</b> 張</span>
       <button onclick="printSelectedCards()" style="background:#fff;color:#0d3b66;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit">一起印</button>
+      <button onclick="addToQueue()" style="background:#ffe08a;color:#5a4300;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit">➕ 加入排隊</button>
       <button onclick="dropPrinted()" title="把已經印過卡的從清單拿掉" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit">跳過已印的</button>
       <button onclick="clearBasket()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit">清空</button>`;
   }
