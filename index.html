@@ -1979,7 +1979,7 @@ function buildCardHTML(d, accOverride) {
   <div class="lcard-header" style="background:${cardBarColor(d, nm.brand)}">
     <div class="lcard-left">
       <div class="lcard-prod-type">${cardBrandHTML(nm.brand)}${d.category ? `<span>${d.category}</span>` : (nm.brand ? '' : "林相攝影 LIN'S CAMERA")}${d.consign ? '<span class="lcard-break"></span><span class="lcard-consign">寄賣・不保固</span>' : ''}</div>
-      <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main||'—'}</div>
+      <div class="lcard-prod-name" style="font-size:${nm.size}px">${nm.main ? nm.main.split(' ').map(w => `<span style="white-space:nowrap">${w}</span>`).join(' ') : '—'}</div>
       ${nm.spec ? `<div class="lcard-prod-spec">${nm.spec}</div>` : ''}
     </div>
     <div class="lcard-header-right">
