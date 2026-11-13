@@ -2748,21 +2748,32 @@ async function checkShopeePrice(p, price) {
 // 蝦皮按「更新」後確認真的存好了：出現成功訊息、或頁面跳回商品列表 → ok；欄位錯誤 → 回傳錯誤；都沒有 → 不確定
 async function saveShopeeVerified(p) {
   const startUrl = p.url();
-  if (!(await save(p))) return { ok: false, msg: '找不到「更新」按鈕' };
-  for (let t = 0; t < 40; t++) {
-    const st = await p.evaluate(() => {
-      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-      const errs = [...document.querySelectorAll('[class*="error-msg"], [class*="error-message"], [class*="form-item__error"], [class*="--error"] [class*="message"], .text-danger')]
-        .filter(vis).map((e) => (e.innerText || '').trim()).filter(Boolean);
-      const body = document.body ? document.body.innerText : '';
-      return { errs: errs.slice(0, 3), ok: /更新成功|儲存成功|已成功更新|商品已更新|已更新商品|成功更新/.test(body) };
-    }).catch(() => ({ errs: [], ok: false }));
-    if (st.ok) return { ok: true };
-    if (p.url() !== startUrl && !/\/portal\/product\/\d+/.test(p.url())) return { ok: true }; // 跳回商品列表
-    if (st.errs.length && t >= 2) return { ok: false, msg: '蝦皮說：' + st.errs.join('／') };
-    await new Promise((r) => setTimeout(r, 500));
+  // 蝦皮跳「錯誤，請稍後再試」（多半是商品剛從飛鼠推上來還在同步，或短時間改太多）：等一下再按一次更新
+  const waits = [30, 60];
+  for (let attempt = 0; ; attempt++) {
+    const sv = await save(p);
+    if (!sv) return { ok: false, msg: '找不到「更新」按鈕' };
+    let busy = sv === 'busy';
+    if (!busy)
+    for (let t = 0; t < 40; t++) {
+      const st = await p.evaluate(() => {
+        const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+        const errs = [...document.querySelectorAll('[class*="error-msg"], [class*="error-message"], [class*="form-item__error"], [class*="--error"] [class*="message"], .text-danger')]
+          .filter(vis).map((e) => (e.innerText || '').trim()).filter(Boolean);
+        const body = document.body ? document.body.innerText : '';
+        return { errs: errs.slice(0, 3), ok: /更新成功|儲存成功|已成功更新|商品已更新|已更新商品|成功更新/.test(body), busy: /錯誤\s*[。，,.]?\s*請稍後再試|請稍後再試/.test(body) };
+      }).catch(() => ({ errs: [], ok: false, busy: false }));
+      if (st.ok) return { ok: true };
+      if (p.url() !== startUrl && !/\/portal\/product\/\d+/.test(p.url())) return { ok: true }; // 跳回商品列表
+      if (st.busy) { busy = true; break; }
+      if (st.errs.length && t >= 2) return { ok: false, msg: '蝦皮說：' + st.errs.join('／') };
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    if (!busy) return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
+    if (attempt >= waits.length) return { ok: false, msg: '蝦皮回覆「錯誤，請稍後再試」（試了 3 次都被擋）。多半是商品剛從飛鼠推上來、蝦皮還在同步，請過 10～30 分鐘再跑一次蝦皮補資料' };
+    console.log(`   ⏳ 蝦皮回覆「錯誤，請稍後再試」，等 ${waits[attempt]} 秒再按一次更新…`);
+    await p.waitForTimeout(waits[attempt] * 1000);
   }
-  return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
 }
 // 沒看到成功訊息時：重新打開商品編輯頁，把價格、最低購買數量讀回來，跟要改的一樣就算成功
 async function verifyShopeeByReload(p, editUrl, price) {
@@ -2786,9 +2797,13 @@ async function save(p) {
   for (let k = 0, n = await btns.count(); k < n; k++) {
     if (await btns.nth(k).isVisible().catch(() => false)) {
       await btns.nth(k).click({ timeout: 5000 });
-      await p.waitForTimeout(1500);
-      await confirmShopeeDialogs(p);
-      await p.waitForTimeout(1500);
+      // 蝦皮的「錯誤，請稍後再試」只會出現幾秒：按下去後前 4 秒一直盯著看
+      for (let t = 0; t < 16; t++) {
+        const busy = await p.evaluate(() => /錯誤\s*[。，,.]?\s*請稍後再試|請稍後再試/.test(document.body ? document.body.innerText : '')).catch(() => false);
+        if (busy) { await p.screenshot({ path: path.join(diagDir(), '蝦皮按更新後.png') }).catch(() => {}); return 'busy'; }
+        if (t === 6) await confirmShopeeDialogs(p);
+        await p.waitForTimeout(250);
+      }
       return true;
     }
   }
