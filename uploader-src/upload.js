@@ -2395,9 +2395,7 @@ async function redoMain(serials) {
   const created = [...new Set(readCsv(CONFIG.logFile).slice(logBefore)
     .filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '')).map((c) => c[2]).filter(Boolean))];
   if (!created.length) { console.log('\n這次沒有重新上架成功的商品，請看上面的訊息。'); return; }
-  console.log('\n===== 重新發佈一次，讓飛鼠推到蝦皮 =====');
-  await new Promise((res) => setTimeout(res, 20000));
-  await republishMain(created);
+  // 建立時就會推到蝦皮，不用再重新發佈一次（真的沒推上去時，控制台還是可以手動按「🔁 重新發佈」）
   shopeeLaterNote();
 }
 
@@ -2438,9 +2436,7 @@ async function allMain() {
   const created = [...new Set(readCsv(CONFIG.logFile).slice(logBefore)
     .filter((c) => /^成功（已(建立|發佈)）/.test(c[3] || '') && !/官網已有/.test(c[4] || '')).map((c) => c[2]).filter(Boolean))];
   if (!created.length) { console.log('\n這次沒有新上架的商品，蝦皮補資料就不用跑了。'); return; }
-  console.log('\n===== ③ 重新發佈一次，讓飛鼠真的推到蝦皮 =====');
-  await new Promise((r) => setTimeout(r, 20000)); // 先等飛鼠存好
-  await republishMain(created);
+  // 建立時就會推到蝦皮，不用再重新發佈一次（真的沒推上去時，控制台還是可以手動按「🔁 重新發佈」）
   if (!CONFIG.shopee.autoAfterListing) { shopeeLaterNote(); return; }
   await waitThenShopee();
   console.log('\n===== 全部完成 =====');

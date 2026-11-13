@@ -1,6 +1,6 @@
 {
- "version": "20261113-0015",
- "note": "蝦皮按更新後跳出確認視窗會自動按確認，並拍下畫面方便檢查",
+ "version": "20261113-1805",
+ "note": "一鍵上架不再自動重新發佈到蝦皮（建立時就會推上去）",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "4ebed7f9b918854994cb564859d278ef70aab1c8f8ad4e0a97880b3dd015ccc9"
+   "sha256": "6d3432ee2ccdedab04d3104cbeb569d49ab6cdbf98220816ebd690dd90598f94"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "78b115df9893616aa05ed9d5f8b8251d74ccad82d8ccd79108d599b2f4ae4589"
+   "sha256": "2754bfa920892bce7f0539b17283194a4168c9fac84f37abb13c21fdc784c75f"
   },
   {
    "path": "使用說明.txt",
