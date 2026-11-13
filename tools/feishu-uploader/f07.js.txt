@@ -3174,6 +3174,8 @@ async function shopeeMain() {
 
   let ok = 0, fail = 0;
   for (const [i, t] of targets.entries()) {
+    // 一件接一件改太快，蝦皮偶爾會回「錯誤，請稍後再試」：每件之間休息 10 秒
+    if (i > 0 && auto) { console.log('   …休息 10 秒再改下一件（避免蝦皮限制）'); await new Promise((r) => setTimeout(r, 10000)); }
     console.log(`\n[${i + 1}/${targets.length}] ${t.name || ''} 序號 ${t.serial}`);
     let p = page;
     try {
