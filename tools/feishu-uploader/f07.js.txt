@@ -1958,7 +1958,7 @@ async function photosMain() {
 <style>body{font-family:system-ui,"Microsoft JhengHei",sans-serif;margin:20px;background:#f6f6f4;color:#222}h1{font-size:22px}h2{font-size:17px;margin:22px 0 8px}small{color:#777;font-weight:400}
 .warn{background:#fff3cd;border:1px solid #f0c36d;padding:12px 14px;border-radius:8px;font-weight:700}.tip{background:#e7f5ff;border:1px solid #a5d8ff;padding:10px 14px;border-radius:8px}.g{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
 figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd;width:232px}figure.main{border:3px solid #d9480f}img{display:block;max-width:220px;max-height:160px}figcaption{font-size:11px;color:#888;margin-top:4px;word-break:break-all}
-select,button{font:inherit;font-size:12px;margin-top:4px}figure.sel{outline:4px solid #1f6feb;outline-offset:-2px}figure{cursor:grab}figure img{cursor:pointer}.ctl{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.bar{position:sticky;top:0;z-index:5;background:#fffbe6;border:1px solid #f5d98a;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:14px}button{cursor:pointer;border:1px solid #ccc;background:#fff;border-radius:6px;padding:2px 8px}.bad{color:#c00;font-weight:700}.trash figure{opacity:.6}</style>
+select,button{font:inherit;font-size:12px;margin-top:4px}figure.sel{outline:4px solid #1f6feb;outline-offset:-2px;background:#eef4ff}figure{cursor:pointer}.ck{position:absolute;left:10px;top:10px;width:24px;height:24px;border-radius:5px;border:2px solid #fff;background:rgba(0,0,0,.35);color:#fff;font-weight:900;font-size:16px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4)}.ck.on{background:#1f6feb}.ctl{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.bar{position:sticky;top:0;z-index:5;background:#fffbe6;border:1px solid #f5d98a;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:14px}button{cursor:pointer;border:1px solid #ccc;background:#fff;border-radius:6px;padding:2px 8px}.bad{color:#c00;font-weight:700}.trash figure{opacity:.6}</style>
 <h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，${process.env.PANEL ? '按下面的「✅ 分組正確，開始上架」' : '回黑色視窗輸入 y'}。</p>
 ${warn ? `<p class="warn">${warn}</p>` : ''}
 <p class="tip">🖐️ 分錯了可以直接調整：每張照片下面選「放到哪一組」，或選「🗑 不要」（黑畫面、多拍的）；按「⭐ 設為主圖」會變成第一張。${process.env.PANEL ? '' : '（調整功能要在「控制台」裡用）'}</p>
@@ -1975,21 +1975,31 @@ function moveMany(files, to, before){ files=files.filter((f)=>f!==before); files
 function move(f, to){ moveMany([f], to); }
 function nudge(f, d){ const r=locate(f); const L=listOf(r[0]); const j=r[1]+d; if(j<0||j>=L.length) return; const t=L[r[1]]; L[r[1]]=L[j]; L[j]=t; render(); }
 function frontSel(){ const fs=[...SEL]; const groups={}; fs.forEach((f)=>{ const r=locate(f); (groups[r[0]]=groups[r[0]]||[]).push(f); }); Object.keys(groups).forEach((g)=>{ const L=listOf(g); groups[g].forEach((f)=>L.splice(L.indexOf(f),1)); L.unshift(...groups[g]); }); SEL.clear(); render(); }
-function toggle(f){ if(SEL.has(f)) SEL.delete(f); else SEL.add(f); render(); }
+let LAST = null;
+function toggle(f, ev){
+  if (ev && ev.shiftKey && LAST) {
+    const a = locate(LAST), b = locate(f);
+    if (a[0] !== null && a[0] === b[0]) { const L = listOf(a[0]); const [i, j] = [a[1], b[1]].sort((x, y) => x - y); L.slice(i, j + 1).forEach((x) => SEL.add(x)); LAST = f; render(); return; }
+  }
+  if (SEL.has(f)) SEL.delete(f); else SEL.add(f);
+  LAST = f; render();
+}
+function figClick(ev, el){ if (ev.target.closest('button,select')) return; toggle(el.dataset.f, ev); }
 function selectGroup(g){ const L=listOf(g); const all=L.length&&L.every((f)=>SEL.has(f)); L.forEach((f)=>{ if(all) SEL.delete(f); else SEL.add(f); }); render(); }
 function applySel(to){ if(!SEL.size||to==='') return; moveMany([...SEL], to); SEL.clear(); render(); }
 function dropOn(to, before){ if(!DRAG) return; const fs=SEL.has(DRAG)?[...SEL]:[DRAG]; moveMany(fs, to, before); SEL.clear(); DRAG=null; render(); }
 function opts(cur, head){ return (head?'<option value="">'+head+'</option>':'') + M.groups.map((_,i)=>'<option value="'+i+'" '+(cur===String(i)?'selected':'')+'>'+(head?'':'放到：')+(i+1)+'. '+esc(M.rows[i]?M.rows[i].name:'（沒有對應商品）')+'</option>').join('') + '<option value="trash" '+(cur==='trash'?'selected':'')+'>🗑 不要（黑畫面／多拍）</option>'; }
 function fig(f, k, g){
   const sel=SEL.has(f), main=k===0&&g!=='trash';
-  return '<figure draggable="true" data-f="'+esc(f)+'" data-g="'+g+'" class="'+(main?'main ':'')+(sel?'sel':'')+'" ondragstart="DRAG=this.dataset.f" ondragover="event.preventDefault()" ondrop="event.preventDefault();event.stopPropagation();dropOn(this.dataset.g,this.dataset.f)">'
-    + '<img src="'+M.thumbs[f]+'" data-f="'+esc(f)+'" onclick="toggle(this.dataset.f)" title="點一下選取">'
+  return '<figure draggable="true" data-f="'+esc(f)+'" data-g="'+g+'" class="'+(main?'main ':'')+(sel?'sel':'')+'" onclick="figClick(event,this)" ondragstart="DRAG=this.dataset.f" ondragover="event.preventDefault()" ondrop="event.preventDefault();event.stopPropagation();dropOn(this.dataset.g,this.dataset.f)" style="position:relative">'
+    + '<span class="ck'+(sel?' on':'')+'">'+(sel?'✓':'')+'</span>'
+    + '<img src="'+M.thumbs[f]+'" title="點一下選取／取消；按住 Shift 可以連續選">'
     + '<figcaption>'+(sel?'☑️ ':'')+(g!=='trash'?'第 '+(k+1)+' 張'+(main?'（主圖）':'')+'　':'')+esc(f)+'　'+esc(M.info[f]||'')+'</figcaption>'
     + '<div class="ctl"><button data-f="'+esc(f)+'" onclick="nudge(this.dataset.f,-1)" title="往前一張">◀</button><button data-f="'+esc(f)+'" onclick="nudge(this.dataset.f,1)" title="往後一張">▶</button>'
     + '<select data-f="'+esc(f)+'" onchange="move(this.dataset.f,this.value)">'+opts(String(g))+'</select></div></figure>';
 }
 function render(){
-  let h='<div class="bar">'+(SEL.size?'已選 <b>'+SEL.size+'</b> 張：<select onchange="applySel(this.value)">'+opts('', '選取的照片放到…')+'</select> <button onclick="frontSel()">⭐ 排到最前面（當主圖）</button> <button onclick="SEL.clear();render()">取消選取</button>':'👆 點照片可以多選　✋ 拖曳照片可以排順序、換組　◀ ▶ 往前／往後一張')+'</div>';
+  let h='<div class="bar">'+(SEL.size?'已選 <b>'+SEL.size+'</b> 張：<select onchange="applySel(this.value)">'+opts('', '選取的照片放到…')+'</select> <button onclick="frontSel()">⭐ 排到最前面（當主圖）</button> <button onclick="SEL.clear();render()">取消選取</button>':'👆 點照片就能勾選（可以選好幾張，跨組也可以；按住 Shift 點可以連續選）　✋ 拖曳可以排順序、換組　◀ ▶ 往前／往後一張')+'</div>';
   M.groups.forEach((g,i)=>{ const r=M.rows[i]; const a=r?r.expect[0]:0, b=r?r.expect[1]:0; const odd=r&&(g.length<a||g.length>b);
     h+='<section><h2>'+(i+1)+'. '+(r?esc(r.name)+'　<small>序號 '+esc(r.sn)+'</small>':'<span class="bad">（沒有對應的商品，這組不會使用）</span>')+'　<small class="'+(odd?'bad':'')+'">'+g.length+' 張'+(odd?'（應該'+(b>=99?'至少 '+a:(a===b?'是 '+a:'是 '+a+'～'+b))+' 張）':'')+'</small> <button onclick="selectGroup(\\''+i+'\\')">全選這組</button></h2>'
       +'<div class="g" data-g="'+i+'" ondragover="event.preventDefault()" ondrop="event.preventDefault();dropOn(this.dataset.g)">'+(g.length?g.map((f,k)=>fig(f,k,String(i))).join(''):'<span class="bad">（沒有照片，可以把照片拖到這裡）</span>')+'</div></section>'; });
@@ -2749,7 +2759,7 @@ async function checkShopeePrice(p, price) {
 async function saveShopeeVerified(p) {
   const startUrl = p.url();
   // 蝦皮跳「錯誤，請稍後再試」（多半是商品剛從飛鼠推上來還在同步，或短時間改太多）：等一下再按一次更新
-  const waits = [30, 60];
+  const waits = [];   // 老闆決定：第一次沒存成功就不重試，直接列出來手動補
   for (let attempt = 0; ; attempt++) {
     const sv = await save(p);
     if (!sv) return { ok: false, msg: '找不到「更新」按鈕' };
@@ -2770,7 +2780,7 @@ async function saveShopeeVerified(p) {
       await new Promise((r) => setTimeout(r, 500));
     }
     if (!busy) return { ok: null, msg: '按了「更新」20 秒沒看到成功訊息，請到蝦皮確認這筆' };
-    if (attempt >= waits.length) return { ok: false, msg: '蝦皮回覆「錯誤，請稍後再試」（試了 3 次都被擋）。多半是商品剛從飛鼠推上來、蝦皮還在同步，請過 10～30 分鐘再跑一次蝦皮補資料' };
+    if (attempt >= waits.length) return { ok: false, msg: '蝦皮沒存成功（蝦皮回覆「錯誤，請稍後再試」），請手動到蝦皮補' };
     console.log(`   ⏳ 蝦皮回覆「錯誤，請稍後再試」，等 ${waits[attempt]} 秒再按一次更新…`);
     await p.waitForTimeout(waits[attempt] * 1000);
   }
@@ -3142,6 +3152,7 @@ async function catFixMain() {
 }
 
 const DANGER = [];
+const MANUAL = [];   // 蝦皮沒存成功、要老闆手動補的
 async function shopeeMain() {
   const auto = process.argv.includes('--auto');
   const recheck = process.argv.includes('--check'); // 全部重新檢查（補過的也再看一次價格）
@@ -3258,6 +3269,7 @@ async function shopeeMain() {
       const msg = e.message.split('\n')[0];
       console.log('   ❌ 失敗：' + msg);
       shopeeLog(t.name, t.serial, '失敗', msg);
+      MANUAL.push(`${t.name || ''}　序號 ${t.serial}`);
       const shot = path.join(diagDir(), `蝦皮錯誤截圖-${i + 1}.png`);
       await p.screenshot({ path: shot, fullPage: true }).then(() => console.log(`   📸 已存錯誤截圖：${shot}`), () => {});
       if (auto) continue; // 不停模式：失敗的記下來，直接做下一筆
@@ -3266,6 +3278,10 @@ async function shopeeMain() {
     } finally {
       if (p !== page) await p.close().catch(() => {});
     }
+  }
+  if (MANUAL.length) {
+    console.log(`\n🖐️ 這 ${MANUAL.length} 件蝦皮沒傳成功，請自己到蝦皮手動補（補好後在控制台按「✓ 蝦皮已手動補好」）：`);
+    MANUAL.forEach((x) => console.log('   ・' + x));
   }
   console.log(`\n完成：成功 ${ok} 筆、失敗 ${fail} 筆。紀錄在 ${SHOPEE.logFile}`);
   if (DANGER.length) {
