@@ -2968,6 +2968,16 @@ function openEdit(id){
     let input = '';
     if(field.type==='textarea'){
       input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
+    } else if(field.key==='原廠保固'){
+      // 選「在保」時下面出現到期日；存成「在保（至2027-03-31）」
+      const inW = String(val).startsWith('在保');
+      const dm = String(val).match(/(\d{4}-\d{2}-\d{2})/);
+      const opts = ['已過保','在保','不確定'].map(o=>`<option value="${o}" ${(inW ? o==='在保' : val===o)?'selected':''}>${o}</option>`).join('');
+      input = `<select id="edit-原廠保固" onchange="document.getElementById('edit-warranty-date-wrap').style.display=this.value==='在保'?'block':'none'" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>
+        <div id="edit-warranty-date-wrap" style="display:${inW?'block':'none'};margin-top:6px">
+          <div style="font-size:11px;color:var(--gray-600);margin-bottom:3px">原廠保固到期日</div>
+          <input type="date" id="edit-保固到期" value="${dm ? dm[1] : ''}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+        </div>`;
     } else if(field.type==='combo'){
       input = `<input list="shopw-list" id="edit-${field.key}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
     } else if(field.type==='select'){
@@ -3001,6 +3011,10 @@ async function saveEdit(){
     if(!el) return;
     const val = el.value.trim();
     if(field.key==='收購總金額') fields[field.key] = parseInt(val)||0;
+    else if(field.key==='原廠保固'){
+      const d = (document.getElementById('edit-保固到期')||{}).value || '';
+      fields[field.key] = val==='在保' && d ? `在保（至${d}）` : val;
+    }
     else if(field.key==='品類') fields[field.key] = val || null;
     else if(field.key==='快門數'){
       // 重新組合快門數欄位格式
