@@ -474,14 +474,17 @@ function clearDateFilter(){
 let listingOnly = false;
 function toggleListingOnly(on){
   listingOnly = (on === undefined) ? !listingOnly : on;
+  // POS 庫存標記上架的也要列出來：還沒載入就先載
+  if (listingOnly && typeof posLoaded !== 'undefined' && !posLoaded) loadPos().then(() => filterRecords());
   if (listingOnly) { activeMonth = 'all'; buildMonthTabs(); } // 看清單時不限月份
   filterRecords();
   window.scrollTo({top: document.getElementById('listing-btn').getBoundingClientRect().top + window.scrollY - 80, behavior:'smooth'});
 }
 function updateListingBtn(){
   const b = document.getElementById('listing-btn'); if(!b) return;
-  const n = allRecords.filter(r=>r.fields['上架飛鼠']).length;
-  b.innerHTML = listingOnly ? `✕ 回到全部紀錄（目前只看上架飛鼠 ${n} 筆）` : `🛒 上架飛鼠清單（${n}）`;
+  const nPos = (typeof posRecs !== 'undefined') ? posRecs.filter(r => r.fields['上架飛鼠']).length : 0;
+  const n = allRecords.filter(r=>r.fields['上架飛鼠']).length + nPos;
+  b.innerHTML = listingOnly ? `✕ 回到全部紀錄（目前只看上架飛鼠 ${n} 筆${nPos ? `，含 POS ${nPos} 筆` : ''}）` : `🛒 上架飛鼠清單（${n}）`;
   b.style.background = listingOnly ? '#d9480f' : '#fff4e6';
   b.style.color = listingOnly ? '#fff' : '#d9480f';
 }
@@ -537,6 +540,36 @@ function filterRecords() {
   const uniqueCustomers = new Set(filtered.map(r=>r.fields['聯絡電話']||r.fields['客戶姓名']||'').filter(Boolean));
   document.getElementById('count-badge').textContent = `共 ${uniqueCustomers.size} 位客人 / ${filtered.length} 筆器材`;
   renderRecords(filtered);
+  renderListingPos();
+}
+
+// 上架飛鼠清單：POS 庫存打勾的列在最上面
+function renderListingPos() {
+  const box = document.getElementById('record-list');
+  if (!listingOnly || !box || typeof posRecs === 'undefined') return;
+  const list = posRecs.filter(r => r.fields['上架飛鼠']);
+  if (!list.length) return;
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const div = document.createElement('div');
+  div.style.cssText = 'background:#fff;border:1px solid #f5c26b;border-radius:10px;padding:10px 12px;margin-bottom:12px';
+  div.innerHTML = `<div style="font-weight:700;margin-bottom:6px">📦 POS 庫存標記上架的（${list.length}）</div>` + list.map(r => { const f = r.fields; return `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #f3f3ee;font-size:13px">
+      <span style="background:#2b8a3e;color:#fff;border-radius:3px;padding:0 5px;font-size:10px">POS</span>
+      <span style="flex:1;min-width:160px">${esc(f['名稱'])}</span>
+      <span style="font-family:monospace;color:#6b6b63">${esc(f['條碼'])}</span>
+      <span>${f['售價'] ? 'NT$ ' + Number(f['售價']).toLocaleString() : '<span style="color:#c62828">沒有售價</span>'}</span>
+      ${f['飛鼠狀態'] ? `<span style="color:#2b8a3e;font-size:11px">${esc(f['飛鼠狀態'])}</span>` : '<span style="color:#aaa;font-size:11px">還沒上架</span>'}
+      ${f['商品介紹'] ? '' : '<span style="color:#b45309;font-size:11px">⚠️ 缺商品介紹</span>'}
+      <button onclick="switchTab('pos');posOpenEdit('${r.id}')" style="padding:3px 8px;border:1px solid var(--gray-200);background:#fff;border-radius:5px;cursor:pointer;font-size:11px">編輯</button>
+      <button onclick="posUnmarkOne('${r.id}')" style="padding:3px 8px;border:1px solid var(--gray-200);background:#fff;border-radius:5px;cursor:pointer;font-size:11px">取消上架</button>
+    </div>`; }).join('');
+  box.prepend(div);
+}
+async function posUnmarkOne(id) {
+  const res = await adminFetch('?id=' + id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields: {'上架飛鼠': false}})}, POS_API);
+  if (!res.ok) { alert('取消失敗'); return; }
+  const r = posRecs.find(x => x.id === id); if (r) r.fields['上架飛鼠'] = false;
+  filterRecords(); try { renderPos(); } catch (e) {}
 }
 
 // 流水號：當天的第幾筆，最早建立的是 #1
@@ -1292,6 +1325,8 @@ function toggleCard(i) {
 }
 
 loadRecords();
+// 背景先載 POS 庫存：上架飛鼠清單的數字才會包含 POS 標記的
+setTimeout(() => { try { if (!posLoaded) loadPos().then(() => { try { updateListingBtn(); } catch (e) {} }); } catch (e) {} }, 1500);
 </script>
 
 <script>
@@ -3260,6 +3295,7 @@ const posProg = t => { document.getElementById('pos-progress').textContent = t |
 
 async function loadPos() {
   posLoaded = true;
+  setTimeout(() => { try { updateListingBtn(); if (listingOnly) filterRecords(); } catch (e) {} }, 0);
   const list = document.getElementById('pos-list');
   list.textContent = '載入中…';
   try {
@@ -3334,7 +3370,7 @@ async function posMarkListing(on) {
       if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || res.status);
     }
     picked.forEach(r => r.fields['上架飛鼠'] = on);
-    posChecked.clear(); renderPos();
+    posChecked.clear(); renderPos(); try { filterRecords(); } catch (e) {}
     showToast(on ? `🛒 已標記 ${picked.length} 件上架飛鼠，到上架程式按「一鍵上架」就會處理` : `已取消 ${picked.length} 件的上架標記`);
   } catch (e) { alert('標記失敗：' + e.message); }
 }
