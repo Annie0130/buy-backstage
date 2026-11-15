@@ -296,6 +296,8 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
       <button onclick="posSelectAll(true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選畫面上的</button>
       <button onclick="posSelectAll(true, true)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">全選未印過的</button>
       <button onclick="posSelectAll(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消全選</button>
+ <button onclick="posMarkListing(true)" style="padding:7px 12px;background:#fff3e0;color:#b45309;border:1px solid #f5c26b;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🛒 標記上架飛鼠</button>
+      <button onclick="posMarkListing(false)" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消上架標記</button>
       <button onclick="posAiButton()" style="padding:7px 12px;background:#7b4fc9;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✨ AI 補勾選的商品介紹</button>
       <button onclick="posPrint()" style="padding:7px 12px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的商品卡（含收購紀錄勾的）</button>
       <button onclick="loadPos()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
@@ -3300,7 +3302,7 @@ function renderPos() {
     <tr style="text-align:left;color:#8a96a5;font-size:11px"><th></th><th>名稱</th><th>條碼</th><th style="text-align:right">售價</th><th>新舊</th><th>狀況說明</th><th>店保</th><th>介紹</th><th>印卡</th><th></th></tr>
     ${vis.map(r => { const f = r.fields; return `<tr style="border-top:1px solid #f0f0ec;${f['狀態'] === '已售出' ? 'color:#aaa' : ''}">
       <td style="padding:6px 4px"><input type="checkbox" ${posChecked.has(r.id) ? 'checked' : ''} onchange="posToggle('${r.id}',this.checked)"></td>
-      <td>${f['寄賣'] ? '<span style="background:#654B3D;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">寄賣</span> ' : ''}${(() => { const t = retroType({name: f['名稱'], ccd: f['CCD／Y2K']}); return t ? `<span style="background:#5a3d8a;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">${t.replace(' 相機', '').replace(' 復古', '')}</span> ` : ''; })()}${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
+      <td>${f['上架飛鼠'] ? '<span title="已標記上架飛鼠" style="background:#f59f00;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">🛒上架</span> ' : ''}${f['飛鼠狀態'] ? `<span style="color:#2b8a3e;font-size:10px">${posEsc(f['飛鼠狀態'])}</span> ` : ''}${f['寄賣'] ? '<span style="background:#654B3D;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">寄賣</span> ' : ''}${(() => { const t = retroType({name: f['名稱'], ccd: f['CCD／Y2K']}); return t ? `<span style="background:#5a3d8a;color:#fff;border-radius:3px;padding:0 4px;font-size:10px">${t.replace(' 相機', '').replace(' 復古', '')}</span> ` : ''; })()}${posEsc(f['名稱'])}${f['選單語言'] ? ` <span style="background:#eef2ff;color:#3949ab;border-radius:3px;padding:0 4px;font-size:10px">${posEsc(f['選單語言'])}</span>` : ''}</td>
       <td style="font-family:monospace;color:#6b6b63">${posEsc(f['條碼'])}</td>
       <td style="text-align:right">${f['售價'] ? Number(f['售價']).toLocaleString() : '—'}</td>
       <td style="color:${condColor[f['新舊程度']] || '#888'};white-space:nowrap">${posEsc(f['新舊程度'] || '—')}</td>
@@ -3316,9 +3318,30 @@ function renderPos() {
 function posToggle(id, on) { on ? posChecked.add(id) : posChecked.delete(id); renderPos(); }
 function posSelectAll(on, skipPrinted) { posVisible().forEach(r => { if (on && skipPrinted && r.fields['印卡日期']) return; on ? posChecked.add(r.id) : posChecked.delete(r.id); }); renderPos(); }
 
+// ── 標記上架飛鼠（上架程式會一起讀 POS 庫存打勾的）──
+async function posMarkListing(on) {
+  const picked = posVisible().filter(r => posChecked.has(r.id));
+  if (!picked.length) { alert('請先勾選商品'); return; }
+  if (on) {
+    const noPrice = picked.filter(r => !(Number(r.fields['售價']) > 0));
+    if (noPrice.length && !confirm(`有 ${noPrice.length} 件沒有售價，上架程式會略過。仍要標記嗎？`)) return;
+  }
+  try {
+    const recs = picked.map(r => ({id: r.id, fields: {'上架飛鼠': on}}));
+    for (let i = 0; i < recs.length; i += 10) {
+      const res = await adminFetch('', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({records: recs.slice(i, i + 10)})}, POS_API);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data.error && (data.error.message || data.error)) || res.status);
+    }
+    picked.forEach(r => r.fields['上架飛鼠'] = on);
+    posChecked.clear(); renderPos();
+    showToast(on ? `🛒 已標記 ${picked.length} 件上架飛鼠，到上架程式按「一鍵上架」就會處理` : `已取消 ${picked.length} 件的上架標記`);
+  } catch (e) { alert('標記失敗：' + e.message); }
+}
+
 // ── 編輯 ──
 const POS_EDIT = [
-  ['寄賣', 'checkbox'], ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
+  ['寄賣', 'checkbox'], ['上架飛鼠', 'checkbox'], ['名稱', 'text'], ['條碼', 'text'], ['售價', 'number'], ['新舊程度', ['', '全新', '近無使用痕跡', '些許使用痕跡', '使用痕跡多']],
   ['狀況說明', 'textarea'], ['選單語言', 'text'], ['配件', 'text'], ['快門數', 'number'],
   ['店保', 'combo'],
   ['原廠保固', ['', '在保', '已過保']], ['原廠保固到期', 'date'], ['貨品來源', ['', '公司貨', '水貨']],

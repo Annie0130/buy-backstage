@@ -132,6 +132,7 @@ const CONFIG = {
   airtable: {
     baseId: 'appAuc0SgpUMOFLsv', // 林相攝影收購紀錄
     tableId: 'tblnOp2xI0RPOAR3J',
+    posTableId: 'tbl3FSkUsoTqeTt4j',   // POS 庫存（後台「📦 POS 庫存」按「標記上架飛鼠」的也一起上架）
     // 唯讀金鑰放在同資料夾的 airtable-token.txt（不要分享給別人）
     tokenFile: path.join(__dirname, 'airtable-token.txt'),
     // 只抓這天（含）之後的收購紀錄，留空 = 不限。例如 '2026-11-01'
@@ -230,7 +231,47 @@ async function readAirtable(formulaOverride) {
     records.push(...data.records);
     offset = data.offset || '';
   } while (offset);
-  return records.map((rec, i) => Object.assign(airtableToRow(rec.fields, `AT#${i + 1}`), { _id: rec.id, _fsStatus: String(rec.fields['飛鼠狀態'] || '') }));
+  const rows = records.map((rec, i) => Object.assign(airtableToRow(rec.fields, `AT#${i + 1}`), { _id: rec.id, _fsStatus: String(rec.fields['飛鼠狀態'] || '') }));
+  // POS 庫存標記上架飛鼠的：一起處理（同一個序號收購紀錄也有的，以收購紀錄為準）
+  const pos = await readPosForListing(formulaOverride, token).catch((e) => { console.log('   ℹ️ POS 庫存讀不到（' + e.message + '），這次只處理收購紀錄'); return []; });
+  const have = new Set(rows.map((r) => String(r['條碼']).replace(/^0+/, '')));
+  return rows.concat(pos.filter((r) => !have.has(String(r['條碼']).replace(/^0+/, ''))));
+}
+
+// ---------- POS 庫存（後台「📦 POS 庫存」）----------
+const POS_IDS = new Set();
+function posToFields(p) {
+  const str = (v) => (v === undefined || v === null ? '' : String(v).trim());
+  const acc = [p['原廠盒'] ? '原廠盒' : '', p['保卡'] ? '保卡' : '', str(p['配件'])].filter(Boolean).join('、');
+  const fn = [str(p['選單語言']), str(p['狀況說明'])].filter(Boolean).join('、');
+  const ccd = str(p['CCD／Y2K']) === '都不是' ? '' : str(p['CCD／Y2K']);
+  return {
+    '器材一': str(p['名稱']), '序號': str(p['條碼']), '售價': p['售價'] != null ? p['售價'] : '', '貨品來源': str(p['貨品來源']),
+    '盒單': str(p['盒單']), '配件清單': acc, '新舊程度': str(p['新舊程度']),
+    '原廠保固': str(p['原廠保固']) === '在保' && p['原廠保固到期'] ? `在保（至${p['原廠保固到期']}）` : str(p['原廠保固']),
+    '功能備註': fn || '全數正常', '快門數': p['快門數'] ? `快門：${p['快門數']}次` : '', '店保': p['寄賣'] ? '無保固' : str(p['店保']),
+    '商品介紹': str(p['商品介紹']), '品類': str(p['品類']), 'CCD／Y2K': ccd, '選單語言': str(p['選單語言']),
+    '進貨管道': p['寄賣'] ? '寄賣' : 'POS庫存', '交易日期': str(p['最後匯入']), '飛鼠狀態': str(p['飛鼠狀態']),
+  };
+}
+async function readPosForListing(formulaOverride, token) {
+  const { baseId, posTableId } = CONFIG.airtable;
+  if (!posTableId) return [];
+  // 收購紀錄用的條件換成 POS 的欄位名稱（序號→條碼）；沒有指定就抓「上架飛鼠」打勾、在庫的
+  const formula = formulaOverride ? formulaOverride.replace(/\{序號\}/g, '{條碼}') : (CONFIG.airtable.requireMark ? "AND({上架飛鼠}, {狀態}!='已售出')" : "{狀態}!='已售出'");
+  if (/\{(交易日期|器材一)\}/.test(formula)) return [];   // POS 沒有這些欄位
+  const out = [];
+  let offset = '';
+  do {
+    const qs = new URLSearchParams({ filterByFormula: formula, pageSize: '100' });
+    if (offset) qs.set('offset', offset);
+    const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${posTableId}?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+    out.push(...data.records);
+    offset = data.offset || '';
+  } while (offset);
+  return out.map((rec, i) => { POS_IDS.add(rec.id); const f = posToFields(rec.fields); return Object.assign(airtableToRow(f, `POS#${i + 1}`), { _id: rec.id, _fsStatus: f['飛鼠狀態'], _pos: true }); });
 }
 
 // 配件清單整理：充電器、充電線 → 合併成一項「充電設備」（有原廠字樣就保留「原廠」）
@@ -386,11 +427,11 @@ function buildListingText(f) {
 
   const hasNote = fnNote && fnNote !== '全數正常';
   let fnDesc;
+  // 有寫狀況（例如入塵、霧化、時間重設）就照實寫，不要前面又寫「功能正常／乾淨無入塵」自相矛盾
   if (isLens) {
-    const base = '鏡頭前後玉乾淨無刮傷、無入塵';
-    fnDesc = (hasNote ? `${base}，${fnNote}` : base) + '　自動對焦功能正常';
+    fnDesc = hasNote ? `${fnNote}${/對焦/.test(fnNote) ? '' : '　自動對焦功能正常'}` : '鏡頭前後玉乾淨無刮傷、無入塵　自動對焦功能正常';
   } else {
-    fnDesc = hasNote ? `狀況經檢測功能正常　${fnNote}` : '狀況經檢測功能正常';
+    fnDesc = hasNote ? `經檢測：${fnNote}` : '狀況經檢測功能正常';
   }
 
   return `⚠️ 商品與現場同步販售，庫存依現場為準，所以請一定要詢問! 謝謝
@@ -738,7 +779,8 @@ function atToken() {
 }
 function setFeishuStatus(serial, text, id) {
   if (AT_WRITE_OFF || !serial) return;
-  const { baseId, tableId } = CONFIG.airtable;
+  const { baseId } = CONFIG.airtable;
+  let tableId = id && POS_IDS.has(id) ? CONFIG.airtable.posTableId : CONFIG.airtable.tableId;
   const today = new Date().toLocaleDateString('zh-TW');
   const job = (async () => {
     const token = atToken();
@@ -746,12 +788,16 @@ function setFeishuStatus(serial, text, id) {
     const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
     let rid = id;
     if (!rid) {
-      const qs = new URLSearchParams({ filterByFormula: `{序號}="${String(serial).replace(/"/g, '\\"')}"`, maxRecords: '2' });
-      qs.append('fields[]', '序號');
-      const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tableId}?${qs}`, { headers: H }, 3);
-      const recs = res.ok ? (await res.json()).records : [];
-      if (recs.length !== 1) return;
-      rid = recs[0].id;
+      const find = async (tid, field) => {
+        const qs = new URLSearchParams({ filterByFormula: `{${field}}="${String(serial).replace(/"/g, '\\"')}"`, maxRecords: '2' });
+        qs.append('fields[]', field);
+        const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tid}?${qs}`, { headers: H }, 3);
+        const recs = res.ok ? (await res.json()).records : [];
+        return recs.length === 1 ? recs[0].id : null;
+      };
+      rid = await find(CONFIG.airtable.tableId, '序號');
+      if (!rid && CONFIG.airtable.posTableId) { rid = await find(CONFIG.airtable.posTableId, '條碼'); if (rid) tableId = CONFIG.airtable.posTableId; }
+      if (!rid) return;
     }
     const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tableId}/${rid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { 飛鼠狀態: `${text} ${today}`, ...(text.includes('蝦皮已補') ? { 上架飛鼠: false } : {}) } }) }, 3); // 全部完成 → 自動取消上架標記，清單才不會越來越長
     if (res.status === 401 || res.status === 403) {
