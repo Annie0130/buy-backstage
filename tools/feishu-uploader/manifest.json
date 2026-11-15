@@ -1,6 +1,6 @@
 {
- "version": "20261115-2010",
- "note": "照片沒有拍攝時間時改照下載先後排順序；預覽縮圖放大、加🔍放大看",
+ "version": "20261115-2015",
+ "note": "LINE 一次存很多張（同一秒）也照存檔先後排順序",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "69d91d15e2572377376e7254eab0a22f77f7cc564f9f6efbd8dd24bdb7719ed9"
+   "sha256": "dac9145fd70ee8db2ca4df746e6817a35d368dee3ae85f8743adccb6d3f04811"
   },
   {
    "path": "使用說明.txt",

@@ -1922,7 +1922,7 @@ async function photosMain() {
   // 檔案時間大多一樣（例如解壓縮、一次複製）才改照檔名號碼
   const byName = (a, b) => a.file.localeCompare(b.file, 'en', { numeric: true });
   const allExif = items.every((it) => it.exif);
-  const distinctMtime = new Set(items.map((it) => Math.round(it.mtime / 1000))).size;
+  const distinctMtime = new Set(items.map((it) => it.mtime)).size;   // 用到毫秒：LINE「全部儲存」一秒內存好幾張也分得出先後
   const useMtime = !allExif && distinctMtime >= items.length * 0.6;
   items.sort(allExif ? (a, b) => a.exif - b.exif || byName(a, b)
     : useMtime ? (a, b) => a.mtime - b.mtime || byName(a, b) : byName);
