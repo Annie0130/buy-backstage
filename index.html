@@ -482,8 +482,9 @@ function toggleListingOnly(on){
 }
 function updateListingBtn(){
   const b = document.getElementById('listing-btn'); if(!b) return;
-  const nPos = (typeof posRecs !== 'undefined') ? posRecs.filter(r => r.fields['上架飛鼠']).length : 0;
-  const n = allRecords.filter(r=>r.fields['上架飛鼠']).length + nPos;
+  const todoOf = f => f['上架飛鼠'] && !/已上架/.test(f['飛鼠狀態'] || '');   // 已上架飛鼠、只差蝦皮的不算
+  const nPos = (typeof posRecs !== 'undefined') ? posRecs.filter(r => todoOf(r.fields)).length : 0;
+  const n = allRecords.filter(r => todoOf(r.fields)).length + nPos;
   b.innerHTML = listingOnly ? `✕ 回到全部紀錄（目前只看上架飛鼠 ${n} 筆${nPos ? `，含 POS ${nPos} 筆` : ''}）` : `🛒 上架飛鼠清單（${n}）`;
   b.style.background = listingOnly ? '#d9480f' : '#fff4e6';
   b.style.color = listingOnly ? '#fff' : '#d9480f';
@@ -506,7 +507,7 @@ function filterRecords() {
   
   let filtered = allRecords.filter(r => {
     // 「🛒 上架飛鼠清單」：只看有勾上架飛鼠的
-    if (listingOnly && !r.fields['上架飛鼠']) return false;
+    if (listingOnly && (!r.fields['上架飛鼠'] || /已上架/.test(r.fields['飛鼠狀態'] || ''))) return false;   // 已上架飛鼠的另外列在最下面
     const recDate = r.fields['交易日期'] || r.fields['建立時間']?.slice(0,10) || '';
     // 月份篩選
     if (activeMonth !== 'all') {
@@ -547,7 +548,8 @@ function filterRecords() {
 function renderListingPos() {
   const box = document.getElementById('record-list');
   if (!listingOnly || !box || typeof posRecs === 'undefined') return;
-  const list = posRecs.filter(r => r.fields['上架飛鼠']);
+  const list = posRecs.filter(r => r.fields['上架飛鼠'] && !/已上架/.test(r.fields['飛鼠狀態'] || ''));
+  renderListingDone(box);
   if (!list.length) return;
   const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const div = document.createElement('div');
@@ -564,6 +566,34 @@ function renderListingPos() {
       <button onclick="posUnmarkOne('${r.id}')" style="padding:3px 8px;border:1px solid var(--gray-200);background:#fff;border-radius:5px;cursor:pointer;font-size:11px">取消上架</button>
     </div>`; }).join('');
   box.prepend(div);
+}
+// 已上架飛鼠、還沒補蝦皮的（收購＋POS）：收在清單最下面，可以按「蝦皮已手動補好」
+function renderListingDone(box) {
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const done = [
+    ...allRecords.filter(r => r.fields['上架飛鼠'] && /已上架/.test(r.fields['飛鼠狀態'] || '')).map(r => ({src: 'rec', id: r.id, name: r.fields['器材一'], sn: r.fields['序號'], st: r.fields['飛鼠狀態']})),
+    ...posRecs.filter(r => r.fields['上架飛鼠'] && /已上架/.test(r.fields['飛鼠狀態'] || '')).map(r => ({src: 'pos', id: r.id, name: r.fields['名稱'], sn: r.fields['條碼'], st: r.fields['飛鼠狀態']})),
+  ];
+  if (!done.length) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'background:#f4fbf4;border:1px solid #b7e1b7;border-radius:10px;padding:10px 12px;margin-top:14px';
+  div.innerHTML = `<div style="font-weight:700;margin-bottom:4px">✅ 已上架飛鼠、等蝦皮補資料（${done.length}）</div>
+    <div style="font-size:12px;color:#6b6b63;margin-bottom:6px">這些已經在飛鼠上了，只差蝦皮。上架程式「蝦皮補資料」補好會自動拿掉；手動補好的請按右邊的按鈕。</div>` +
+    done.map(d => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid #e3f1e3;font-size:13px">
+      <span style="color:#fff;background:${d.src === 'pos' ? '#2b8a3e' : '#0d3b66'};border-radius:3px;padding:0 5px;font-size:10px">${d.src === 'pos' ? 'POS' : '收購'}</span>
+      <span style="flex:1;min-width:160px">${esc(d.name)}</span><span style="font-family:monospace;color:#6b6b63">${esc(d.sn)}</span>
+      <span style="color:#2b8a3e;font-size:11px">${esc(d.st)}</span>
+      <button onclick="markShopeeDone('${d.src}','${d.id}')" style="padding:3px 8px;border:1px solid #2b8a3e;color:#2b8a3e;background:#fff;border-radius:5px;cursor:pointer;font-size:11px">✓ 蝦皮已手動補好</button></div>`).join('');
+  box.appendChild(div);
+}
+async function markShopeeDone(src, id) {
+  const d = new Date(), today = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  const fields = {'飛鼠狀態': `飛鼠已上架＋蝦皮已補 ${today}`, '上架飛鼠': false};
+  const res = await adminFetch('?id=' + id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, src === 'pos' ? POS_API : undefined);
+  if (!res.ok) { alert('更新失敗'); return; }
+  const list = src === 'pos' ? posRecs : allRecords, r = list.find(x => x.id === id);
+  if (r) Object.assign(r.fields, fields);
+  showToast('✅ 已記成蝦皮已補'); filterRecords();
 }
 async function posUnmarkOne(id) {
   const res = await adminFetch('?id=' + id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields: {'上架飛鼠': false}})}, POS_API);
