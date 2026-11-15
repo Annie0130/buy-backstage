@@ -271,7 +271,10 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 8px">
       <div style="font-size:15px;font-weight:700">⏳ 排隊中</div>
       <span id="pq-count" style="font-size:12px;color:#6b6b63"></span>
-      <button onclick="printQueue()" style="padding:7px 14px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印排隊中的全部</button>
+      <button id="pq-print-sel" onclick="printQueue(true)" style="padding:7px 14px;background:#0d3b66;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🖨️ 印勾選的</button>
+      <button onclick="pqPickFirst(6)" style="padding:7px 12px;background:#fff;border:1px solid #0d3b66;color:#0d3b66;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">勾前 6 張</button>
+      <button onclick="pqSel.clear();renderPrintArea()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">取消勾選</button>
+      <button onclick="printQueue()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">印排隊中的全部</button>
       <button onclick="clearQueue()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">清空排隊</button>
       <button onclick="loadPrintArea()" style="padding:7px 12px;background:#fff;border:1px solid var(--gray-200);border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit">↻ 重新整理</button>
     </div>
@@ -2671,6 +2674,7 @@ async function _printBasket(opts) {
 // ─── 印卡區：排隊與紀錄（Airtable「印卡清單」表）───
 const PQ_API = '/.netlify/functions/print-queue';
 let pqQueue = [], pqHistory = [];
+const pqSel = new Set();   // 排隊區勾選要印的（6 張剛好一頁）
 const pqNow = () => new Date().toISOString();
 async function pqWrite(records) {
   const out = [];
@@ -2738,9 +2742,14 @@ async function loadPrintArea() {
 function renderPrintArea() {
   const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const tm = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-  document.getElementById('pq-count').textContent = pqQueue.length ? `共 ${pqQueue.length} 張（${Math.ceil(pqQueue.length / 6)} 頁）` : '';
+  [...pqSel].forEach(id => { if (!pqQueue.some(q => q.id === id)) pqSel.delete(id); });
+  const ns = pqSel.size, left = ns % 6 ? 6 - ns % 6 : 0;
+  document.getElementById('pq-count').innerHTML = pqQueue.length
+    ? `共 ${pqQueue.length} 張　<b style="color:#0d3b66">已勾 ${ns} 張</b>${ns ? (left ? `（${Math.ceil(ns / 6)} 頁，<span style="color:#b45309">還差 ${left} 張湊滿一頁</span>）` : `（剛好 ${ns / 6} 頁 ✅）`) : ''}` : '';
+  const pb = document.getElementById('pq-print-sel'); if (pb) pb.textContent = ns ? `🖨️ 印勾選的 ${ns} 張` : '🖨️ 印勾選的';
   document.getElementById('pq-list').innerHTML = !pqQueue.length ? '<div style="color:#aaa">目前沒有排隊的商品卡</div>'
-    : pqQueue.map((q, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-top:1px solid #f0f0ec">
+    : pqQueue.map((q, i) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-top:1px solid #f0f0ec;${pqSel.has(q.id) ? 'background:#eef4ff' : ''}">
+      <input type="checkbox" ${pqSel.has(q.id) ? 'checked' : ''} onchange="this.checked?pqSel.add('${q.id}'):pqSel.delete('${q.id}');renderPrintArea()" style="width:18px;height:18px">
       <span style="color:#aaa;width:22px">${i + 1}</span>
       <span style="font-size:10px;border-radius:3px;padding:0 4px;color:#fff;background:${q.fields['來源'] === 'POS庫存' ? '#2b8a3e' : '#0d3b66'}">${q.fields['來源'] === 'POS庫存' ? 'POS' : '收購'}</span>
       <span style="flex:1">${esc(q.fields['名稱'])}</span>
@@ -2753,7 +2762,8 @@ function renderPrintArea() {
     : [...groups.entries()].map(([b, rows]) => `<div style="border:1px solid #eee;border-radius:8px;padding:8px 10px;margin-bottom:8px;background:#fff">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <b>${tm(rows[0].fields['印卡時間'])}</b><span style="color:#6b6b63">共 ${rows.length} 張</span>
-        <button onclick="reprintBatch('${esc(b)}')" style="margin-left:auto;padding:3px 10px;border:1px solid #0d3b66;color:#0d3b66;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">整批重印</button></div>
+        <button onclick="reprintBatch('${esc(b)}')" style="margin-left:auto;padding:3px 10px;border:1px solid #0d3b66;color:#0d3b66;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">整批重印</button>
+        <button onclick="undoBatch('${esc(b)}')" style="padding:3px 10px;border:1px solid #c62828;color:#c62828;background:#fff;border-radius:6px;cursor:pointer;font-size:12px">↩️ 取消這批（沒有真的印）</button></div>
       <div style="color:#555;line-height:1.7">${rows.map(h => esc(h.fields['名稱']) + (h.fields['條碼'] ? `<span style="color:#aaa">（${esc(h.fields['條碼'])}）</span>` : '')).join('、')}</div></div>`).join('');
 }
 async function removeFromQueue(id) {
@@ -2786,11 +2796,32 @@ function posReadyFor(rows) {
   }
   return true;
 }
-async function printQueue() {
-  if (!pqQueue.length) { alert('目前沒有排隊的商品卡'); return; }
-  if (!posReadyFor(pqQueue)) return;
-  const {recs, pos} = rowsToItems(pqQueue);
-  try { await _printBasket({recs, pos, queueRows: pqQueue}); } catch (e) { showPrintError(e); }
+async function printQueue(selectedOnly) {
+  const rows = selectedOnly ? pqQueue.filter(q => pqSel.has(q.id)) : pqQueue;
+  if (!rows.length) { alert(selectedOnly ? '請先勾選要印的商品卡（6 張剛好一頁）' : '目前沒有排隊的商品卡'); return; }
+  if (!posReadyFor(rows)) return;
+  const {recs, pos} = rowsToItems(rows);
+  try { await _printBasket({recs, pos, queueRows: rows}); rows.forEach(q => pqSel.delete(q.id)); } catch (e) { showPrintError(e); }
+}
+function pqPickFirst(n) { pqSel.clear(); pqQueue.slice(0, n).forEach(q => pqSel.add(q.id)); renderPrintArea(); }
+// 按了印卡但其實沒印：這批放回排隊區，商品上的「已印」標記也拿掉
+async function undoBatch(batch) {
+  const rows = pqHistory.filter(h => (h.fields['批次'] || '（無批次）') === batch);
+  if (!rows.length) return;
+  if (!confirm(`這批 ${rows.length} 張要當作「沒有印」嗎？\n會放回排隊區，商品上的「已印」標記也會拿掉。`)) return;
+  try {
+    await pqWrite(rows.map(h => ({id: h.id, fields: {'狀態': '排隊中', '印卡時間': null, '批次': null}})));
+    for (const h of rows) {
+      const id = h.fields['紀錄ID'], isPos = h.fields['來源'] === 'POS庫存';
+      const list = isPos ? (typeof posRecs !== 'undefined' ? posRecs : []) : allRecords;
+      const r = list.find(x => x.id === id);
+      await adminFetch('?id=' + id, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields: {'印卡日期': null}})}, isPos ? POS_API : undefined).catch(() => {});
+      if (r) r.fields['印卡日期'] = null;
+    }
+    showToast(`↩️ 已取消，${rows.length} 張放回排隊區`);
+    try { filterRecords(); renderPos(); } catch (e) {}
+    loadPrintArea();
+  } catch (e) { alert('取消失敗：' + e.message); }
 }
 async function reprintBatch(batch) {
   const rows = pqHistory.filter(h => (h.fields['批次'] || '（無批次）') === batch);
