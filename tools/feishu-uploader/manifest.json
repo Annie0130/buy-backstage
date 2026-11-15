@@ -1,6 +1,6 @@
 {
- "version": "20261115-2015",
- "note": "LINE 一次存很多張（同一秒）也照存檔先後排順序",
+ "version": "20261115-2052",
+ "note": "照片分組預覽可以選照片大小（中／大／特大）",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "dac9145fd70ee8db2ca4df746e6817a35d368dee3ae85f8743adccb6d3f04811"
+   "sha256": "b32842257d22efee6cc3c97509c5f1898535abaf07a51e3a779eb4e5b643dd23"
   },
   {
    "path": "使用說明.txt",
