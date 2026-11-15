@@ -1915,14 +1915,20 @@ async function photosMain() {
   const items = files.map((f) => {
     const full = path.join(INBOX_DIR, f);
     const buf = fs.readFileSync(full, { start: 0, end: 256 * 1024 });
-    return { file: f, src: full, exif: exifTime(buf) };
+    return { file: f, src: full, exif: exifTime(buf), mtime: fs.statSync(full).mtimeMs };
   });
-  // 排順序：每張都有拍攝時間（EXIF）→ 照拍攝時間；只要有一張沒有（例如手機傳過來、軟體匯出的）→ 照檔名的號碼
-  // （檔案的「修改時間」複製後會亂掉，不能用）
+  // 排順序：每張都有拍攝時間（EXIF）→ 照拍攝時間；
+  // 只要有一張沒有（例如從網路／LINE／雲端下載的，拍攝時間常被拿掉，檔名也是亂碼）→ 照檔案時間（＝下載的先後順序）
+  // 檔案時間大多一樣（例如解壓縮、一次複製）才改照檔名號碼
   const byName = (a, b) => a.file.localeCompare(b.file, 'en', { numeric: true });
   const allExif = items.every((it) => it.exif);
-  items.sort(allExif ? (a, b) => a.exif - b.exif || byName(a, b) : byName);
-  console.log(allExif ? '（照拍攝時間排順序）' : '（有照片沒有拍攝時間，改照檔名號碼排順序）');
+  const distinctMtime = new Set(items.map((it) => Math.round(it.mtime / 1000))).size;
+  const useMtime = !allExif && distinctMtime >= items.length * 0.6;
+  items.sort(allExif ? (a, b) => a.exif - b.exif || byName(a, b)
+    : useMtime ? (a, b) => a.mtime - b.mtime || byName(a, b) : byName);
+  console.log(allExif ? '（照拍攝時間排順序）'
+    : useMtime ? '（有照片沒有拍攝時間，改照檔案時間＝下載／存檔的先後排順序）'
+    : '（有照片沒有拍攝時間、檔案時間也都一樣，改照檔名號碼排順序）');
 
   // 用瀏覽器量亮度、做縮圖和縮小版（不用另外裝套件）
   const browser = await chromium.launch({ channel: CONFIG.browserChannel, headless: true }).catch(() => chromium.launch({ headless: true }));
@@ -1946,13 +1952,13 @@ async function photosMain() {
       const mean = lum.reduce((a, b) => a + b, 0) / lum.length;
       const p90 = lum.sort((a, b) => a - b)[Math.floor(lum.length * 0.9)];
       const scale = (m) => Math.min(1, m / Math.max(bmp.width, bmp.height));
-      const t = document.createElement('canvas'); const ts = scale(220);
+      const t = document.createElement('canvas'); const ts = scale(640);
       t.width = Math.round(bmp.width * ts); t.height = Math.round(bmp.height * ts);
       t.getContext('2d').drawImage(bmp, 0, 0, t.width, t.height);
       const f = document.createElement('canvas'); const fs_ = scale(max);
       f.width = Math.round(bmp.width * fs_); f.height = Math.round(bmp.height * fs_);
       f.getContext('2d').drawImage(bmp, 0, 0, f.width, f.height);
-      return { mean, p90, thumb: t.toDataURL('image/jpeg', 0.7), full: f.toDataURL('image/jpeg', 0.9) };
+      return { mean, p90, thumb: t.toDataURL('image/jpeg', 0.8), full: f.toDataURL('image/jpeg', 0.9) };
     }, { url: 'https://photo.local/' + encodeURIComponent(it.file), max: PHOTO_MAX_SIDE }).catch((e) => ({ error: e.message }));
     Object.assign(it, res);
     if ((k + 1) % 10 === 0 || k === items.length - 1) console.log(`   …${k + 1}/${items.length}`);
@@ -2003,12 +2009,12 @@ async function photosMain() {
   const html = `<!doctype html><meta charset="utf-8"><title>照片分組預覽</title>
 <style>body{font-family:system-ui,"Microsoft JhengHei",sans-serif;margin:20px;background:#f6f6f4;color:#222}h1{font-size:22px}h2{font-size:17px;margin:22px 0 8px}small{color:#777;font-weight:400}
 .warn{background:#fff3cd;border:1px solid #f0c36d;padding:12px 14px;border-radius:8px;font-weight:700}.tip{background:#e7f5ff;border:1px solid #a5d8ff;padding:10px 14px;border-radius:8px}.g{display:flex;flex-wrap:wrap;gap:8px;min-height:40px}
-figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd;width:232px}figure.main{border:3px solid #d9480f}img{display:block;max-width:220px;max-height:160px}figcaption{font-size:11px;color:#888;margin-top:4px;word-break:break-all}
+figure{margin:0;background:#fff;padding:6px;border-radius:6px;border:1px solid #ddd;width:312px}figure.main{border:3px solid #d9480f}img{display:block;max-width:300px;max-height:260px;margin:0 auto}.zoom{position:absolute;right:10px;top:10px;width:30px;height:30px;margin:0;border-radius:6px;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:16px;cursor:zoom-in}#big{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}#big img{max-width:95vw;max-height:92vh;margin:0}#big p{position:fixed;top:8px;left:0;right:0;text-align:center;color:#fff;font-size:15px;margin:0}figcaption{font-size:11px;color:#888;margin-top:4px;word-break:break-all}
 select,button{font:inherit;font-size:12px;margin-top:4px}figure.sel{outline:4px solid #1f6feb;outline-offset:-2px;background:#eef4ff}figure{cursor:pointer}.ck{position:absolute;left:10px;top:10px;width:24px;height:24px;border-radius:5px;border:2px solid #fff;background:rgba(0,0,0,.35);color:#fff;font-weight:900;font-size:16px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4)}.ck.on{background:#1f6feb}.ctl{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.bar{position:sticky;top:0;z-index:5;background:#fffbe6;border:1px solid #f5d98a;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:14px}button{cursor:pointer;border:1px solid #ccc;background:#fff;border-radius:6px;padding:2px 8px}.bad{color:#c00;font-weight:700}.trash figure{opacity:.6}</style>
 <h1>照片分組預覽</h1><p>共 ${items.length} 張：商品照 ${items.length - blacks - bad.length} 張、黑畫面 ${blacks} 張${bad.length ? `、讀不到 ${bad.length} 張` : ''}。確認每一組都是對的商品後，${process.env.PANEL ? '按下面的「✅ 分組正確，開始上架」' : '回黑色視窗輸入 y'}。</p>
 ${warn ? `<p class="warn">${warn}</p>` : ''}
 <p class="tip">🖐️ 分錯了可以直接調整：每張照片下面選「放到哪一組」，或選「🗑 不要」（黑畫面、多拍的）；按「⭐ 設為主圖」會變成第一張。${process.env.PANEL ? '' : '（調整功能要在「控制台」裡用）'}</p>
-<div id="root"></div>
+<div id="root"></div><div id="big" onclick="this.style.display='none'"></div>
 <script>
 const M = ${JSON.stringify(model).replace(/</g, '\\u003c')};
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -2030,6 +2036,8 @@ function toggle(f, ev){
   if (SEL.has(f)) SEL.delete(f); else SEL.add(f);
   LAST = f; render();
 }
+function zoom(f){ const b=document.getElementById('big'); b.innerHTML='<p>'+esc(f)+'　（點任何地方或按 Esc 關閉）</p><img src="'+M.thumbs[f]+'">'; b.style.display='flex'; }
+document.addEventListener('keydown',(e)=>{ if(e.key==='Escape'){ const b=document.getElementById('big'); if(b) b.style.display='none'; } });
 function figClick(ev, el){ if (ev.target.closest('button,select')) return; toggle(el.dataset.f, ev); }
 function selectGroup(g){ const L=listOf(g); const all=L.length&&L.every((f)=>SEL.has(f)); L.forEach((f)=>{ if(all) SEL.delete(f); else SEL.add(f); }); render(); }
 function applySel(to){ if(!SEL.size||to==='') return; moveMany([...SEL], to); SEL.clear(); render(); }
@@ -2039,7 +2047,8 @@ function fig(f, k, g){
   const sel=SEL.has(f), main=k===0&&g!=='trash';
   return '<figure draggable="true" data-f="'+esc(f)+'" data-g="'+g+'" class="'+(main?'main ':'')+(sel?'sel':'')+'" onclick="figClick(event,this)" ondragstart="DRAG=this.dataset.f" ondragover="event.preventDefault()" ondrop="event.preventDefault();event.stopPropagation();dropOn(this.dataset.g,this.dataset.f)" style="position:relative">'
     + '<span class="ck'+(sel?' on':'')+'">'+(sel?'✓':'')+'</span>'
-    + '<img src="'+M.thumbs[f]+'" title="點一下選取／取消；按住 Shift 可以連續選">'
+    + '<button class="zoom" data-f="'+esc(f)+'" onclick="zoom(this.dataset.f)" title="放大看">🔍</button>'
+    + '<img src="'+M.thumbs[f]+'" title="點一下選取／取消；按住 Shift 可以連續選；按右上角 🔍 放大看">'
     + '<figcaption>'+(sel?'☑️ ':'')+(g!=='trash'?'第 '+(k+1)+' 張'+(main?'（主圖）':'')+'　':'')+esc(f)+'　'+esc(M.info[f]||'')+'</figcaption>'
     + '<div class="ctl"><button data-f="'+esc(f)+'" onclick="nudge(this.dataset.f,-1)" title="往前一張">◀</button><button data-f="'+esc(f)+'" onclick="nudge(this.dataset.f,1)" title="往後一張">▶</button>'
     + '<select data-f="'+esc(f)+'" onchange="move(this.dataset.f,this.value)">'+opts(String(g))+'</select></div></figure>';
