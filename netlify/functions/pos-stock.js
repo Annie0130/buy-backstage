@@ -3,7 +3,7 @@
 // PATCH ?id=recXXXX   更新一筆
 // POST  {records:[{id?, fields}]}  批次新增／更新（一次最多 10 筆；有 id 的更新、沒 id 的新增）
 // 不提供刪除（賣掉的改成「已售出」）；每個請求都要帶正確的後台密碼（x-admin-password）。
-import { adminPasswordOk } from '../lib/auth.js';
+import { adminAuthResult, adminAuthResponse } from '../lib/auth.js';
 
 const BASE_ID = 'appAuc0SgpUMOFLsv';
 const TABLE_ID = 'tbl3FSkUsoTqeTt4j';
@@ -21,7 +21,8 @@ export default async (req) => {
   if (!token || !process.env.ADMIN_PASSWORD) {
     return Response.json({ error: '伺服器未設定 AIRTABLE_TOKEN 或 ADMIN_PASSWORD' }, { status: 500 });
   }
-  if (!adminPasswordOk(req)) return Response.json({ error: '密碼錯誤' }, { status: 401 });
+  const auth = await adminAuthResult(req);
+  if (auth !== 'ok') return adminAuthResponse(auth);
 
   const params = new URL(req.url).searchParams;
   const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
