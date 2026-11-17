@@ -128,12 +128,15 @@ const CONFIG = {
   // 上架紀錄：成功的會記錄下來，重跑時自動跳過，不會重複上架
   logFile: path.join(__dirname, '上架紀錄.csv'),
 
-  // ---- Airtable（收購紀錄）----
+  // ---- Airtable ----
+  // 收購紀錄留在舊 base；POS 庫存已搬到新 base（免費版 1,000 筆上限）。
+  // 同一支金鑰要能讀寫這兩個 base。
   airtable: {
-    baseId: 'appAuc0SgpUMOFLsv', // 林相攝影收購紀錄
+    baseId: 'appAuc0SgpUMOFLsv', // 林相攝影收購紀錄（舊 base）
     tableId: 'tblnOp2xI0RPOAR3J',
-    posTableId: 'tbl3FSkUsoTqeTt4j',   // POS 庫存（後台「📦 POS 庫存」按「標記上架飛鼠」的也一起上架）
-    // 唯讀金鑰放在同資料夾的 airtable-token.txt（不要分享給別人）
+    posBaseId: 'appbohLgY8zi2592Z', // 林相攝影POS庫存（新 base）
+    posTableId: 'tblIljPcfonMR2pia',   // POS 庫存（後台「📦 POS 庫存」按「標記上架飛鼠」的也一起上架）
+    // 金鑰放在同資料夾的 airtable-token.txt（不要分享給別人；要能讀寫上面兩個 base）
     tokenFile: path.join(__dirname, 'airtable-token.txt'),
     // 只抓這天（含）之後的收購紀錄，留空 = 不限。例如 '2026-11-01'
     sinceDate: '',
@@ -255,8 +258,8 @@ function posToFields(p) {
   };
 }
 async function readPosForListing(formulaOverride, token) {
-  const { baseId, posTableId } = CONFIG.airtable;
-  if (!posTableId) return [];
+  const { posBaseId, posTableId } = CONFIG.airtable;
+  if (!posBaseId || !posTableId) return [];
   // 收購紀錄用的條件換成 POS 的欄位名稱（序號→條碼）；沒有指定就抓「上架飛鼠」打勾、在庫的
   const formula = formulaOverride ? formulaOverride.replace(/\{序號\}/g, '{條碼}') : (CONFIG.airtable.requireMark ? "AND({上架飛鼠}, {狀態}!='已售出')" : "{狀態}!='已售出'");
   if (/\{(交易日期|器材一)\}/.test(formula)) return [];   // POS 沒有這些欄位
@@ -265,7 +268,7 @@ async function readPosForListing(formulaOverride, token) {
   do {
     const qs = new URLSearchParams({ filterByFormula: formula, pageSize: '100' });
     if (offset) qs.set('offset', offset);
-    const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${posTableId}?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetchRetry(`https://api.airtable.com/v0/${posBaseId}/${posTableId}?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`${res.status}`);
     const data = await res.json();
     out.push(...data.records);
@@ -836,8 +839,10 @@ function loadDone() {
   return done;
 }
 
-// ---------- 回寫收購後台「飛鼠狀態」----------
-// 需要金鑰有 data.records:write 權限；只寫「飛鼠狀態」這一欄。沒權限就跳過，不影響上架
+// ---------- 回寫「飛鼠狀態」----------
+// 收購紀錄寫舊 base，POS 庫存寫新 base（posBaseId）。
+// 金鑰要有 data.records:read 和 data.records:write，而且兩個 base 都要開。
+// 只寫「飛鼠狀態」這一欄。沒權限就跳過，不影響上架
 const AT_PENDING = [];
 let AT_WRITE_OFF = false;
 function atToken() {
@@ -846,29 +851,35 @@ function atToken() {
 }
 function setFeishuStatus(serial, text, id) {
   if (AT_WRITE_OFF || !serial) return;
-  const { baseId } = CONFIG.airtable;
-  let tableId = id && POS_IDS.has(id) ? CONFIG.airtable.posTableId : CONFIG.airtable.tableId;
+  const { baseId, posBaseId, tableId: acqTable, posTableId } = CONFIG.airtable;
   const today = new Date().toLocaleDateString('zh-TW');
   const job = (async () => {
     const token = atToken();
     if (!token) return;
     const H = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const knownPos = !!(id && POS_IDS.has(id));
     let rid = id;
+    let useBase = knownPos ? posBaseId : baseId;
+    let useTable = knownPos ? posTableId : acqTable;
     if (!rid) {
-      const find = async (tid, field) => {
+      const find = async (bid, tid, field) => {
         const qs = new URLSearchParams({ filterByFormula: `{${field}}="${String(serial).replace(/"/g, '\\"')}"`, maxRecords: '2' });
         qs.append('fields[]', field);
-        const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tid}?${qs}`, { headers: H }, 3);
+        const res = await fetchRetry(`https://api.airtable.com/v0/${bid}/${tid}?${qs}`, { headers: H }, 3);
         const recs = res.ok ? (await res.json()).records : [];
         return recs.length === 1 ? recs[0].id : null;
       };
-      rid = await find(CONFIG.airtable.tableId, '序號');
-      if (!rid && CONFIG.airtable.posTableId) { rid = await find(CONFIG.airtable.posTableId, '條碼'); if (rid) tableId = CONFIG.airtable.posTableId; }
+      // 先在舊 base 的收購紀錄用序號找；找不到再去新 base 的 POS 用條碼找
+      rid = await find(baseId, acqTable, '序號');
+      if (!rid && posBaseId && posTableId) {
+        rid = await find(posBaseId, posTableId, '條碼');
+        if (rid) { useBase = posBaseId; useTable = posTableId; }
+      }
       if (!rid) return;
     }
-    const res = await fetchRetry(`https://api.airtable.com/v0/${baseId}/${tableId}/${rid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { 飛鼠狀態: `${text} ${today}`, ...(text.includes('蝦皮已補') ? { 上架飛鼠: false } : {}) } }) }, 3); // 全部完成 → 自動取消上架標記，清單才不會越來越長
+    const res = await fetchRetry(`https://api.airtable.com/v0/${useBase}/${useTable}/${rid}`, { method: 'PATCH', headers: H, body: JSON.stringify({ fields: { 飛鼠狀態: `${text} ${today}`, ...(text.includes('蝦皮已補') ? { 上架飛鼠: false } : {}) } }) }, 3); // 全部完成 → 自動取消上架標記，清單才不會越來越長
     if (res.status === 401 || res.status === 403) {
-      if (!AT_WRITE_OFF) console.log('   ℹ️ Airtable 金鑰沒有「寫入」權限，收購後台的狀態不會更新（上架不受影響；要開請看使用說明「收購後台顯示上架狀態」）');
+      if (!AT_WRITE_OFF) console.log('   ℹ️ Airtable 金鑰沒有「寫入」權限，或沒有同時開「林相攝影收購紀錄」和「林相攝影POS庫存」，收購後台的狀態不會更新（上架不受影響；要開請看使用說明「收購後台顯示上架狀態」）');
       AT_WRITE_OFF = true;
     }
   })().catch(() => {});

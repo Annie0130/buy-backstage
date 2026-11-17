@@ -1,12 +1,15 @@
-// POS 庫存專區的 Airtable 讀寫代理（跟收購紀錄分開的「POS庫存」表）。
+// POS 庫存專區的 Airtable 讀寫代理。
+// POS庫存已從收購紀錄 base 搬到「林相攝影POS庫存」（免費版 1,000 筆上限）。
+// 收購紀錄仍走 admin-records.js 的舊 base。這裡只用同一支 AIRTABLE_TOKEN。
+// 新的 base／表 ID 寫死當預設，Netlify 不用加環境變數；要換表再設下面兩個。
 // GET   ?offset=xxx   讀取一頁（每頁 100 筆）
 // PATCH ?id=recXXXX   更新一筆
 // POST  {records:[{id?, fields}]}  批次新增／更新（一次最多 10 筆；有 id 的更新、沒 id 的新增）
 // 不提供刪除（賣掉的改成「已售出」）；每個請求都要帶正確的後台密碼（x-admin-password）。
 import { adminAuthResult, adminAuthResponse } from '../lib/auth.js';
 
-const BASE_ID = 'appAuc0SgpUMOFLsv';
-const TABLE_ID = 'tbl3FSkUsoTqeTt4j';
+const BASE_ID = process.env.AIRTABLE_POS_BASE_ID || 'appbohLgY8zi2592Z';
+const TABLE_ID = process.env.AIRTABLE_POS_TABLE_ID || 'tblIljPcfonMR2pia';
 const AIRTABLE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}`;
 
 const ALLOWED = ['名稱', '條碼', '狀態', 'POS分類', '品牌', '售價', '庫存量', '貨品來源', '盒單', '原廠盒', '保卡', 'POS備註',

@@ -340,7 +340,7 @@ async function loadStatus() {
   items = r.items;
   drawNcc();
   if (r.writeOff) {
-    $('alert').innerHTML = '⚠️ Airtable 金鑰沒有「寫入」權限，收購後台的上架狀態不會自動更新。<br>請到 airtable.com/create/tokens 打開你的金鑰 → Scopes 加上 <b>data.records:write</b> → Save changes（金鑰不用重貼）。';
+    $('alert').innerHTML = '⚠️ Airtable 金鑰寫不回去，收購後台的上架狀態不會自動更新。<br>請到 airtable.com/create/tokens 打開你的金鑰 → Scopes 要有 <b>data.records:read</b> 和 <b>data.records:write</b>，Access 要同時勾「林相攝影收購紀錄」和「林相攝影POS庫存」→ Save changes（金鑰不用重貼）。';
     $('alert').classList.add('show');
   }
   $('inboxInfo').textContent = r.inbox ? `「照片放這裡」現在有 ${r.inbox} 張照片` : '資料夾是空的，SD 卡照片全部放進來';
