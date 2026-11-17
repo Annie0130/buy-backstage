@@ -1,6 +1,6 @@
 {
- "version": "20261117-1758",
- "note": "官網標題前面的括號標籤換成大三元、旅遊鏡、人像定焦等多種說法",
+ "version": "20261117-2025",
+ "note": "POS 庫存改讀新的 Airtable「林相攝影POS庫存」。上架用的金鑰要同時勾這個新 base，讀和寫都要開",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "6d3432ee2ccdedab04d3104cbeb569d49ab6cdbf98220816ebd690dd90598f94"
+   "sha256": "cc0ae24bca1362cc0b2d0c97bd2844241c576097f0e8aea688d1fed1a0832a8f"
   },
   {
    "path": "panel.js",
@@ -40,12 +40,12 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "61a7bedbe1fb5e8f9c9ce01e832ad5470acb6fed7b6a4c3a94de5b9c9227c696"
+   "sha256": "873a36fccb2639f8a5b08e9e2162279d34713c811deaa452818f2560a7a11caa"
   },
   {
    "path": "使用說明.txt",
    "url": "f08.txt.txt",
-   "sha256": "33b32255245bec3f36b02a051accb92971e7121804b04db77fb04d49bb96fdc3"
+   "sha256": "173db238fad9b7eb076934e7d0ec224d9402bb416e027d235c42270de8037d8b"
   },
   {
    "path": "其他功能/0_拍照順序.bat",

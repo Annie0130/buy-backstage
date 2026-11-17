@@ -29,11 +29,11 @@
 3. 在資料夾裡開啟「命令提示字元 / 終端機」，輸入：
      npm install
 
-4. 建立 Airtable 唯讀金鑰（讓腳本讀收購紀錄）：
+4. 建立 Airtable 金鑰（讓腳本讀收購紀錄，也讀寫 POS 庫存）：
    a. 打開 https://airtable.com/create/tokens ，按「Create token」
    b. Name：隨便取，例如「飛鼠上架用」
    c. Scopes：加 data.records:read 和 data.records:write（write 只用來回寫「飛鼠狀態」）
-   d. Access：只加「林相攝影收購紀錄」這個 base
+   d. Access：要加兩個 base——「林相攝影收購紀錄」（收購紀錄）和「林相攝影POS庫存」（POS 庫存。印卡清單也在這個新 base）
    e. 按 Create token，複製那串 pat 開頭的金鑰
    f. 在 feishu-uploader 資料夾裡新增文字檔 airtable-token.txt，把金鑰貼進去存檔
    ※ 金鑰等同鑰匙，不要傳給別人、不要貼到聊天室
@@ -156,11 +156,12 @@
 
 【收購後台顯示上架狀態】
 - 上架後，收購後台的「🛒 待上架飛鼠」會自動變成：📝 飛鼠草稿 → 🛍️ 飛鼠已上架 → ✅ 已上架＋蝦皮
-- 要讓腳本能寫回去，金鑰要多一個「寫入」權限（只要做一次）：
+- 要讓腳本能寫回去，金鑰要有「讀」和「寫」，而且兩個 base 都要開（只要做一次）：
   a. 打開 https://airtable.com/create/tokens ，找到原本的金鑰（例如「飛鼠上架用」）按進去
-  b. Scopes 加上 data.records:write（原本的 data.records:read 保留）
-  c. 按 Save changes（金鑰本身不會變，airtable-token.txt 不用改）
-- 腳本只會寫「飛鼠狀態」這一欄，不會改其他資料
+  b. Scopes 要有 data.records:read 和 data.records:write
+  c. Access 要同時有「林相攝影收購紀錄」和「林相攝影POS庫存」（POS 已搬到新的 base；少勾一邊，那一邊的上架狀態就不會更新）
+  d. 按 Save changes（金鑰本身不會變，airtable-token.txt 不用改）
+- 腳本只會寫「飛鼠狀態」這一欄（收購紀錄或 POS 庫存，看這件是從哪邊來的），不會改其他資料
 - 沒開寫入權限也可以上架，只是收購後台的狀態不會變
 
 【在 Mac 上使用】

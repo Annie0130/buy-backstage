@@ -1,12 +1,15 @@
 // 印卡區（Airtable「印卡清單」表）的讀寫代理：排隊中的商品卡、印卡紀錄。
+// 印卡清單跟 POS庫存在同一個新 base「林相攝影POS庫存」，所以共用 AIRTABLE_POS_BASE_ID。
+// 收購紀錄仍在舊 base。這裡只用同一支 AIRTABLE_TOKEN。
+// 表 ID 寫死當預設，Netlify 不用加環境變數；要換表再設 AIRTABLE_PRINT_TABLE_ID。
 // GET   ?view=queue        排隊中的（全部）
 // GET   ?view=history      最近 60 天印過的（每頁 100 筆，用 offset 翻頁）
 // POST  {records:[{id?, fields}]}  批次新增／更新（一次最多 10 筆；有 id 的更新、沒 id 的新增）
 // 不提供刪除（移出排隊＝狀態改「已移除」）；每個請求都要帶正確的後台密碼（x-admin-password）。
 import { adminAuthResult, adminAuthResponse } from '../lib/auth.js';
 
-const BASE_ID = 'appAuc0SgpUMOFLsv';
-const TABLE_ID = 'tblKNAod1qDKxsdpu';
+const BASE_ID = process.env.AIRTABLE_POS_BASE_ID || 'appbohLgY8zi2592Z';
+const TABLE_ID = process.env.AIRTABLE_PRINT_TABLE_ID || 'tblcfYzEVp6d0quU2';
 const AIRTABLE_URL = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}`;
 const ALLOWED = ['名稱', '來源', '紀錄ID', '條碼', '狀態', '加入時間', '印卡時間', '批次'];
 const clean = (f) => Object.fromEntries(Object.entries(f || {}).filter(([k]) => ALLOWED.includes(k))
