@@ -2288,9 +2288,9 @@ function printCard() {
   const copies = parseInt(document.getElementById('print-copies').value) || 1;
   const cardHtml = buildCardHTML(cardData);
   const allCards = Array(copies).fill(cardHtml).join('\n');
-  openPrintWindow(allCards, cardData.name || '林相攝影');
-  markPrinted([allRecords.find(x => x.id === currentCardRecordId)]);
-  try { filterRecords(); } catch (e) {}
+  const rec = allRecords.find(x => x.id === currentCardRecordId);
+  if (rec) setPendingPrint({recs: [rec], pos: [], queueRows: [], n: 1, log: false});
+  openPrintWindow(allCards, cardData.name || '林相攝影', null, null, !!rec);
 }
 
 function recordToCardData(r) {
@@ -2663,11 +2663,9 @@ async function _printBasket(opts) {
     if (!built.html) { showPrintError('勾選的卡片資料都有問題，沒有可以印的：' + built.bad.slice(0, 8).join('、')); return; }
     if (built.bad.length) notes.push(badCardsNote(built.bad));
     if (noSn.length) notes.push(`有 ${noSn.length} 張收購紀錄沒填序號，卡片上沒有 S/N`);
-    openPrintWindow(built.html, `印卡 ${items.length} 張`, win, notes);
-    logPrintBatch(recs, posPicked, opts.queueRows || []);   // 記到「印卡區」的紀錄
-    if (recs.length) markPrinted(recs);
-    if (posPicked.length) { markPrinted(posPicked, POS_API); renderPos(); }
-    try { filterRecords(); } catch (e) {}
+    // 先不記「已印」：等印好、檢查沒錯，按「✅ 印好了」才記（看到錯可以先不記，改完再印）
+    setPendingPrint({recs, pos: posPicked, queueRows: opts.queueRows || [], n: items.length, log: true});
+    openPrintWindow(built.html, `印卡 ${items.length} 張`, win, notes, true);
   } finally { if (typeof posBusy !== 'undefined') posBusy = false; }
 }
 
@@ -2719,6 +2717,44 @@ async function addToQueue() {
 }
 
 // 每次印卡都記一筆紀錄（同一次＝同一個批次）；從排隊印的，把那幾列改成已印
+// 數字欄（售價、成本…）游標還在裡面時滾滑鼠滾輪，數字會被偷偷加減（17000 變 16993）：滾輪一動就先離開欄位，數字不變
+document.addEventListener('wheel', e => { const t = e.target; if (t && t.tagName === 'INPUT' && t.type === 'number' && document.activeElement === t) t.blur(); }, {passive: true});
+document.addEventListener('keydown', e => { const t = e.target; if (t && t.tagName === 'INPUT' && t.type === 'number' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) e.preventDefault(); });
+
+// ─── 印完要按確認才記「已印」───
+let pendingPrint = null;
+function setPendingPrint(p) { pendingPrint = p; renderPendingBar(); }
+function renderPendingBar() {
+  let bar = document.getElementById('pending-print-bar');
+  if (!bar) {
+    bar = document.createElement('div'); bar.id = 'pending-print-bar';
+    bar.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#fff8e1;border:2px solid #f0b400;border-radius:12px;padding:10px 14px;box-shadow:0 4px 16px rgba(0,0,0,.18);font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 32px)';
+    document.body.appendChild(bar);
+  }
+  if (!pendingPrint) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<span>🖨️ 剛剛那批 <b>${pendingPrint.n}</b> 張還沒記成「已印」</span>
+    <button onclick="confirmPrinted()" style="padding:7px 14px;background:#2b8a3e;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit">✅ 印好了，記錄起來</button>
+    <button onclick="cancelPending()" style="padding:7px 12px;background:#fff;border:1px solid #ccc;border-radius:8px;cursor:pointer;font-family:inherit">✖ 沒印／有錯要改</button>`;
+}
+function confirmPrinted() {
+  const p = pendingPrint; if (!p) return false;
+  pendingPrint = null; renderPendingBar();
+  if (p.log) logPrintBatch(p.recs, p.pos, p.queueRows);   // 記到「印卡區」的紀錄
+  if (p.recs.length) markPrinted(p.recs);
+  if (p.pos.length) { markPrinted(p.pos, POS_API); try { renderPos(); } catch (e) {} }
+  p.queueRows.forEach(q => pqSel.delete(q.id));
+  try { filterRecords(); } catch (e) {}
+  showToast(`✅ 已記錄 ${p.n} 張印好了`);
+  return true;
+}
+function cancelPending() {
+  if (!pendingPrint) return;
+  pendingPrint = null; renderPendingBar();
+  showToast('沒有記錄，排隊的卡片還在排隊區，改好再印就好');
+}
+window.addEventListener('beforeunload', e => { if (pendingPrint) { e.preventDefault(); e.returnValue = ''; } });
+
 async function logPrintBatch(recs, pos, queueRows) {
   const d = new Date(), pad = n => String(n).padStart(2, '0');
   const batch = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
@@ -2801,7 +2837,7 @@ async function printQueue(selectedOnly) {
   if (!rows.length) { alert(selectedOnly ? '請先勾選要印的商品卡（6 張剛好一頁）' : '目前沒有排隊的商品卡'); return; }
   if (!posReadyFor(rows)) return;
   const {recs, pos} = rowsToItems(rows);
-  try { await _printBasket({recs, pos, queueRows: rows}); rows.forEach(q => pqSel.delete(q.id)); } catch (e) { showPrintError(e); }
+  try { await _printBasket({recs, pos, queueRows: rows}); } catch (e) { showPrintError(e); }
 }
 function pqPickFirst(n) { pqSel.clear(); pqQueue.slice(0, n).forEach(q => pqSel.add(q.id)); renderPrintArea(); }
 // 按了印卡但其實沒印：這批放回排隊區，商品上的「已印」標記也拿掉
@@ -2909,7 +2945,7 @@ function openWaitWindow() {
   return win;
 }
 
-function openPrintWindow(cardsHtml, title, win, notes) {
+function openPrintWindow(cardsHtml, title, win, notes, needConfirm) {
   const noteHtml = (notes || []).filter(Boolean).map(n => '⚠️ ' + String(n).replace(/[<>&]/g, '')).join('<br>');
   const styles = [...document.querySelectorAll('style')].map(s => s.innerHTML).join('\n');
   if (!win || win.closed) win = window.open('', '_blank', 'width=500,height=700');
@@ -2940,12 +2976,21 @@ html,body{background:#fff!important;}
 </head><body>
 <div class="no-print" id="print-bar" style="position:sticky;top:0;z-index:9;background:#fff;border-bottom:1px solid #ddd;padding:10px 0 10px;margin-bottom:10px;font-family:sans-serif">
   <button onclick="window.print()" style="font-size:18px;font-weight:700;padding:12px 22px;background:#0d3b66;color:#fff;border:none;border-radius:10px;cursor:pointer">🖨️ 按這裡列印</button>
-  <span style="font-size:13px;color:#666;margin-left:8px">（沒有自動跳出列印時按這個；這一列不會印出來）</span>
+  ${needConfirm ? `<button id="ok-btn" onclick="okPrinted()" style="font-size:18px;font-weight:700;padding:12px 22px;background:#2b8a3e;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-left:6px">✅ 印好了，記錄起來</button>` : ''}
+  <span style="font-size:13px;color:#666;margin-left:8px">（沒有自動跳出列印時按🖨️；這一列不會印出來）</span>
+  ${needConfirm ? `<div id="ok-note" style="margin-top:8px;font-size:13px;color:#555">印好、檢查沒有錯再按「✅ 印好了」才會記成「已印」。發現錯誤就先不要按，回後台改好再印。</div>` : ''}
   ${noteHtml ? `<div style="margin-top:8px;font-size:13px;color:#b45309;line-height:1.6">${noteHtml}</div>` : ''}
   <div id="long-note" style="display:none;margin-top:8px;font-size:13px;color:#b45309;line-height:1.6"></div>
 </div>
 <div class="print-wrap">${cardsHtml}</div>
 <script>
+function okPrinted(){
+  var ok = false;
+  try { ok = window.opener && !window.opener.closed && window.opener.confirmPrinted(); } catch (e) {}
+  var n = document.getElementById('ok-note'), b = document.getElementById('ok-btn');
+  if (ok) { b.disabled = true; b.textContent = '✅ 已記錄'; b.style.background = '#999'; n.textContent = '已記成「已印」，可以關掉這個視窗了。'; }
+  else n.textContent = '這裡沒辦法通知後台（可能後台頁面關掉或重新整理了），請回後台下方黃色框按「✅ 印好了」。';
+}
 // 商品介紹超過四行：從最後一句往前收，收到四行內並以「。」結尾（不會切在半個字）
 function fitDesc(){
   document.querySelectorAll('.lcard-desc').forEach(function(el){
@@ -3551,8 +3596,8 @@ function posPreviewOne() {
   const r = posRecs.find(x => x.id === posEditId); if (!r) return;
   const tmp = {id: r.id, fields: Object.assign({}, r.fields, posReadEdit())};
   const {data, accOverride} = posToCardData(tmp);
-  openPrintWindow(buildCardHTML(data, accOverride), '商品卡 ' + (tmp.fields['名稱'] || ''));
-  markPrinted([r], POS_API); renderPos();
+  setPendingPrint({recs: [], pos: [r], queueRows: [], n: 1, log: false});
+  openPrintWindow(buildCardHTML(data, accOverride), '商品卡 ' + (tmp.fields['名稱'] || ''), null, null, true);
 }
 
 // ── 商品卡 ──
