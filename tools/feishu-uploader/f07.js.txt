@@ -577,6 +577,77 @@ function sceneWords(r) {
   return out;
 }
 
+// ---------- 標題前面括號裡的「賣點標籤」----------
+// 不再一律「(佳能全幅變焦鏡)」：照鏡頭／相機的特性挑一個客人會搜尋的說法，
+// 例如 (無反大三元)、(單反旅遊鏡)、(人像定焦)、(全幅無反)、(CCD相機)；同一類有好幾種說法，照序號輪流用，避免每件都長一樣
+function pickBy(serial, list) {
+  let h = 0; for (const c of String(serial || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return list[h % list.length];
+}
+function lensMount(name) {
+  const n = ` ${name} `;
+  if (/\b(RF-?S?|Z|DX\s*Z|FE|XF|XC|M\.?\s?Zuiko|DN|DG\s*DN|Di\s*III|for\s+(Sony\s*E|Sony|Fuji\w*|Nikon\s*Z|Canon\s*RF|L|X|Z|E|RF|M43|MFT)|E\s*\d+|Lumix\s*[GS]|Leica\s*DG)\b/i.test(n)) return '無反';
+  if (/\b(EF-?S?|EF-?M|AF-?S|AF-?P|AF-?D|AF\s+\d|Nikkor\s+\d|DT|SAL|HSM|DC|Di\s*II|Di\s+(VC|SP)|for\s+(Canon|Nikon|Canon\s*EF|Nikon\s*F|Pentax|K))\b/i.test(n)) return /EF-?M/i.test(n) ? '無反' : '單反';
+  return '';
+}
+function titleTag(r) {
+  const name = r['商品名稱'] || '';
+  const serial = r['條碼'] || '';
+  const text = `${r['商品介紹'] || ''} ${name}`;
+  const cat = r['品類'] || '';
+  const t = gearType(r);
+  const pick = (list) => pickBy(serial, list);
+  if (t === 'lens') {
+    const mt = lensMount(name) || '人氣';   // 認不出單反／無反就用「人氣」
+    const { minF, maxF, zoom, aperture } = lensInfo(name);
+    const constant = /F\s?\/?(2\.8|4)(?!\s*-)(?:\s|$|[A-Za-z])/i.test(name + ' ') && !/F\s?\d(\.\d)?\s*-\s*\d/i.test(name);
+    if (/macro|marco|微距/i.test(text)) return pick([`${mt}微距鏡`, '微距鏡', '百微']);
+    if (/fisheye|魚眼/i.test(text)) return pick(['魚眼鏡', '創意魚眼']);
+    if (/ts-?e|tilt|移軸/i.test(text)) return '移軸鏡';
+    if (zoom && constant && aperture === 2.8) {
+      const sub = maxF <= 40 ? '廣角' : maxF <= 105 ? '標準' : '望遠';
+      const top = /Canon/i.test(name) && /\bL\b/.test(name) ? '紅圈大三元' : /\bGM\b|G\s*Master/i.test(name) ? 'GM大三元' : `${mt}大三元`;
+      return pick([`${mt}大三元`, `${sub}大三元`, top]);
+    }
+    if (zoom && constant && aperture === 4 && maxF / minF < 5) return pick([`${mt}小三元`, '小三元', '輕量小三元']);
+    if (/(?<![\d.])(18-55|16-50|15-45|14-42|12-32|18-45|16-45|28-60|24-50|18-50|15-30|10-30)(?![\d.])/.test(name)) return pick(['入門變焦鏡', '輕巧變焦鏡', `${mt}變焦鏡`]);
+    if (maxF >= 300) return pick(['超望遠大砲', '打鳥鏡', '生態望遠鏡']);
+    if (zoom && minF && maxF / minF >= 5) return pick([`${mt}旅遊鏡`, '一鏡到底', '旅遊神鏡']);
+    if (zoom && maxF >= 135) return pick([`${mt}望遠鏡`, '望遠變焦鏡', '演唱會神鏡']);
+    if (zoom && minF && minF <= 18) return pick([`${mt}超廣角`, '超廣角變焦', '風景神鏡']);
+    if (zoom) return pick([`${mt}變焦鏡`, '熱門變焦鏡', '日常變焦鏡']);
+    if (/\b(22mm F2|24mm F2\.8|40mm F2\.8|20mm F1\.7|16mm F2\.8|27mm F2\.8|15mm F1\.7|18mm F2\.8)\b/i.test(name) || /餅乾/.test(text)) return pick(['餅乾鏡', '輕巧定焦']);
+    if (minF >= 56 && minF <= 135) return pick(['人像定焦', `${mt}人像鏡`, '人像神鏡']);
+    if (aperture && aperture <= 1.4) return pick(['大光圈定焦', '夜拍定焦', `${mt}大光圈`]);
+    if (minF && minF <= 28) return pick(['廣角定焦', '街拍定焦', '風景定焦']);
+    return pick([`${mt}定焦鏡`, '人氣定焦鏡', '日常定焦']);
+  }
+  const body = name.split('+')[0];
+  const kit = /\+/.test(name);
+  const ff = /全片幅/.test(cat);
+  if (/CCD/.test(r['Y2K'] || '')) return pick(['CCD相機', '復古CCD', 'CCD數位相機']);
+  if (/Y2K/.test(r['Y2K'] || '')) return pick(['Y2K相機', '復古數位相機']);
+  if (t === 'compact') {
+    if (/\bgr\s?(i{1,3}|[1-4])|x100|\bq[23]\b|x\s?half/i.test(body)) return pick(['街拍神機', '口袋街拍機']);
+    if (/\bzv|g7\s?x|vlog/i.test(text)) return pick(['Vlog相機', '自拍隨身機', '網美相機']);
+    if (/p900|p1000|sx\d{2,3}|fz\d{2,4}|rx10|zs\d{2}/i.test(body)) return pick(['長焦隨身機', '追星神機']);
+    if (/action|gopro|insta360|osmo/i.test(body)) return '運動相機';
+    return pick(['隨身機', '口袋相機', '輕巧隨身機']);
+  }
+  if (t === 'dslr') {
+    if (ff) return pick(['全幅單反', '全片幅單眼']);
+    if (/\b(\d{3,4}d|d3\d{3}|d5\d{3}|k-?\d{2})\b/i.test(body)) return kit ? pick(['入門單眼組', '新手單眼組']) : pick(['入門單眼', '新手單眼']);
+    return kit ? pick(['單眼變焦組', '單反套組']) : pick(['APSC單反', '單眼相機']);
+  }
+  if (t === 'mirrorless') {
+    if (/\b(a7r|a7s|a1\b|a9|z\s?[789]|z\s?8|z\s?9|r[35]\b|r1\b|s1r|gfx|x-?h2|x-?t5)/i.test(body)) return pick(['旗艦無反', '專業無反', '高階無反']);
+    if (/\bzv|vlog/i.test(text)) return pick(['Vlog無反', '影音無反']);
+    if (ff) return kit ? pick(['全幅無反組', '全片幅變焦組']) : pick(['全幅無反', '全片幅微單', '全幅機身']);
+    return kit ? pick(['無反變焦組', '新手入門組', '輕巧微單組']) : pick(['輕巧微單', 'APSC無反', '入門無反']);
+  }
+  return '攝影器材';
+}
+
 function titleFeatures(r) {
   const text = `${r['商品介紹'] || ''} ${r['商品名稱'] || ''}`;
   const out = [...sceneWords(r)];
@@ -619,19 +690,15 @@ function buildTitle(r) {
   if (old) {
     // 沿用舊標題：拿掉舊的 #序號 和舊的狀況詞，補上這台的狀況
     let base = old.replace(/\s*#\s*[\w\-]*\s*$/, '').replace(CONDITION_WORDS, '').replace(/\s+/g, ' ').trim();
+    base = base.replace(/^\s*[（(][^)）]{1,14}[)）]\s*/, '');   // 舊的「(佳能單反恆定光圈)」換成新的賣點標籤
+    base = `(${titleTag(r)}) ${base}`;
     const hadShop = /林相攝影/.test(base);
     base = base.replace(/\s*林相攝影\s*/g, ' ').trim();
     const extra = cond.filter((w) => !base.includes(w));
     return fitTitle({ head: base, cond: extra, shop: hadShop && base.split(" ").length < 4 }, serial); // 舊標題本來就有特色，通常不用再加店名
   }
-  const brand = BRAND_ZH[r['品牌']] || '';
-  const cat = r['品類'] || '';
-  const fmt = /全片幅/.test(cat) ? '全幅' : /APS-C/.test(cat) ? 'APSC' : /M43/.test(cat) ? 'M43' : '';
-  const tag = {
-    lens: `${brand}${fmt}${/\d+-\d+\s*mm/i.test(name) ? '變焦鏡' : '定焦鏡'}`,
-    mirrorless: `${brand}${fmt}無反`, dslr: `${brand}${fmt}單眼`, compact: `${brand}隨身機`,
-  }[t] || `${brand}攝影器材`;
-  const feats = titleFeatures(r).filter((w) => !(w === '全片幅' && fmt === '全幅'));
+  const tag = titleTag(r);
+  const feats = titleFeatures(r).filter((w) => !tag.includes(w) && !(w === '全片幅' && /全幅|全片幅/.test(tag)));
   const kit = /\+/.test(name) && t !== 'lens' ? '含鏡頭' : '';
   // 真的想不出特色（少於 2 個）才加店名
   return fitTitle({ head: `(${tag}) ${name}${kit ? ' ' + kit : ''}`, feats: feats.slice(0, 4), cond, used, shop: feats.length < 2 }, serial);

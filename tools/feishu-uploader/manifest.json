@@ -1,6 +1,6 @@
 {
- "version": "20261115-2052",
- "note": "照片分組預覽可以選照片大小（中／大／特大）",
+ "version": "20261117-1758",
+ "note": "官網標題前面的括號標籤換成大三元、旅遊鏡、人像定焦等多種說法",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "b32842257d22efee6cc3c97509c5f1898535abaf07a51e3a779eb4e5b643dd23"
+   "sha256": "61a7bedbe1fb5e8f9c9ce01e832ad5470acb6fed7b6a4c3a94de5b9c9227c696"
   },
   {
    "path": "使用說明.txt",
