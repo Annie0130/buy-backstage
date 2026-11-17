@@ -1,3 +1,4 @@
+# 只公開後台頁面和商標圖。netlify/functions 的小程式另外部署，不會跟著這個資料夾被下載。
 [build]
-  publish = "."
+  publish = "public"
   functions = "netlify/functions"

@@ -3,7 +3,7 @@
 // PATCH ?id=recXXXX     更新一筆紀錄的欄位
 // POST                  單筆新增商品（維修回來、面交、寄賣等不是從合約網站來的）
 // 不提供刪除；每個請求都要帶正確的後台密碼（x-admin-password）。
-import { adminPasswordOk } from '../lib/auth.js';
+import { adminAuthResult, adminAuthResponse } from '../lib/auth.js';
 
 const BASE_ID = 'appAuc0SgpUMOFLsv';
 const TABLE_ID = 'tblnOp2xI0RPOAR3J';
@@ -15,9 +15,8 @@ export default async (req) => {
   if (!token || !adminPassword) {
     return Response.json({ error: '伺服器未設定 AIRTABLE_TOKEN 或 ADMIN_PASSWORD' }, { status: 500 });
   }
-  if (!adminPasswordOk(req)) {
-    return Response.json({ error: '密碼錯誤' }, { status: 401 });
-  }
+  const authResult = await adminAuthResult(req);
+  if (authResult !== 'ok') return adminAuthResponse(authResult);
 
   const params = new URL(req.url).searchParams;
   const auth = { Authorization: `Bearer ${token}` };

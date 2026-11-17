@@ -358,6 +358,18 @@ body{background:var(--gray-50);font-family:-apple-system,'PingFang TC','Noto San
 // 後台密碼存在 Netlify 環境變數 ADMIN_PASSWORD，登入後這台電腦記住 30 天
 const ADMIN_API = '/.netlify/functions/admin-records';
 const ADMIN_PW_DAYS = 30;
+// 客人填的字寫進畫面之前先跳脫，避免被當成網頁程式
+function esc(t){
+  return String(t ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+let authNoticeShown = false;
+function notifyAuthProblem(status){
+  if (authNoticeShown) return;
+  authNoticeShown = true;
+  try { localStorage.removeItem('adminPw'); } catch(e) {}
+  if (status === 429) alert('密碼試太多次，這台電腦先忘掉已存的密碼。請等約 10 分鐘，重新整理後再輸入。');
+  else alert('密碼錯誤，請重新整理頁面再輸入一次');
+}
 function getAdminPassword(){
   let pw = '';
   try {
@@ -375,10 +387,7 @@ async function adminFetch(query, opts = {}, api = ADMIN_API) {
     ...opts,
     headers: { ...(opts.headers || {}), 'x-admin-password': getAdminPassword() }
   });
-  if (res.status === 401) {
-    try { localStorage.removeItem('adminPw'); } catch(e) {}
-    alert('密碼錯誤，請重新整理頁面再輸入一次');
-  }
+  if (res.status === 401 || res.status === 429) notifyAuthProblem(res.status);
   return res;
 }
 
@@ -418,7 +427,7 @@ async function loadRecords() {
     updateStats();
     filterRecords();
   } catch(e) {
-    document.getElementById('record-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>載入失敗：${e.message}</div><div style="font-size:11px;margin-top:8px;color:#aaa">請確認網路連線或重新整理</div></div>`;
+    document.getElementById('record-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div>載入失敗：${esc(e.message)}</div><div style="font-size:11px;margin-top:8px;color:#aaa">請確認網路連線或重新整理</div></div>`;
   }
 }
 
@@ -431,11 +440,8 @@ function buildMonthTabs() {
   
   const sorted = [...months].sort().reverse();
   const tabs = document.getElementById('month-tabs');
-  tabs.innerHTML = `<div class="month-tab ${activeMonth==='all'?'active':''}" onclick="setMonth('all')">全部</div>`;
-  sorted.forEach(m => {
-    const label = m.replace('-', ' 年 ') + ' 月';
-    tabs.innerHTML += `<div class="month-tab ${activeMonth===m?'active':''}" onclick="setMonth('${m}')">${label}</div>`;
-  });
+  const tab = (m, label) => `<div class="month-tab ${activeMonth===m?'active':''}" data-month="${esc(m)}">${esc(label)}</div>`;
+  tabs.innerHTML = tab('all', '全部') + sorted.map((m) => tab(m, m.replace('-', ' 年 ') + ' 月')).join('');
 }
 
 function setMonth(m) {
@@ -698,7 +704,7 @@ function renderRecords(records) {
       ? `<span class="payment-badge payment-cash">現金</span>`
       : payment === '匯款'
       ? `<span class="payment-badge payment-transfer">匯款</span>`
-      : payment ? `<span class="payment-badge">${payment}</span>` : '';
+      : payment ? `<span class="payment-badge">${esc(payment)}</span>` : '';
     const initial = name[0] || '?';
     const phone = f['聯絡電話'] || '';
     const email = f['電子信箱'] || '';
@@ -721,16 +727,16 @@ function renderRecords(records) {
         <input type="checkbox" class="record-checkbox" data-id="${r.id}" ${SELECTED.has(r.id)?'checked':''}
           style="display:${selectModeOn?'block':'none'};width:18px;height:18px;accent-color:#1565c0;flex-shrink:0;cursor:pointer;margin-right:4px"
           onchange="this.checked?SELECTED.add(this.dataset.id):SELECTED.delete(this.dataset.id);updateExportCount()">
-        <div class="record-avatar">${initial}</div>
+        <div class="record-avatar">${esc(initial)}</div>
         <div class="record-info">
-          <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span onclick="showCustomerHistory('${r.fields['聯絡電話']||''}','${name}')" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${name}</span> ${payBadge} ${creditBadge(r)}</div>
-          <div class="record-meta" style="font-weight:600;color:var(--black)">${eq}</div>
-          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+r.fields['序號']:''}${feishuBadge(r.fields, r.id)}${r.fields['進貨管道']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#ebfbee;color:#2b8a3e;font-weight:700">📦 ${r.fields['進貨管道']}</span>`:''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${r.fields['CCD／Y2K']}</span>`:''}</div>
+          <div class="record-name"><span style="color:var(--gray-400);font-size:12px;margin-right:6px">#${globalIdx(r)}</span><span data-customer-history data-phone="${esc(phone)}" data-name="${esc(name)}" style="cursor:pointer;text-decoration:underline;text-underline-offset:3px">${esc(name)}</span> ${payBadge} ${creditBadge(r)}</div>
+          <div class="record-meta" style="font-weight:600;color:var(--black)">${esc(eq)}</div>
+          <div class="record-meta" style="color:var(--gray-400);font-size:11px">${r.fields['序號']?'序號：'+esc(r.fields['序號']):''}${feishuBadge(r.fields, r.id)}${r.fields['進貨管道']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#ebfbee;color:#2b8a3e;font-weight:700">📦 ${esc(r.fields['進貨管道'])}</span>`:''}${r.fields['CCD／Y2K']?` <span style="display:inline-block;margin-left:6px;padding:1px 8px;border-radius:99px;background:#f3e8ff;color:#7c3aed;font-weight:700">${String(r.fields['CCD／Y2K']).startsWith('CCD')?'📼':'✨'} ${esc(r.fields['CCD／Y2K'])}</span>`:''}</div>
         </div>
         <div class="record-right" style="display:flex;align-items:center;gap:10px">
           <div>
-            <div class="record-amount">${amount}</div>
-            <div class="record-date">${date}</div>
+            <div class="record-amount">${esc(amount)}</div>
+            <div class="record-date">${esc(date)}</div>
           </div>
           <div style="display:flex;gap:6px">
             <button onclick="toggleCard(${i})" id="btn-${i}"
@@ -750,35 +756,35 @@ function renderRecords(records) {
       </div>
       <div class="record-body">
         <div class="detail-grid">
-          <div class="detail-item detail-full" style="background:#e3f0fc"><div class="detail-label">器材</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--blue)">${eq}</div></div>
-          <div class="detail-item" style="background:#e8f4f0"><div class="detail-label">本台收購價</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--green)">${amount}</div></div>
-          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${payment||'—'}</div></div>
-          <div class="detail-item"><div class="detail-label">聯絡電話</div><div class="detail-value">${phone||'—'}</div></div>
-          <div class="detail-item"><div class="detail-label">電子信箱</div><div class="detail-value" style="font-size:12px">${email||'—'}</div></div>
-          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${payment||'—'}</div></div>
-          <div class="detail-item"><div class="detail-label">得知管道</div><div class="detail-value">${source}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">器材明細</div><div class="detail-value">${eq}</div></div>
-          <div class="detail-item"><div class="detail-label">快門數</div><div class="detail-value">${shutter}</div></div>
-          <div class="detail-item"><div class="detail-label">新舊程度</div><div class="detail-value">${cond}</div></div>
-          <div class="detail-item"><div class="detail-label">貨品來源</div><div class="detail-value">${origin}</div></div>
-          <div class="detail-item"><div class="detail-label">原廠保固</div><div class="detail-value">${warranty}</div></div>
-          <div class="detail-item"><div class="detail-label">身分證字號</div><div class="detail-value">${idNum}</div></div>
-          <div class="detail-item"><div class="detail-label">經手人員</div><div class="detail-value">${staff}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">序號</div><div class="detail-value">${serial}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">交付配件</div><div class="detail-value">${acc}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">缺失配件說明</div><div class="detail-value">${missingAcc}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">配件備註</div><div class="detail-value">${accNote}</div></div>
-          <div class="detail-item detail-full"><div class="detail-label">保留報價</div><div class="detail-value">${holdInfo}</div></div>
+          <div class="detail-item detail-full" style="background:#e3f0fc"><div class="detail-label">器材</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--blue)">${esc(eq)}</div></div>
+          <div class="detail-item" style="background:#e8f4f0"><div class="detail-label">本台收購價</div><div class="detail-value" style="font-size:15px;font-weight:700;color:var(--green)">${esc(amount)}</div></div>
+          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${esc(payment||'—')}</div></div>
+          <div class="detail-item"><div class="detail-label">聯絡電話</div><div class="detail-value">${esc(phone||'—')}</div></div>
+          <div class="detail-item"><div class="detail-label">電子信箱</div><div class="detail-value" style="font-size:12px">${esc(email||'—')}</div></div>
+          <div class="detail-item"><div class="detail-label">付款方式</div><div class="detail-value">${esc(payment||'—')}</div></div>
+          <div class="detail-item"><div class="detail-label">得知管道</div><div class="detail-value">${esc(source)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">器材明細</div><div class="detail-value">${esc(eq)}</div></div>
+          <div class="detail-item"><div class="detail-label">快門數</div><div class="detail-value">${esc(shutter)}</div></div>
+          <div class="detail-item"><div class="detail-label">新舊程度</div><div class="detail-value">${esc(cond)}</div></div>
+          <div class="detail-item"><div class="detail-label">貨品來源</div><div class="detail-value">${esc(origin)}</div></div>
+          <div class="detail-item"><div class="detail-label">原廠保固</div><div class="detail-value">${esc(warranty)}</div></div>
+          <div class="detail-item"><div class="detail-label">身分證字號</div><div class="detail-value">${esc(idNum)}</div></div>
+          <div class="detail-item"><div class="detail-label">經手人員</div><div class="detail-value">${esc(staff)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">序號</div><div class="detail-value">${esc(serial)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">交付配件</div><div class="detail-value">${esc(acc)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">缺失配件說明</div><div class="detail-value">${esc(missingAcc)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">配件備註</div><div class="detail-value">${esc(accNote)}</div></div>
+          <div class="detail-item detail-full"><div class="detail-label">保留報價</div><div class="detail-value">${esc(holdInfo)}</div></div>
         </div>
         <div style="margin-top:10px">
           <div class="detail-label" style="margin-bottom:6px">🔍 功能檢測報告</div>
-          <div class="fn-report">${fn}</div>
+          <div class="fn-report">${esc(fn)}</div>
         </div>
         <div style="margin-top:12px">
           <div class="detail-label" style="margin-bottom:6px">📝 備註（內部使用）</div>
           <textarea id="note-${r.id}" placeholder="輸入備註…"
             style="width:100%;min-height:64px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;color:var(--black);resize:vertical;outline:none;box-sizing:border-box"
-            oninput="saveNote('${r.id}',this.value)">${localStorage.getItem('note-'+r.id)||''}</textarea>
+            oninput="saveNote('${r.id}',this.value)">${esc(localStorage.getItem('note-'+r.id)||'')}</textarea>
         </div>
       </div>
     </div>`;
@@ -849,8 +855,8 @@ function openFeishuMenu(ev, id){
   const m = document.createElement('div');
   m.id = 'feishu-menu';
   m.style.cssText = 'position:fixed;z-index:900;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:230px;font-size:14px';
-  m.innerHTML = `<div style="padding:6px 10px;font-size:12px;color:#888">${(f['器材一']||'').replace(/</g,'&lt;')}　序號 ${f['序號']||''}</div>` +
-    items.map((it,i)=>`<button data-i="${i}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer;font:inherit">${it[0]}</button>`).join('');
+  m.innerHTML = `<div style="padding:6px 10px;font-size:12px;color:#888">${esc(f['器材一']||'')}　序號 ${esc(f['序號']||'')}</div>` +
+    items.map((it,i)=>`<button data-i="${i}" style="display:block;width:100%;text-align:left;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer;font:inherit">${esc(it[0])}</button>`).join('');
   m.querySelectorAll('button').forEach(b=>{
     b.onmouseenter=()=>b.style.background='#f3f4f6'; b.onmouseleave=()=>b.style.background='none';
     b.onclick=async(e)=>{ e.stopPropagation(); closeFeishuMenu(); const act = items[+b.dataset.i][1]; if (act === 'LIST') return toggleListingOnly(); await setFeishuState(id, act); };
@@ -901,13 +907,10 @@ async function exportSelected(){
   const checkedIds = selectedIds();
   if(!checkedIds.length){ alert('請先勾選要匯入的紀錄'); return; }
 
-  const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx-afMzrAEbPKTpP7Kc4F0EWCUYXH87sfPGUUYXCAGipSW_TVJ7xZFZ_3hLW-l0sd0G/exec';
   const selected = allRecords.filter(r=>checkedIds.includes(r.id));
   selected.sort((a,b)=>new Date(a.createdTime||0)-new Date(b.createdTime||0));
 
-  let success = 0, fail = 0;
-  document.getElementById('export-count').textContent = '匯入中…';
-
+  const rows = [];
   for(const r of selected){
     const f = r.fields;
     // 現在每筆是單台器材，直接用器材一
@@ -940,32 +943,48 @@ async function exportSelected(){
       fnNote||'',
     ].filter(Boolean).join(' | ');
 
-    const rowData = {
-      '商品名稱': name,
-      '分類': '',
-      '條碼': String(serial),
-      '庫存量': 1,
-      '進貨價': f['收購總金額']||'',
-      '銷售價': '',
-      '品牌': '',
-      '供貨商': f['進貨管道'] || '現場客人',
-      '公水': origin === '不影響' ? '' : origin,
-      '快門數': shutterField,
-      '盒單': boxDoc,
-    };
+    rows.push({
+      airtableId: r.id, // 讓試算表記下這一列對應哪筆 Airtable 紀錄，KEY 售價時才找得到
+      cells: {
+        '商品名稱': name,
+        '分類': '',
+        '條碼': String(serial),
+        '庫存量': 1,
+        '進貨價': f['收購總金額']||'',
+        '銷售價': '',
+        '品牌': '',
+        '供貨商': f['進貨管道'] || '現場客人',
+        '公水': origin === '不影響' ? '' : origin,
+        '快門數': shutterField,
+        '盒單': boxDoc,
+      },
+    });
+  }
+  if(!rows.length){ alert('勾選的紀錄沒有器材名稱'); return; }
 
-    try{
-      const params = new URLSearchParams();
-      Object.keys(rowData).forEach(k=>params.append(k, rowData[k]));
-      params.append('airtableId', r.id); // 讓試算表記下這一列對應哪筆 Airtable 紀錄，KEY 售價時才找得到
-      await fetch(SHEET_URL+'?'+params.toString(),{method:'GET',mode:'no-cors'});
-      success++;
-    }catch(e){ fail++; }
+  let success = 0, fail = 0;
+  const SHEET_API = '/.netlify/functions/sheet-export';
+  // 一次送幾筆，避免單次請求太久被中斷
+  for(let i = 0; i < rows.length; i += 5){
+    document.getElementById('export-count').textContent = `匯入中… ${Math.min(i + 5, rows.length)}/${rows.length}`;
+    const res = await adminFetch('', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ rows: rows.slice(i, i + 5) }),
+    }, SHEET_API);
+    if(res.status === 401 || res.status === 429){
+      document.getElementById('export-count').textContent = `已選 ${checkedIds.length} 筆`;
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok){ fail += rows.slice(i, i + 5).length; continue; }
+    success += data.success || 0;
+    fail += data.fail || 0;
   }
 
-  showToast(`已匯入 ${success} 筆到 Google Sheet！`);
+  showToast(fail ? `已匯入 ${success} 筆，${fail} 筆沒寫進試算表` : `已匯入 ${success} 筆到 Google Sheet！`);
   document.getElementById('export-count').textContent = `已選 ${checkedIds.length} 筆`;
-  clearSelect();
+  if(!fail) clearSelect();
 }
 
 
@@ -985,55 +1004,25 @@ async function resendEmail(id){
   if(!email){ alert('此筆紀錄沒有電子信箱'); return; }
   if(!confirm(`確定重新寄信給 ${email}？`)) return;
 
-  const API_URL = 'https://linscam-email-api-lpvi.vercel.app/api/send-email';
-  const eq = [f['器材一'],f['器材二'],f['器材三']].filter(Boolean).join('、')||'—';
-  const amount = (parseInt(f['收購總金額'])||0).toLocaleString();
-  const txDate = f['交易日期']||'';
-  const payment = f['付款方式']||'—';
-  const name = f['客戶姓名']||'您';
-
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:20px;background:#eef3f8;font-family:'PingFang TC',Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(15,50,100,0.08)">
-<tr><td style="background:linear-gradient(135deg,#0d3b66,#1565c0);padding:30px 28px 26px">
-  <div style="color:#fff;font-size:22px;font-weight:700">林相攝影</div>
-  <div style="color:rgba(255,255,255,0.65);font-size:11px;margin-top:3px">LIN'S CAMERA</div>
-  <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.9);font-size:12px;line-height:2">
-    台北市文山區羅斯福路六段5號　02-2930-3697<br>營業時間　14:00–21:00（週二、三公休）
-  </div>
-</td></tr>
-<tr><td style="padding:28px">
-  <p style="font-size:15px;color:#1a1a1a;margin:0 0 20px">${name} 您好，</p>
-  <p style="font-size:13px;color:#5a6472;margin:0 0 20px">感謝您於 ${txDate} 蒞臨林相攝影，以下為本次收購交易紀錄，請留存。</p>
-  <table width="100%" style="border-collapse:collapse;margin-bottom:20px">
-    <tr><td style="padding:10px 0;border-bottom:1px solid #eef1f5;color:#8a96a5;font-size:12px;width:80px">收購器材</td><td style="padding:10px 0;border-bottom:1px solid #eef1f5;font-size:13px">${eq}</td></tr>
-    <tr><td style="padding:10px 0;border-bottom:1px solid #eef1f5;color:#8a96a5;font-size:12px">收購金額</td><td style="padding:10px 0;border-bottom:1px solid #eef1f5;font-size:17px;font-weight:700;color:#0d3b66">NT$ ${amount}</td></tr>
-    <tr><td style="padding:10px 0;color:#8a96a5;font-size:12px">付款方式</td><td style="padding:10px 0;font-size:13px">${payment}</td></tr>
-  </table>
-  <div style="text-align:center;padding:20px;background:linear-gradient(135deg,#f7faff,#eef4fc);border-radius:12px;margin-bottom:8px">
-    <div style="font-size:14px;font-weight:600;margin-bottom:6px">玩玩我們開發的評論系統</div>
-    <div style="font-size:12px;color:#5a6472;margin-bottom:16px">您的支持是我們最大動力 🙏</div>
-    <a href="https://amazing-capybara-a34a3c.netlify.app/" style="background:#0d3b66;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">前往留下評論</a>
-  </div>
-</td></tr>
-</table>
-</body></html>`;
-
+  const equipment = [f['器材一'], f['器材二'], f['器材三']].map(s => String(s || '').trim()).filter(Boolean);
+  const amount = f['收購總金額'];
   try{
-    const res = await fetch(API_URL, {
+    const res = await adminFetch('', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         to: email,
-        cc: 'linscamerastore@gmail.com',
-        subject: `【林相攝影】器材收購交易確認通知 — ${txDate}`,
-        html
-      })
-    });
-    const data = await res.json();
-    if(res.ok) showToast('✅ 信件已重新寄出！');
-    else alert('寄信失敗：'+JSON.stringify(data.error));
+        customerName: f['客戶姓名'] || '',
+        txDate: f['交易日期'] || '',
+        amount: amount === undefined || amount === null || amount === '' ? 0 : amount,
+        payment: f['付款方式'] || '',
+        equipment,
+      }),
+    }, '/.netlify/functions/send-receipt');
+    if(res.status === 401 || res.status === 429) return;
+    const data = await res.json().catch(() => ({}));
+    if(res.ok && data.success) showToast('✅ 信件已重新寄出！');
+    else alert('寄信失敗：' + (data.error || res.status));
   }catch(e){
     alert('網路錯誤：'+e.message);
   }
@@ -1130,7 +1119,7 @@ function creditBadge(r){
   if(!amt) return '';
   return r.fields['折抵金核銷日期']
     ? `<span class="payment-badge" style="background:#f0f0ee;color:#8a96a5">折抵金已核銷</span>`
-    : `<span class="payment-badge" style="background:#fff3c4;color:#7a5c00;cursor:pointer" onclick="openCreditModal('${r.fields['聯絡電話']||''}')">🎁 NT$${amt} 可用</span>`;
+    : `<span class="payment-badge" data-open-credit data-phone="${esc(r.fields['聯絡電話']||'')}" style="background:#fff3c4;color:#7a5c00;cursor:pointer">🎁 NT$${amt} 可用</span>`;
 }
 
 function openCreditModal(phone){
@@ -1166,9 +1155,9 @@ function renderCreditList(){
     html += `<div style="border:1px solid ${used?'#eee':'#f0e2a8'};background:${used?'#fafafa':'#fffdf3'};border-radius:10px;padding:12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
         <div>
-          <div style="font-size:14px;font-weight:700;color:#111">${f['客戶姓名']||'—'}　<span style="font-weight:500;color:var(--gray-600)">${f['聯絡電話']||''}</span></div>
-          <div style="font-size:11px;color:#8a96a5;margin-top:2px">登記：${f['交易日期']||r.createdTime?.slice(0,10)||'—'}　${f['器材一']||''}</div>
-          ${used?`<div style="font-size:11px;color:#8a96a5;margin-top:2px">✔ ${f['折抵金核銷日期']} 由 ${f['折抵金核銷人員']||'—'} 核銷　<a href="javascript:void(0)" onclick="undoRedeem('${r.id}')" style="color:#c0392b">撤銷</a></div>`:''}
+          <div style="font-size:14px;font-weight:700;color:#111">${esc(f['客戶姓名']||'—')}　<span style="font-weight:500;color:var(--gray-600)">${esc(f['聯絡電話']||'')}</span></div>
+          <div style="font-size:11px;color:#8a96a5;margin-top:2px">登記：${esc(f['交易日期']||r.createdTime?.slice(0,10)||'—')}　${esc(f['器材一']||'')}</div>
+          ${used?`<div style="font-size:11px;color:#8a96a5;margin-top:2px">✔ ${esc(f['折抵金核銷日期'])} 由 ${esc(f['折抵金核銷人員']||'—')} 核銷　<a href="javascript:void(0)" onclick="undoRedeem('${r.id}')" style="color:#c0392b">撤銷</a></div>`:''}
         </div>
         <div style="text-align:right">
           <div style="font-size:16px;font-weight:700;color:${used?'#b0b0a8':'#7a5c00'};${used?'text-decoration:line-through':''}">NT$ ${creditAmt(r).toLocaleString()}</div>
@@ -1242,8 +1231,8 @@ function showCustomerHistory(phone, name){
 
   let html = `
     <div style="background:#f7faff;border-radius:12px;padding:14px;margin-bottom:16px">
-      <div style="font-size:15px;font-weight:700;color:#1565c0;margin-bottom:4px">${name}</div>
-      <div style="font-size:12px;color:#6b6b63">📞 ${phone}</div>
+      <div style="font-size:15px;font-weight:700;color:#1565c0;margin-bottom:4px">${esc(name)}</div>
+      <div style="font-size:12px;color:#6b6b63">📞 ${esc(phone)}</div>
       <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
         <div><div style="font-size:11px;color:#8a96a5">來訪次數</div><div style="font-size:18px;font-weight:700;color:#1565c0">${visitDates.length} 次</div></div>
         <div><div style="font-size:11px;color:#8a96a5">收購筆數</div><div style="font-size:18px;font-weight:700;color:#2d6a4f">${history.length} 筆</div></div>
@@ -1262,7 +1251,7 @@ function showCustomerHistory(phone, name){
         <div style="font-size:18px;font-weight:700;color:#7a5c00">可用 NT$ ${avail.toLocaleString()}</div>
         ${used?`<div style="font-size:11px;color:#8a96a5">已核銷 NT$ ${used.toLocaleString()}</div>`:''}
       </div>
-      <button onclick="openCreditModal('${phone}')" style="background:#c9a227;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">查看／核銷</button>
+      <button type="button" data-open-credit data-phone="${esc(phone)}" style="background:#c9a227;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit">查看／核銷</button>
     </div>`;
   }
 
@@ -1278,7 +1267,7 @@ function showCustomerHistory(phone, name){
     const dayTotal = records.reduce((s,r)=>s+(parseInt(r.fields['收購總金額'])||0),0);
     html += `<div style="margin-bottom:14px">
       <div style="font-size:12px;font-weight:700;color:#6b6b63;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eef1f5">
-        📅 ${date}　共 ${records.length} 筆　NT$ ${dayTotal.toLocaleString()}
+        📅 ${esc(date)}　共 ${records.length} 筆　NT$ ${dayTotal.toLocaleString()}
       </div>`;
     records.forEach(r => {
       const f = r.fields;
@@ -1287,8 +1276,8 @@ function showCustomerHistory(phone, name){
       const staff = f['經手人員']||'—';
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f5f3">
         <div>
-          <div style="font-size:13px;font-weight:600;color:#111">${eq}</div>
-          <div style="font-size:11px;color:#8a96a5">經手：${staff}　${f['貨品來源']||''}</div>
+          <div style="font-size:13px;font-weight:600;color:#111">${esc(eq)}</div>
+          <div style="font-size:11px;color:#8a96a5">經手：${esc(staff)}　${esc(f['貨品來源']||'')}</div>
         </div>
         <div style="font-size:14px;font-weight:700;color:#2d6a4f">NT$ ${amt.toLocaleString()}</div>
       </div>`;
@@ -1384,7 +1373,7 @@ NCC：（請自行填入）
 
   const modalContent = document.getElementById('listing-modal-content');
   modalContent.innerHTML = `
-    <textarea id="listing-text-modal" style="width:100%;height:320px;font-size:13px;line-height:1.8;border:1px solid var(--gray-200);border-radius:10px;padding:14px;font-family:inherit;resize:none;color:#111;box-sizing:border-box;background:#f8f8f7">${text}</textarea>
+    <textarea id="listing-text-modal" style="width:100%;height:320px;font-size:13px;line-height:1.8;border:1px solid var(--gray-200);border-radius:10px;padding:14px;font-family:inherit;resize:none;color:#111;box-sizing:border-box;background:#f8f8f7">${esc(text)}</textarea>
     <button onclick="copyListingModal()" style="margin-top:10px;width:100%;padding:13px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
       📋 複製文案
     </button>`;
@@ -1421,6 +1410,18 @@ function toggleCard(i) {
   const isExpanded = card.classList.toggle('expanded');
   if(btn) btn.textContent = isExpanded ? '收合' : '展開';
 }
+
+document.addEventListener('click', (ev) => {
+  const month = ev.target.closest('#month-tabs [data-month]');
+  if (month) { setMonth(month.getAttribute('data-month')); return; }
+  const hist = ev.target.closest('[data-customer-history]');
+  if (hist) {
+    showCustomerHistory(hist.getAttribute('data-phone') || '', hist.getAttribute('data-name') || '');
+    return;
+  }
+  const credit = ev.target.closest('[data-open-credit]');
+  if (credit) openCreditModal(credit.getAttribute('data-phone') || '');
+});
 
 loadRecords();
 // 背景先載 POS 庫存：上架飛鼠清單的數字才會包含 POS 標記的
@@ -1476,7 +1477,7 @@ function drawLegend(legendId, dataMap, isAmount){
   el.innerHTML = entries.map(([label,val],i)=>`
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
       <div style="width:10px;height:10px;border-radius:2px;background:${PIE_COLORS[i%PIE_COLORS.length]};flex-shrink:0"></div>
-      <span style="font-size:12px;color:var(--black);flex:1">${label}</span>
+      <span style="font-size:12px;color:var(--black);flex:1">${esc(label)}</span>
       <span style="font-size:12px;font-weight:600;color:var(--gray-600)">${isAmount?'NT$'+val.toLocaleString():val+' ('+Math.round(val/total*100)+'%)'}</span>
     </div>`).join('');
 }
@@ -2282,7 +2283,12 @@ function markPrinted(recs, api) {
     adminFetch(`?id=${rec.id}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({fields})}, api).catch(() => {});
   });
 }
-const printedBadge = f => f && f['印卡日期'] ? `<span title="印卡日期 ${f['印卡日期']}" style="display:inline-block;background:#e8f0fe;color:#0d3b66;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;white-space:nowrap">🖨️ 已印 ${f['印卡日期'].slice(5).replace('-', '/')}</span>` : '';
+const printedBadge = f => {
+  const raw = f && f['印卡日期'];
+  if (!raw) return '';
+  const s = String(raw);
+  return `<span title="印卡日期 ${esc(s)}" style="display:inline-block;background:#e8f0fe;color:#0d3b66;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;white-space:nowrap">🖨️ 已印 ${esc(s.slice(5).replace('-', '/'))}</span>`;
+};
 
 function printCard() {
   const copies = parseInt(document.getElementById('print-copies').value) || 1;
@@ -3175,26 +3181,26 @@ function openEdit(id){
     
     let input = '';
     if(field.type==='textarea'){
-      input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${val}</textarea>`;
+      input = `<textarea id="edit-${field.key}" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box">${esc(val)}</textarea>`;
     } else if(field.key==='原廠保固'){
       // 選「在保」時下面出現到期日；存成「在保（至2027-03-31）」
       const inW = String(val).startsWith('在保');
       const dm = String(val).match(/(\d{4}-\d{2}-\d{2})/);
-      const opts = ['已過保','在保','不確定'].map(o=>`<option value="${o}" ${(inW ? o==='在保' : val===o)?'selected':''}>${o}</option>`).join('');
+      const opts = ['已過保','在保','不確定'].map(o=>`<option value="${esc(o)}" ${(inW ? o==='在保' : val===o)?'selected':''}>${esc(o)}</option>`).join('');
       input = `<select id="edit-原廠保固" onchange="document.getElementById('edit-warranty-date-wrap').style.display=this.value==='在保'?'block':'none'" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>
         <div id="edit-warranty-date-wrap" style="display:${inW?'block':'none'};margin-top:6px">
           <div style="font-size:11px;color:var(--gray-600);margin-bottom:3px">原廠保固到期日</div>
-          <input type="date" id="edit-保固到期" value="${dm ? dm[1] : ''}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
+          <input type="date" id="edit-保固到期" value="${esc(dm ? dm[1] : '')}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">
         </div>`;
     } else if(field.type==='combo'){
-      input = `<input list="shopw-list" id="edit-${field.key}" value="${String(val).replace(/"/g,'&quot;')}" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
+      input = `<input list="shopw-list" id="edit-${field.key}" value="${esc(val)}" placeholder="可直接輸入，例：3個月保固" onfocus="this.select()" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
     } else if(field.type==='select'){
       // 原本的值不在選項裡（例如「在保（至2027-03-31）」）就加進去，存檔時才不會被換掉
       const list = (val && !field.options.includes(val)) ? [val, ...field.options] : field.options;
-      const opts = list.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o||'（請選擇）'}</option>`).join('');
+      const opts = list.map(o=>`<option value="${esc(o)}" ${val===o?'selected':''}>${esc(o)||'（請選擇）'}</option>`).join('');
       input = `<select id="edit-${field.key}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:#fff">${opts}</select>`;
     } else {
-      input = `<input type="${field.type}" id="edit-${field.key}" value="${val}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
+      input = `<input type="${field.type}" id="edit-${field.key}" value="${esc(val)}" style="width:100%;padding:8px 10px;border:1px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;box-sizing:border-box">`;
     }
     return `<div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:4px">${field.label}</div>
