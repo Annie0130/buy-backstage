@@ -1,6 +1,6 @@
 {
- "version": "20261118-1120",
- "note": "新增：修正已上架商品的品相描述（控制台黃色區塊）",
+ "version": "20261118-1222",
+ "note": "修正品相描述：按到「好了，繼續」不會被當成取消，會再問一次",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,7 +20,7 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "e90cf8e2d89b489f18f06c4f8c1662f0978eb443c83805e942a5db1ad282dc1d"
+   "sha256": "2b7b8b456de27659e4953f562a4de262f34f852241b3367fcff62eba4fa03af3"
   },
   {
    "path": "panel.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "1f9c4af98203fdfdf595b5a957684f6a1562a2deafe547cf5ea64c87ea6b2282"
+   "sha256": "d28a63c50941f0ca783822eff58e783c4969925df199e4d459d65c4d9fdd7756"
   },
   {
    "path": "使用說明.txt",

@@ -3269,8 +3269,13 @@ async function descFixMain(serials) {
   if (!todo.length) { console.log('沒有要修正的商品。'); return; }
   console.log(`\n要修正品相描述的商品 ${todo.length} 件（只換【品相描述】這一行，其他內容不動）：`);
   todo.forEach((x, i) => console.log(`  ${i + 1}. ${x.name}　序號 ${x.sn}\n     → ${x.line}`));
-  const go = await ask('\n👉 確認上面的文字都對，輸入 y 開始修改飛鼠和蝦皮（其他鍵取消）：');
+  // 控制台最大顆的是「好了，繼續（Enter）」，按到會送出空白：不要當成取消，再問一次說清楚
+  let go = await ask('\n👉 上面的文字都對的話，請按「✅ 正確（y）」開始修改飛鼠和蝦皮；不要改就按「結束（q）」：');
+  while (!/^[yqns]$/i.test(String(go).trim())) {
+    go = await ask('👉 還沒開始喔！要開始請按「✅ 正確（y）」，不要改請按「結束（q）」：');
+  }
   if (String(go).trim().toLowerCase() !== 'y') { console.log('已取消，什麼都沒改。'); return; }
+  console.log('✅ 收到，開始修改…');
   const doFeishu = !process.argv.includes('--shopee-only'), doShopee = !process.argv.includes('--feishu-only');
   const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
   const page = ctx.pages()[0] || (await ctx.newPage());
