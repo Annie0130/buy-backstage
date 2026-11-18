@@ -1,6 +1,6 @@
 {
- "version": "20261117-2025",
- "note": "POS 庫存改讀新的 Airtable「林相攝影POS庫存」。上架用的金鑰要同時勾這個新 base，讀和寫都要開",
+ "version": "20261118-1112",
+ "note": "品相描述照實寫：有瑕疵不再寫前後玉乾淨，勾選項目改成完整的話，收購扣款不會出現",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "873a36fccb2639f8a5b08e9e2162279d34713c811deaa452818f2560a7a11caa"
+   "sha256": "a3201af9a2b34307947ad384b9e0210629a61bf54db1be3f4712a17703a90cef"
   },
   {
    "path": "使用說明.txt",

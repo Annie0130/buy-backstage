@@ -428,14 +428,7 @@ function buildListingText(f) {
   const originTxt = isRetro || origin === '不影響' ? '' : origin;
   const accDesc = `${originTxt}${boxDoc ? (originTxt ? ' ' : '') + boxDoc : ''}${originTxt || boxDoc ? '　' : ''}${isLens ? '鏡頭' : '機身'}：${acc}`;
 
-  const hasNote = fnNote && fnNote !== '全數正常';
-  let fnDesc;
-  // 有寫狀況（例如入塵、霧化、時間重設）就照實寫，不要前面又寫「功能正常／乾淨無入塵」自相矛盾
-  if (isLens) {
-    fnDesc = hasNote ? `${fnNote}${/對焦/.test(fnNote) ? '' : '　自動對焦功能正常'}` : '鏡頭前後玉乾淨無刮傷、無入塵　自動對焦功能正常';
-  } else {
-    fnDesc = hasNote ? `經檢測：${fnNote}` : '狀況經檢測功能正常';
-  }
+  const fnDesc = conditionText(fnNote, isLens);   // 有寫狀況就照實寫，不會前面又寫「乾淨無入塵」自相矛盾
 
   return `⚠️ 商品與現場同步販售，庫存依現場為準，所以請一定要詢問! 謝謝
 ☎️客服電話：02-29303697
@@ -481,6 +474,34 @@ function airtableToRow(f, tag) {
     交易日期: str(f['交易日期']),
     品類: str(f['品類'] && f['品類'].name ? f['品類'].name : f['品類']),
   };
+}
+
+// 功能備註 → 給客人看的品相文字（照實寫、不自相矛盾）
+// 「鏡片入塵（前玉入塵)」→ 用括號裡比較清楚的「前玉入塵」；只有勾選項目沒寫細節 → 改成完整的話（鏡頭接點 → 鏡頭接點有使用痕跡）
+// 「XXX：全數正常」這種行拿掉；「(扣NT$2,000)」這種收購扣款不能給客人看
+function conditionText(fnNote, isLens) {
+  const SUBJ = { '鏡片入塵': '鏡片', '鍍膜刮傷': '鍍膜', '鏡頭接點': '鏡頭接點', '機身外觀痕跡': '機身外觀', '感光元件入塵/發霉': '感光元件', '鏡頭鏡片發霉/霧化': '鏡片' };
+  const BARE = { '鏡片入塵': '鏡片有入塵', '鍍膜刮傷': '鍍膜有刮傷', '鏡頭接點': '鏡頭接點有使用痕跡', '機身外觀痕跡': '機身外觀有使用痕跡',
+    '感光元件入塵/發霉': '感光元件有入塵', '鏡頭鏡片發霉/霧化': '鏡片有發霉／霧化', '時間記憶功能': '時間記憶功能失效（關機後要重設時間）', '鏡頭霧化': '鏡頭有霧化' };
+  const HAS_SUBJ = /玉|鏡|感光|元件|機身|外觀|螢幕|底部|接點|接環|接口|觀景|握把|蒙皮|遮光罩|快門|電池|按鍵|轉盤|鏡筒|對焦|變焦|光圈/;
+  const lines = String(fnNote || '').split(/\n/).map((l) => l.trim()).filter(Boolean)
+    .filter((l) => !/^[^：:]*[：:]\s*全數正常$/.test(l) && l !== '全數正常')
+    .map((l) => l.replace(/^[A-Za-z][^：:]{0,40}[：:]\s*/, ''));
+  const parts = [];
+  for (const line of lines) {
+    for (let p of line.split(/[、,，]\s*(?![^（(]*[)）])/)) {
+      p = p.replace(/[（(]\s*扣\s*NT?\$?[\d,]+\s*[)）]/gi, '').trim();
+      if (!p) continue;
+      const m = p.match(/^(.+?)\s*[（(]\s*(.+?)\s*[)）]$/);
+      if (m) { const [, cat, det] = m; parts.push(HAS_SUBJ.test(det) ? det : (SUBJ[cat] || cat) + det); }
+      else parts.push(BARE[p] || p);
+    }
+  }
+  const desc = [...new Set(parts)].join('、');
+  if (!desc) return isLens ? '鏡頭前後玉乾淨無刮傷、無入塵　自動對焦功能正常' : '狀況經檢測功能正常';
+  const functional = /異常|故障|失效|無法|不能|不會|壞|暗角|閃退|卡|當機|沒反應|不亮|錯誤/.test(desc);
+  if (isLens) return desc + (/對焦/.test(desc) ? '' : '　自動對焦功能正常');
+  return '經檢測：' + desc + (functional ? '' : '，功能正常');
 }
 
 // ---------- 商品名稱（SEO 標題）----------
@@ -3477,3 +3498,4 @@ if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() :
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'redo' ? redoMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
 module.exports = { ccdOnly, autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
+if (require.main !== module) module.exports.conditionText = conditionText;
