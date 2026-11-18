@@ -35,6 +35,7 @@ const COMMANDS = {
   check: { label: '💰 蝦皮價格檢查', args: ['upload.js', 'shopee', '--auto'] },          // 只處理還沒補好的
   recheck: { label: '💰 全部重新檢查蝦皮', args: ['upload.js', 'shopee', '--auto', '--check'] },
   bsmi: { label: '🧾 批次補 BSMI', args: ['upload.js', 'bsmifix'] },
+  descfix: { label: '🩹 修正品相描述', args: ['upload.js', 'descfix'], serials: true },
   catfix: { label: '🗂️ 批次改蝦皮分類', args: ['upload.js', 'catfix'] },
   republish: { label: '🔁 重新發佈到蝦皮', args: ['upload.js', 'republish'], serials: true },
   redo: { label: '🛠️ 輸入序號重新上架', args: ['upload.js', 'redo'], serials: true },

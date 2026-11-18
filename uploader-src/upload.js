@@ -3248,6 +3248,97 @@ async function bsmiFixMain() {
   console.log(`\n完成：成功 ${ok} 件、失敗 ${result.size - ok} 件（結果寫在 BSMI補填.csv 的「結果」欄）`);
 }
 
+// =================== 修正已上架商品的「品相描述」（node upload.js descfix [序號…]）===================
+// 只換掉描述裡【品相描述】那一行（其他內容、BSMI 都不動）：先飛鼠、再蝦皮。
+// 沒給序號 → 自動找「飛鼠已上架」而且功能備註有寫狀況的收購紀錄
+const DESC_LINE_RE = /^【品相描述】.*$/m;
+function replaceDescLine(cur, line) {
+  const t = String(cur || '').replace(/\r/g, '');
+  if (!DESC_LINE_RE.test(t)) return null;
+  return t.replace(DESC_LINE_RE, line);
+}
+async function descFixMain(serials) {
+  serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).filter(Boolean);
+  let rows;
+  if (serials.length) rows = (await rowsBySerials(serials)).filter((r) => { if (r._missing) console.log(`  ⏭️ 序號 ${r['條碼']}：收購紀錄找不到`); return !r._missing; });
+  else {
+    rows = (await readAirtable('AND(FIND("已上架",{飛鼠狀態}),{功能備註}!="",{功能備註}!="全數正常")')).filter((r) => !POS_IDS.has(r._id));
+    console.log('（沒有輸入序號：自動找已上架、功能備註有寫狀況的商品）');
+  }
+  const todo = rows.map((r) => ({ sn: r['條碼'], name: r['商品名稱'], line: ((r['商品描述'] || '').match(DESC_LINE_RE) || [])[0] })).filter((x) => x.sn && x.line);
+  if (!todo.length) { console.log('沒有要修正的商品。'); return; }
+  console.log(`\n要修正品相描述的商品 ${todo.length} 件（只換【品相描述】這一行，其他內容不動）：`);
+  todo.forEach((x, i) => console.log(`  ${i + 1}. ${x.name}　序號 ${x.sn}\n     → ${x.line}`));
+  const go = await ask('\n👉 確認上面的文字都對，輸入 y 開始修改飛鼠和蝦皮（其他鍵取消）：');
+  if (String(go).trim().toLowerCase() !== 'y') { console.log('已取消，什麼都沒改。'); return; }
+  const doFeishu = !process.argv.includes('--shopee-only'), doShopee = !process.argv.includes('--feishu-only');
+  const ctx = await launchBrowser({ headless: false, channel: CONFIG.browserChannel, viewport: null, args: ['--start-maximized'] });
+  const page = ctx.pages()[0] || (await ctx.newPage());
+  page.on('dialog', (d) => d.accept().catch(() => {}));
+  const res = Object.fromEntries(todo.map((x) => [x.sn, { feishu: doFeishu ? '' : '略過', shopee: doShopee ? '' : '略過' }]));
+  const DESC_TAG = "*[self::textarea or @contenteditable='true']";
+  if (doFeishu) {
+    console.log('\n===== 飛鼠 =====');
+    const url = fs.existsSync(NEW_URL_FILE) ? fs.readFileSync(NEW_URL_FILE, 'utf8').trim() : CONFIG.startUrl;
+    let loggedIn = false;
+    if (url) { await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {}); loggedIn = await page.getByText('商品管理', { exact: true }).first().waitFor({ timeout: 15000 }).then(() => true, () => false); }
+    if (!loggedIn) await ask('👉 請在瀏覽器登入飛鼠後台，看到左側選單後，回這裡按 Enter 開始...');
+    for (const [i, x] of todo.entries()) {
+      console.log(`\n[飛鼠 ${i + 1}/${todo.length}] ${x.name}　序號 ${x.sn}`);
+      let p = page;
+      try {
+        p = await openDraftEditor(page, x.sn, { useSearch: true });
+        const el = await visibleFieldAfter(p, '商品描述', DESC_TAG);
+        if (!el) throw new Error('找不到「商品描述」欄位');
+        const cur = await readVal(el);
+        const next = replaceDescLine(cur, x.line);
+        if (next === null) throw new Error('描述裡找不到【品相描述】這一行，請手動改');
+        if (next === String(cur).replace(/\r/g, '')) { console.log('   ✅ 本來就是對的，不用改'); res[x.sn].feishu = '本來就對'; continue; }
+        await el.fill(next, { timeout: 5000 }); await commitInput(el); await p.waitForTimeout(800);
+        if (!String(await readVal(el)).includes(x.line)) throw new Error('改完讀回來不對，請手動改');
+        const w = await clickPublish(p);
+        if (!w) throw new Error('找不到「更新／發佈」按鈕，請手動按');
+        await p.waitForTimeout(4000);
+        console.log(`   ✅ 已改好並按「${w}」`); res[x.sn].feishu = '成功';
+      } catch (e) {
+        console.log('   ❌ 失敗：' + e.message.split('\n')[0]); res[x.sn].feishu = '失敗：' + e.message.split('\n')[0];
+      } finally { if (p !== page) await p.close().catch(() => {}); }
+    }
+  }
+  if (doShopee) {
+    console.log('\n===== 蝦皮 =====');
+    await page.goto(SHOPEE.listUrl).catch(() => {});
+    const shopeeIn = await page.getByPlaceholder(/主商品貨號/).first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+    if (!shopeeIn) await ask('👉 請在瀏覽器登入蝦皮賣家中心，看到「我的商品」後，回這裡按 Enter 開始...');
+    for (const [i, x] of todo.entries()) {
+      console.log(`\n[蝦皮 ${i + 1}/${todo.length}] ${x.name}　序號 ${x.sn}`);
+      let p = page;
+      try {
+        p = await openEditBySerial(ctx, page, x.sn);
+        await p.waitForTimeout(1500);
+        const input = await shopeeDescInput(p);
+        if (!input) throw new Error('找不到蝦皮的「商品描述」');
+        const cur = (await readDesc(input)).replace(/\r/g, '');
+        const next = replaceDescLine(cur, x.line);
+        if (next === null) throw new Error('蝦皮描述裡找不到【品相描述】這一行，請手動改');
+        if (next === cur) { console.log('   ✅ 本來就是對的，不用改'); res[x.sn].shopee = '本來就對'; continue; }
+        await input.fill(next, { timeout: 5000 }); await input.press('End').catch(() => {});
+        const sv = await saveShopeeVerified(p);
+        if (sv.ok === false) throw new Error(sv.msg);
+        console.log('   ✅ 已改好並儲存'); res[x.sn].shopee = '成功';
+      } catch (e) {
+        console.log('   ❌ 失敗：' + e.message.split('\n')[0]); res[x.sn].shopee = '失敗：' + e.message.split('\n')[0];
+      } finally { if (p !== page) await p.close().catch(() => {}); }
+      if (i < todo.length - 1) await new Promise((r) => setTimeout(r, 10000)); // 蝦皮存太快會跳「錯誤，請稍後再試」
+    }
+  }
+  await ctx.close();
+  console.log('\n===== 結果 =====');
+  todo.forEach((x) => console.log(`  ${x.sn}　${x.name}　飛鼠：${res[x.sn].feishu}　蝦皮：${res[x.sn].shopee}`));
+  const bad = todo.filter((x) => /失敗/.test(res[x.sn].feishu + res[x.sn].shopee));
+  if (bad.length) { console.log(`\n請手動補（${bad.length} 件），把【品相描述】那行換成：`); bad.forEach((x) => console.log(`  ${x.sn}　${x.line}`)); }
+}
+
 // =================== 批次改蝦皮分類（node upload.js catfix [序號…]）===================
 // 在飛鼠打開商品 → 同步資訊的蝦皮那列分類改成「數位相機（傻瓜相機）」→ 發佈，讓飛鼠推到蝦皮
 const SHOPEE_COMPACT_CAT = '相機&空拍機 > 相機 > 全自動數位相機';
@@ -3470,7 +3561,7 @@ function takeLock() {
         process.exit(1);
       }
     }
-    const write = () => fs.writeFileSync(LOCK_FILE, JSON.stringify({ host: HOST, machine: MACHINE, pid: process.pid, what: ({ all: '一鍵上架', photos: process.argv.includes('--order') ? '拍照順序' : '照片分組', addphotos: '補照片', shopee: '蝦皮補資料', airtable: '飛鼠上架', drafts: '草稿補照片', markshopee: '記錄蝦皮完成' })[process.argv[2]] || process.argv.slice(2).join(' '), time: Date.now() }));
+    const write = () => fs.writeFileSync(LOCK_FILE, JSON.stringify({ host: HOST, machine: MACHINE, pid: process.pid, what: ({ all: '一鍵上架', photos: process.argv.includes('--order') ? '拍照順序' : '照片分組', addphotos: '補照片', shopee: '蝦皮補資料', airtable: '飛鼠上架', drafts: '草稿補照片', markshopee: '記錄蝦皮完成', descfix: '修正品相描述' })[process.argv[2]] || process.argv.slice(2).join(' '), time: Date.now() }));
     write();
     setInterval(() => { try { write(); } catch (e) {} }, 60 * 1000).unref();
     const release = () => { try { const l = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')); if (l.host === HOST && l.pid === process.pid) fs.unlinkSync(LOCK_FILE); } catch (e) {} };
@@ -3493,7 +3584,7 @@ async function checkUpdate() {
   } catch (e) {}
 }
 if (require.main === module && !READ_ONLY_CMDS.includes(process.argv[2]) && !process.argv.includes('--list')) takeLock();
-if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'catfix' ? catFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
+if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() : checkUpdate()).then(() => (process.argv[2] === 'status' ? statusMain() : process.argv[2] === 'markshopee' ? markShopeeMain() : process.argv[2] === 'republish' ? republishMain() : process.argv[2] === 'bsmifix' ? bsmiFixMain() : process.argv[2] === 'descfix' ? descFixMain() : process.argv[2] === 'catfix' ? catFixMain() : process.argv[2] === 'shopee' ? shopeeMain() : process.argv[2] === 'todo' ? todoMain()
   : process.argv[2] === 'photos' ? (process.argv.includes('--order') ? photosOrderMain() : photosMain())
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'redo' ? redoMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });

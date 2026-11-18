@@ -109,6 +109,15 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
       <div class="why">給「上次上架失敗，但狀態已經變成已上架／草稿，所以一鍵上架不會再處理」的商品用。照片可以直接放進「照片放這裡」（好幾件就照輸入序號的順序拍，每件之間拍 1 張全黑），按重新上架會先分照片、確認預覽後再上架；已經分好照片的也可以。不用勾「上架飛鼠」。官網上已經查得到的會先問你要不要繼續（避免重複上架），請在下方黑色紀錄區的輸入框回答。</div>
     </section>
 
+    <section class="card" style="border:2px solid #f0b429">
+      <h2>🩹 修正已上架商品的品相描述 <small>照收購紀錄的瑕疵照實寫</small></h2>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="descSerials" placeholder="序號（空白＝自動找已上架、有寫瑕疵的全部商品）" style="flex:1;min-width:220px">
+        <button onclick="descRun()">🩹 修正品相描述</button>
+      </div>
+      <div class="why">只換掉描述裡【品相描述】那一行，其他內容（型號介紹、配件、BSMI…）都不動。會先列出每件要改成的文字，請在下方黑色紀錄區輸入 y 才會開始；先改飛鼠、再改蝦皮。蝦皮存失敗不會重試，最後會列出要手動補的。</div>
+    </section>
+
     <section class="card">
       <h2>📸 已經上架的商品，想重拍照片？ <small>平常不用管這區</small></h2>
       <ol class="how">
@@ -191,6 +200,11 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
 </div>
 
 <script>
+function descRun(){
+  const list = document.getElementById('descSerials').value.trim().split(/[\s,，、]+/).filter(Boolean);
+  if (!confirm(list.length ? '要修正這些序號的品相描述嗎？\n' + list.join('、') : '要自動找「已上架、有寫瑕疵」的商品，修正品相描述嗎？\n（會先列出要改的文字給你確認）')) return;
+  run('descfix', list);
+}
 function redoRun(){
   const list = document.getElementById('redoSerials').value.trim().split(/[\s,，、]+/).filter(Boolean);
   if (!list.length) { alert('請先輸入序號'); return; }

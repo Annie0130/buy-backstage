@@ -1,6 +1,6 @@
 {
- "version": "20261118-1112",
- "note": "品相描述照實寫：有瑕疵不再寫前後玉乾淨，勾選項目改成完整的話，收購扣款不會出現",
+ "version": "20261118-1120",
+ "note": "新增：修正已上架商品的品相描述（控制台黃色區塊）",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -20,12 +20,12 @@
   {
    "path": "panel.html",
    "url": "f03.html.txt",
-   "sha256": "cc0ae24bca1362cc0b2d0c97bd2844241c576097f0e8aea688d1fed1a0832a8f"
+   "sha256": "e90cf8e2d89b489f18f06c4f8c1662f0978eb443c83805e942a5db1ad282dc1d"
   },
   {
    "path": "panel.js",
    "url": "f04.js.txt",
-   "sha256": "1b0a70da9d6b5d278f7f592dd8d5246a203c2478bd529a92935ebda7480c8e85"
+   "sha256": "1d89660d16775db9b16379cd0017da54d5d356628003c82b02393fb80bb62ecc"
   },
   {
    "path": "shopee-minqty.js",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "a3201af9a2b34307947ad384b9e0210629a61bf54db1be3f4712a17703a90cef"
+   "sha256": "1f9c4af98203fdfdf595b5a957684f6a1562a2deafe547cf5ea64c87ea6b2282"
   },
   {
    "path": "使用說明.txt",
