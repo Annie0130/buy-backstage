@@ -380,6 +380,35 @@ function bsmiFor(name, origin) {
   const brand = guessBrand(name) || (/^(om\s*system|om-)/i.test(name) ? 'OM System' : '') || (/^lumix/i.test(name) ? 'Panasonic' : '');
   return BRAND_BSMI[brand] || '';
 }
+// 相機（無反、單眼、隨身機）沒有 BSMI 字號：不能上蝦皮
+function needsBsmi(r) {
+  return ['mirrorless', 'dslr', 'compact'].includes(gearType(r)) && !bsmiFor(r['商品名稱'], r['公/水']);
+}
+const BSMI_RE = /^[A-Za-z]\d{3,}[A-Za-z0-9]*$|^[A-Za-z]{1,3}\d{4,}$/;
+// 上架前：缺 BSMI 的相機一件一件問（跟控制台填 NCC 一樣，填了會記進 NCC字號.csv，同型號下次自動帶入）
+// 只用老闆照機身／盒子標籤輸入的字號，不自動套別的型號或別家賣家的
+async function askMissingBsmi(rows) {
+  const miss = rows.filter(needsBsmi);
+  if (!miss.length) return;
+  console.log(`\n🧾 有 ${miss.length} 件相機缺 BSMI 字號（沒有 BSMI 上蝦皮會被抓違規下架）：`);
+  const asked = new Map();
+  for (const r of miss) {
+    const model = String(r['商品名稱'] || '').split('+')[0].trim();
+    if (!asked.has(model)) {
+      let ans = '';
+      for (let t = 0; t < 3; t++) {
+        ans = String(await ask(`👉 「${r['商品名稱']}」（序號 ${r['條碼']}）缺 BSMI。請看機身底部或盒子上的 BSMI 標籤（⊕ 旁邊 D 或 R 開頭的號碼），打在下面輸入框送出；這次先不上蝦皮就直接按「好了，繼續」：`)).trim().toUpperCase();
+        if (!ans || BSMI_RE.test(ans)) break;
+        console.log(`   ⚠️ 「${ans}」看起來不像 BSMI 字號（D 或 R 開頭加數字，例如 D33014），請再輸入一次`);
+        ans = '';
+      }
+      if (ans) { rememberBsmi(model, ans); console.log(`   ✅ ${model} 的 BSMI ${ans} 已記進 NCC字號.csv`); }
+      asked.set(model, ans);
+    }
+    if (needsBsmi(r)) { r._noShopee = true; console.log(`   ⏭️ ${r['商品名稱']}（${r['條碼']}）：這次只上飛鼠官網，不推蝦皮`); }
+  }
+  console.log('');
+}
 function certLines(name, ccd = false, origin = '') {
   const e = lookupNcc(name) || {};
   const lines = [];
@@ -1263,8 +1292,12 @@ async function turnSyncOn(page, row) {
 
 async function fillShopeeRow(page, r, problems) {
   await dumpSyncOptions(page);
+  // 相機缺 BSMI：不打開蝦皮同步（沒字號上蝦皮會被抓違規下架）
+  const noShopee = !!r._noShopee || needsBsmi(r);
+  const platforms = CONFIG.syncPlatforms.filter((n) => !(noShopee && n === '蝦皮'));
+  if (noShopee) { r._noShopee = true; problems.push('缺 BSMI 字號：這次沒有打開蝦皮同步（只上飛鼠官網），補好 BSMI 再上蝦皮'); }
   // 1) 打開各平台同步開關
-  for (const name of CONFIG.syncPlatforms) {
+  for (const name of platforms) {
     try {
       const row = await findSyncRow(page, name);
       if (!row) throw new Error('no row');
@@ -1274,7 +1307,7 @@ async function fillShopeeRow(page, r, problems) {
     }
   }
   // 2) 各平台的平台分類（先選分類：選完那一列可能會重整，之後再填自訂標題／價格才不會被清掉）
-  for (const name of ['飛鼠官網', ...CONFIG.syncPlatforms]) {
+  for (const name of ['飛鼠官網', ...platforms]) {
     const want = platformCategory(name, r);
     try {
       if (!want) throw new Error('no mapping');
@@ -1299,6 +1332,7 @@ async function fillShopeeRow(page, r, problems) {
     FILLED.push({ label, el, value, opts: {}, refind: () => shopeeBox(n) });
   };
   // 3) 蝦皮自訂標題（這一列第二個文字框）：最多 60 字，含 #序號
+  if (noShopee) return;
   if (r['蝦皮標題']) {
     try {
       await fillShopee(1, '蝦皮自訂標題', r['蝦皮標題']);
@@ -1754,6 +1788,8 @@ async function main(srcOverride) {
     return;
   }
 
+  await askMissingBsmi(todo);   // 相機缺 BSMI：先問老闆；不填的這次不上蝦皮
+
   const ctx = await launchBrowser({
     headless: false,
     channel: CONFIG.browserChannel,
@@ -1838,6 +1874,12 @@ async function main(srcOverride) {
   }
 
   console.log(`\n完成：成功 ${ok} 筆、失敗 ${fail} 筆。紀錄在 ${CONFIG.logFile}`);
+  const noShopee = todo.filter((r) => r._noShopee);
+  if (noShopee.length) {
+    console.log(`\n⚠️ 這 ${noShopee.length} 件相機缺 BSMI，只上了飛鼠官網、沒有推到蝦皮：`);
+    noShopee.forEach((r) => console.log(`   ・${r['商品名稱']}　序號 ${r['條碼']}`));
+    console.log('   補好 BSMI（控制台「缺 NCC／BSMI」那一格填好按儲存）後，到飛鼠打開這件商品，打開「蝦皮」同步、選分類，再按發佈。');
+  }
   if (CONFIG.mode === 'review') await ask('按 Enter 關閉瀏覽器...');
   closeAsk();
   await ctx.close();
@@ -3412,6 +3454,12 @@ async function shopeeMain() {
   const done = loadDoneSerials();
   // 補過的才略過：電腦裡的紀錄寫成功、而且收購後台也是「蝦皮已補」（舊紀錄可能誤記成功）
   let targets = (await findTargets()).filter((t) => recheck || !(done.has(t.serial) && /蝦皮已補/.test(t.fsStatus || '')));
+  const noBsmi = targets.filter((t) => t.cam && !bsmiFor(t.name, t.origin));
+  if (noBsmi.length) {
+    console.log(`⏭️ 這 ${noBsmi.length} 件相機缺 BSMI（沒有推到蝦皮），先略過；補好 BSMI 再上蝦皮：`);
+    noBsmi.forEach((t) => console.log(`   ・${t.name}　序號 ${t.serial}`));
+    targets = targets.filter((t) => !noBsmi.includes(t));
+  }
 
   if (!targets.length) {
     console.log('沒有需要補蝦皮資料的商品。');

@@ -1,6 +1,6 @@
 {
- "version": "20261118-1222",
- "note": "修正品相描述：按到「好了，繼續」不會被當成取消，會再問一次",
+ "version": "20261124-1509",
+ "note": "相機缺 BSMI 不推蝦皮：上架前會先問你 BSMI，不填就只上飛鼠官網",
  "files": [
   {
    "path": "NCC官方資料.txt",
@@ -40,7 +40,7 @@
   {
    "path": "upload.js",
    "url": "f07.js.txt",
-   "sha256": "d28a63c50941f0ca783822eff58e783c4969925df199e4d459d65c4d9fdd7756"
+   "sha256": "531276466433e290a8dd0dec83d323207d141bff398cfdbe51daae438aeba591"
   },
   {
    "path": "使用說明.txt",
