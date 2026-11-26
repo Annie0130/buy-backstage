@@ -441,7 +441,8 @@ function buildListingText(f) {
   const shutter = m ? m[1] : '';
 
   const condMap = { 全新: '100%新', 近無使用痕跡: '90%新以上', 些許使用痕跡: '80%新', 使用痕跡多: '75%新' };
-  const condPct = condMap[cond] || cond || '—';
+  const condAdj = adjustCond(cond, fnNote);   // 備註寫痕跡多就不能是 90%
+  const condPct = condMap[condAdj] || condAdj || '—';
 
   // 原廠在保 → 寫原廠保固；不然看「店保」（空白＝半年）
   const shopW = f['店保'] || '';
@@ -503,6 +504,19 @@ function airtableToRow(f, tag) {
     交易日期: str(f['交易日期']),
     品類: str(f['品類'] && f['品類'].name ? f['品類'].name : f['品類']),
   };
+}
+
+// 新舊程度跟功能備註對不起來時，照備註往下調（老闆規則：有問題就不能寫近無痕跡）
+// 備註寫外觀痕跡多／明顯／蒙皮脫落／裂痕… → 使用痕跡多；有其他瑕疵（入塵、發霉、刮傷…）→ 至少「些許使用痕跡」
+function adjustCond(cond, fnNote) {
+  const note = String(fnNote || '').split(/\n/).filter((l) => !/[：:]\s*全數正常$/.test(l.trim()) && l.trim() !== '全數正常').join(' ')
+    .replace(/[（(]\s*扣\s*NT?\$?[\d,]+\s*[)）]/gi, '');
+  if (!note.trim()) return cond;
+  const heavy = /痕跡多|痕跡較多|明顯|蒙皮脫落|脫落|裂痕|裂開|有裂|凹陷|掉漆|磨損嚴重/.test(note);
+  const anyIssue = heavy || /痕跡|刮|霉|霧|入塵|塵|裂|脫落|掉漆|凹|異常|暗角|失效|故障/.test(note);
+  if (heavy && cond !== '使用痕跡多') return '使用痕跡多';
+  if (anyIssue && (cond === '全新' || cond === '近無使用痕跡' || !cond)) return '些許使用痕跡';
+  return cond;
 }
 
 // 功能備註 → 給客人看的品相文字（照實寫、不自相矛盾）
@@ -3294,10 +3308,14 @@ async function bsmiFixMain() {
 // 只換掉描述裡【品相描述】那一行（其他內容、BSMI 都不動）：先飛鼠、再蝦皮。
 // 沒給序號 → 自動找「飛鼠已上架」而且功能備註有寫狀況的收購紀錄
 const DESC_LINE_RE = /^【品相描述】.*$/m;
-function replaceDescLine(cur, line) {
+const COND_LINE_RE = /^【新舊程度】.*$/m;
+// 換掉【品相描述】那一行（找不到回 null）；有給 condLine 也一起換【新舊程度】
+function replaceDescLine(cur, line, condLine) {
   const t = String(cur || '').replace(/\r/g, '');
   if (!DESC_LINE_RE.test(t)) return null;
-  return t.replace(DESC_LINE_RE, line);
+  let out = t.replace(DESC_LINE_RE, line);
+  if (condLine && COND_LINE_RE.test(out)) out = out.replace(COND_LINE_RE, condLine);
+  return out;
 }
 async function descFixMain(serials) {
   serials = (serials || process.argv.slice(3).filter((a) => !a.startsWith('--'))).filter(Boolean);
@@ -3307,10 +3325,10 @@ async function descFixMain(serials) {
     rows = (await readAirtable('AND(FIND("已上架",{飛鼠狀態}),{功能備註}!="",{功能備註}!="全數正常")')).filter((r) => !POS_IDS.has(r._id));
     console.log('（沒有輸入序號：自動找已上架、功能備註有寫狀況的商品）');
   }
-  const todo = rows.map((r) => ({ sn: r['條碼'], name: r['商品名稱'], line: ((r['商品描述'] || '').match(DESC_LINE_RE) || [])[0] })).filter((x) => x.sn && x.line);
+  const todo = rows.map((r) => ({ sn: r['條碼'], name: r['商品名稱'], line: ((r['商品描述'] || '').match(DESC_LINE_RE) || [])[0], cond: ((r['商品描述'] || '').match(COND_LINE_RE) || [])[0] })).filter((x) => x.sn && x.line);
   if (!todo.length) { console.log('沒有要修正的商品。'); return; }
-  console.log(`\n要修正品相描述的商品 ${todo.length} 件（只換【品相描述】這一行，其他內容不動）：`);
-  todo.forEach((x, i) => console.log(`  ${i + 1}. ${x.name}　序號 ${x.sn}\n     → ${x.line}`));
+  console.log(`\n要修正品相描述的商品 ${todo.length} 件（只換【品相描述】和【新舊程度】這兩行，其他內容不動）：`);
+  todo.forEach((x, i) => console.log(`  ${i + 1}. ${x.name}　序號 ${x.sn}\n     → ${x.line}${x.cond ? '\n     → ' + x.cond : ''}`));
   // 控制台最大顆的是「好了，繼續（Enter）」，按到會送出空白：不要當成取消，再問一次說清楚
   let go = await ask('\n👉 上面的文字都對的話，請按「✅ 正確（y）」開始修改飛鼠和蝦皮；不要改就按「結束（q）」：');
   while (!/^[yqns]$/i.test(String(go).trim())) {
@@ -3338,7 +3356,7 @@ async function descFixMain(serials) {
         const el = await visibleFieldAfter(p, '商品描述', DESC_TAG);
         if (!el) throw new Error('找不到「商品描述」欄位');
         const cur = await readVal(el);
-        const next = replaceDescLine(cur, x.line);
+        const next = replaceDescLine(cur, x.line, x.cond);
         if (next === null) throw new Error('描述裡找不到【品相描述】這一行，請手動改');
         if (next === String(cur).replace(/\r/g, '')) { console.log('   ✅ 本來就是對的，不用改'); res[x.sn].feishu = '本來就對'; continue; }
         await el.fill(next, { timeout: 5000 }); await commitInput(el); await p.waitForTimeout(800);
@@ -3366,7 +3384,7 @@ async function descFixMain(serials) {
         const input = await shopeeDescInput(p);
         if (!input) throw new Error('找不到蝦皮的「商品描述」');
         const cur = (await readDesc(input)).replace(/\r/g, '');
-        const next = replaceDescLine(cur, x.line);
+        const next = replaceDescLine(cur, x.line, x.cond);
         if (next === null) throw new Error('蝦皮描述裡找不到【品相描述】這一行，請手動改');
         if (next === cur) { console.log('   ✅ 本來就是對的，不用改'); res[x.sn].shopee = '本來就對'; continue; }
         await input.fill(next, { timeout: 5000 }); await input.press('End').catch(() => {});
@@ -3642,4 +3660,4 @@ if (require.main === module) (process.argv[2] === 'status' ? Promise.resolve() :
   : process.argv[2] === 'all' ? allMain() : process.argv[2] === 'redo' ? redoMain() : process.argv[2] === 'drafts' ? draftsMain()
   : process.argv[2] === 'addphotos' ? addPhotosMain() : main())).then(() => flushAirtable()).then(() => closeAsk()).catch(async (e) => { await flushAirtable(); closeAsk(); console.error('❌ ' + (e.message || e)); process.exit(1); });
 module.exports = { ccdOnly, autoFillBsmi, setShopeeDescBsmi, shopeeDescHas, addPhotosMain, photosPending, draftsMain, allMain, exifTime, productPhotos, photosMain, photosOrderMain, sceneWords, buildShopeeTitle, buildTitle, todoMain, isOnStorefront, confirmSaved, visibleMessages, shopeeMain, feishuCategoryKeys, platformCategory, gearType, readAirtable, visibleFieldAfter, ask, closeAsk, keyOf, TEXT_INPUT, fetchRetry, lookupNcc, dumpFieldHtml, normalizeAccessories, readRows, fillProduct, validate, autoFill, airtableToRow, buildListingText, CONFIG };
-if (require.main !== module) module.exports.conditionText = conditionText;
+if (require.main !== module) Object.assign(module.exports, { conditionText, adjustCond });

@@ -115,7 +115,7 @@ button.big2{padding:16px 22px;font-size:18px;border-radius:12px;flex:1}
         <input type="text" id="descSerials" placeholder="序號（空白＝自動找已上架、有寫瑕疵的全部商品）" style="flex:1;min-width:220px">
         <button onclick="descRun()">🩹 修正品相描述</button>
       </div>
-      <div class="why">只換掉描述裡【品相描述】那一行，其他內容（型號介紹、配件、BSMI…）都不動。會先列出每件要改成的文字，看完請按下方的「<b>✅ 正確（y）</b>」才會開始（按「好了，繼續」不會開始）；先改飛鼠、再改蝦皮。蝦皮存失敗不會重試，最後會列出要手動補的。</div>
+      <div class="why">只換掉描述裡【品相描述】和【新舊程度】這兩行，其他內容（型號介紹、配件、BSMI…）都不動。會先列出每件要改成的文字，看完請按下方的「<b>✅ 正確（y）</b>」才會開始（按「好了，繼續」不會開始）；先改飛鼠、再改蝦皮。蝦皮存失敗不會重試，最後會列出要手動補的。</div>
     </section>
 
     <section class="card">

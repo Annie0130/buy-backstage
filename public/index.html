@@ -1289,6 +1289,19 @@ function showCustomerHistory(phone, name){
   document.getElementById('customer-modal').style.display = 'flex';
 }
 
+// 新舊程度跟功能備註對不起來時，照備註往下調（老闆規則：有問題就不能寫近無痕跡）
+// 備註寫外觀痕跡多／明顯／蒙皮脫落／裂痕… → 使用痕跡多；有其他瑕疵（入塵、發霉、刮傷…）→ 至少「些許使用痕跡」
+function adjustCond(cond, fnNote) {
+  const note = String(fnNote || '').split(/\n/).filter((l) => !/[：:]\s*全數正常$/.test(l.trim()) && l.trim() !== '全數正常').join(' ')
+    .replace(/[（(]\s*扣\s*NT?\$?[\d,]+\s*[)）]/gi, '');
+  if (!note.trim()) return cond;
+  const heavy = /痕跡多|痕跡較多|明顯|蒙皮脫落|脫落|裂痕|裂開|有裂|凹陷|掉漆|磨損嚴重/.test(note);
+  const anyIssue = heavy || /痕跡|刮|霉|霧|入塵|塵|裂|脫落|掉漆|凹|異常|暗角|失效|故障/.test(note);
+  if (heavy && cond !== '使用痕跡多') return '使用痕跡多';
+  if (anyIssue && (cond === '全新' || cond === '近無使用痕跡' || !cond)) return '些許使用痕跡';
+  return cond;
+}
+
 // 功能備註 → 給客人看的品相文字（照實寫、不自相矛盾）
 // 「鏡片入塵（前玉入塵)」→ 用括號裡比較清楚的「前玉入塵」；只有勾選項目沒寫細節 → 改成完整的話（鏡頭接點 → 鏡頭接點有使用痕跡）
 // 「XXX：全數正常」這種行拿掉；「(扣NT$2,000)」這種收購扣款不能給客人看
@@ -1343,7 +1356,8 @@ function showListing(id){
 
   // 新舊程度對應
   const condMap = {'全新':'100%新','近無使用痕跡':'90%新以上','些許使用痕跡':'80%新','使用痕跡多':'75%新'};
-  const condPct = condMap[cond]||cond||'—';
+  const condAdj = adjustCond(cond, fnNote);   // 備註寫痕跡多就不能是 90%
+  const condPct = condMap[condAdj]||condAdj||'—';
 
   // 保固說明
   // 原廠在保 → 寫原廠保固；不然看「店保」（空白＝半年）
@@ -2319,6 +2333,7 @@ function recordToCardData(r) {
   if (condRaw.includes('全新')) condVal = '全新';
   else if (condRaw.includes('些許') || condRaw.includes('輕微')) condVal = '些許使用痕跡';
   else if (condRaw.includes('痕跡多') || condRaw.includes('明顯')) condVal = '使用痕跡多';
+  condVal = condVal ? adjustCond(condVal, f['功能備註']) : condVal;   // 備註寫痕跡多、入塵…就往下調
 
   const shutterRaw = f['快門數'] || '';
   const shutterMatch = shutterRaw.match(/(\d+)/);
